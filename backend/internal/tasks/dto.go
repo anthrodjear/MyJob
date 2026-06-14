@@ -71,6 +71,28 @@ type EmbeddingPayload struct {
 	Content    string    `json:"content"`
 }
 
+// CoverLetterGenPayload is the params for a cover letter generation task.
+type CoverLetterGenPayload struct {
+	JobID    uuid.UUID `json:"job_id"`
+	ResumeID uuid.UUID `json:"resume_id"`
+}
+
+// ResumeTailorPayload is the params for a resume tailoring task.
+type ResumeTailorPayload struct {
+	JobID    uuid.UUID `json:"job_id"`
+	ResumeID uuid.UUID `json:"resume_id"`
+}
+
+// EmailCheckPayload is the params for an email check task.
+type EmailCheckPayload struct {
+	ApplicationID uuid.UUID `json:"application_id"`
+}
+
+// InterviewPrepPayload is the params for an interview preparation task.
+type InterviewPrepPayload struct {
+	ApplicationID uuid.UUID `json:"application_id"`
+}
+
 // ToResponse converts a Task model to a TaskResponse DTO.
 func ToResponse(t *Task) TaskResponse {
 	return TaskResponse{

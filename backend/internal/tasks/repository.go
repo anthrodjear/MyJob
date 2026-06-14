@@ -2,11 +2,18 @@ package tasks
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
+
+// taskColumns lists all columns for SELECT queries to avoid SELECT *.
+const taskColumns = `
+	id, type, status, params, result, error, attempts, max_attempts,
+	priority, scheduled_at, started_at, completed_at, created_at, updated_at
+`
 
 // Repository handles database operations for tasks.
 type Repository struct {
@@ -21,8 +28,8 @@ func NewRepository(db *sqlx.DB) *Repository {
 // Create inserts a new task into the database.
 func (r *Repository) Create(ctx context.Context, task *Task) error {
 	query := `
-		INSERT INTO tasks (id, type, status, params, priority, scheduled_at, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO tasks (id, type, status, params, max_attempts, priority, scheduled_at, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
 	now := time.Now()
 	if task.ScheduledAt.IsZero() {
@@ -30,7 +37,7 @@ func (r *Repository) Create(ctx context.Context, task *Task) error {
 	}
 	_, err := r.db.ExecContext(ctx, query,
 		task.ID, task.Type, task.Status, task.Params,
-		task.Priority, task.ScheduledAt, now, now,
+		task.MaxAttempts, task.Priority, task.ScheduledAt, now, now,
 	)
 	return err
 }
@@ -38,7 +45,7 @@ func (r *Repository) Create(ctx context.Context, task *Task) error {
 // GetByID retrieves a task by its ID.
 func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Task, error) {
 	var task Task
-	query := `SELECT * FROM tasks WHERE id = $1`
+	query := `SELECT ` + taskColumns + ` FROM tasks WHERE id = $1`
 	err := r.db.GetContext(ctx, &task, query, id)
 	if err != nil {
 		return nil, err
@@ -72,12 +79,12 @@ func (r *Repository) List(ctx context.Context, status, taskType string, limit, o
 	argIdx := 1
 
 	if status != "" {
-		countQuery += ` AND status = $` + itoa(argIdx)
+		countQuery += ` AND status = ` + ph(argIdx)
 		countArgs = append(countArgs, status)
 		argIdx++
 	}
 	if taskType != "" {
-		countQuery += ` AND type = $` + itoa(argIdx)
+		countQuery += ` AND type = ` + ph(argIdx)
 		countArgs = append(countArgs, taskType)
 		argIdx++
 	}
@@ -88,26 +95,26 @@ func (r *Repository) List(ctx context.Context, status, taskType string, limit, o
 	}
 
 	// Data query
-	dataQuery := `SELECT * FROM tasks WHERE 1=1`
+	dataQuery := `SELECT ` + taskColumns + ` FROM tasks WHERE 1=1`
 	dataArgs := []interface{}{}
 	argIdx = 1
 
 	if status != "" {
-		dataQuery += ` AND status = $` + itoa(argIdx)
+		dataQuery += ` AND status = ` + ph(argIdx)
 		dataArgs = append(dataArgs, status)
 		argIdx++
 	}
 	if taskType != "" {
-		dataQuery += ` AND type = $` + itoa(argIdx)
+		dataQuery += ` AND type = ` + ph(argIdx)
 		dataArgs = append(dataArgs, taskType)
 		argIdx++
 	}
 
 	dataQuery += ` ORDER BY priority DESC, scheduled_at ASC`
-	dataQuery += ` LIMIT $` + itoa(argIdx)
+	dataQuery += ` LIMIT ` + ph(argIdx)
 	dataArgs = append(dataArgs, limit)
 	argIdx++
-	dataQuery += ` OFFSET $` + itoa(argIdx)
+	dataQuery += ` OFFSET ` + ph(argIdx)
 	dataArgs = append(dataArgs, offset)
 
 	err = r.db.SelectContext(ctx, &tasks, dataQuery, dataArgs...)
@@ -122,7 +129,8 @@ func (r *Repository) List(ctx context.Context, status, taskType string, limit, o
 func (r *Repository) GetPendingByType(ctx context.Context, taskType string) (*Task, error) {
 	var task Task
 	query := `
-		SELECT * FROM tasks
+	
+		SELECT ` + taskColumns + ` FROM tasks
 		WHERE status = $1 AND type = $2 AND scheduled_at <= NOW()
 		ORDER BY priority DESC, scheduled_at ASC
 		LIMIT 1
@@ -135,7 +143,7 @@ func (r *Repository) GetPendingByType(ctx context.Context, taskType string) (*Ta
 	return &task, nil
 }
 
-// itoa is a simple int-to-string helper for building dynamic SQL placeholders.
-func itoa(i int) string {
-	return string(rune('0'+i%10)) + ""
+// ph returns a SQL placeholder like "$1", "$2", etc.
+func ph(i int) string {
+	return "$" + strconv.Itoa(i)
 }

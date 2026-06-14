@@ -83,6 +83,192 @@ return err
 - Handler layer: translate domain errors to HTTP status codes. Business logic never touches HTTP.
 - Never log and return the same error. Pick one — the handler decides whether to log.
 
+### Service Layer Patterns
+
+#### Extract repeated lookups into helpers
+
+Do not repeat the same GetByID + error handling block across every method. Extract it:
+
+```go
+// GOOD: single helper, every method calls it
+func (s *Service) getTask(ctx context.Context, id uuid.UUID) (*Task, error) {
+    task, err := s.repo.GetByID(ctx, id)
+    if err != nil {
+        if errors.Is(err, sql.ErrNoRows) {
+            return nil, ErrNotFound
+        }
+        return nil, err
+    }
+    return task, nil
+}
+
+// Usage in methods:
+task, err := s.getTask(ctx, id)
+if err != nil {
+    return nil, fmt.Errorf("tasks: start: %w", err)
+}
+```
+
+```go
+// BAD: 6 copies of the same error handling block
+task, err := s.repo.GetByID(ctx, id)
+if err != nil {
+    if errors.Is(err, sql.ErrNoRows) {
+        return nil, ErrNotFound
+    }
+    return nil, fmt.Errorf("tasks: start: %w", err)
+}
+```
+
+#### Centralize state transitions
+
+Do not scatter status checks across every method. Define a transition map:
+
+```go
+// GOOD: one map, one function, every transition goes through it
+var validTransitions = map[string][]string{
+    StatusPending:   {StatusRunning, StatusCancelled},
+    StatusRunning:   {StatusCompleted, StatusFailed, StatusCancelled},
+    StatusCompleted: {},
+    StatusFailed:    {},
+    StatusCancelled: {},
+}
+
+func canTransition(from, to string) bool {
+    allowed, ok := validTransitions[from]
+    if !ok {
+        return false
+    }
+    for _, s := range allowed {
+        if s == to {
+            return true
+        }
+    }
+    return false
+}
+
+// Usage:
+if !canTransition(task.Status, StatusRunning) {
+    return nil, ErrInvalidStatus
+}
+```
+
+```go
+// BAD: inline checks scattered everywhere
+if task.Status != StatusPending && task.Status != StatusRunning {
+    return nil, ErrInvalidStatus
+}
+```
+
+#### Use retry logic for transient failures
+
+When a domain has `Attempts`/`MaxAttempts` fields, the `Fail` method must implement retries:
+
+```go
+// GOOD: re-queue if attempts remain
+func (s *Service) Fail(ctx context.Context, id uuid.UUID, errMsg string) (*Task, error) {
+    task, err := s.getTask(ctx, id)
+    if err != nil {
+        return nil, fmt.Errorf("tasks: fail: %w", err)
+    }
+    if !canTransition(task.Status, StatusFailed) {
+        return nil, ErrInvalidStatus
+    }
+
+    task.Error = &errMsg
+
+    if task.Attempts < task.MaxAttempts {
+        task.Status = StatusPending   // retry
+        task.StartedAt = nil
+    } else {
+        task.Status = StatusFailed    // permanently failed
+    }
+
+    if err := s.repo.Update(ctx, task); err != nil {
+        return nil, fmt.Errorf("tasks: fail update: %w", err)
+    }
+    return task, nil
+}
+```
+
+```go
+// BAD: always marks as failed, attempts field is unused
+task.Status = StatusFailed
+task.Error = &errMsg
+```
+
+**Why this matters:** Job scraping, resume generation, email sync, and embedding generation all experience transient failures (network timeouts, rate limits). Without retry, every temporary error becomes permanent.
+
+### Dispatcher Layer Patterns
+
+#### Use a central dispatch helper to eliminate duplication
+
+When multiple dispatch methods follow the same pattern (marshal → enqueue → log), extract a single internal helper:
+
+```go
+// GOOD: single helper, config-driven
+var taskConfig = map[string]struct {
+    Retries int
+    Timeout time.Duration
+}{
+    "job_discovery": {Retries: 3, Timeout: 5 * time.Minute},
+    "email_check":   {Retries: 5, Timeout: 1 * time.Minute},
+}
+
+func (d *Dispatcher) dispatch(
+    ctx context.Context,
+    taskType string,
+    payload interface{},
+) error {
+    cfg := taskConfig[taskType]
+
+    data, err := json.Marshal(payload)
+    if err != nil {
+        return fmt.Errorf("tasks: marshal %s: %w", taskType, err)
+    }
+
+    task := asynq.NewTask(taskType, data)
+    info, err := d.client.EnqueueContext(ctx, task,
+        asynq.MaxRetry(cfg.Retries),
+        asynq.Timeout(cfg.Timeout),
+    )
+    if err != nil {
+        return fmt.Errorf("tasks: enqueue %s: %w", taskType, err)
+    }
+
+    d.logger.Debug("task dispatched",
+        zap.String("task_type", taskType),
+        zap.String("asynq_id", info.ID),
+        zap.Int("retries", cfg.Retries),
+        zap.Duration("timeout", cfg.Timeout),
+    )
+    return nil
+}
+
+// Public methods are thin wrappers for type-safe API:
+func (d *Dispatcher) DispatchJobDiscovery(ctx context.Context, payload JobDiscoveryPayload) error {
+    return d.dispatch(ctx, "job_discovery", payload)
+}
+```
+
+```go
+// BAD: 8 copy-pasted methods, each 20 lines, only taskType/timeout differ
+func (d *Dispatcher) DispatchJobDiscovery(ctx context.Context, payload JobDiscoveryPayload) error {
+    data, err := json.Marshal(payload)
+    if err != nil { return err }
+    task := asynq.NewTask("job_discovery", data)
+    _, err = d.client.EnqueueContext(ctx, task, asynq.MaxRetry(3), asynq.Timeout(5*time.Minute))
+    if err != nil { return err }
+    d.logger.Debug("dispatched task", ...)
+    return nil
+}
+```
+
+**Rules:**
+- Task configs (retries, timeouts) live in one map — not scattered across methods.
+- Always log the asynq task ID for debugging stuck tasks.
+- Dispatch is a pure layer — no DB calls, no business logic.
+
 ### Naming
 
 ```go
@@ -121,17 +307,22 @@ type Handler struct {
 func (h *Handler) CreateJob(c *gin.Context) {
     var req CreateJobRequest
     if err := c.ShouldBindJSON(&req); err != nil {
-        response.BadRequest(c, "invalid request body", err)
+        api.BadRequest(c, "INVALID_INPUT", "invalid request body")
         return
     }
 
     job, err := h.svc.CreateJob(c.Request.Context(), req)
     if err != nil {
-        response.Error(c, err)
+        if errors.Is(err, ErrNotFound) {
+            api.NotFound(c, "JOB_NOT_FOUND", err.Error())
+            return
+        }
+        h.logger.Error("create job", zap.Error(err))
+        api.InternalError(c)
         return
     }
 
-    response.Created(c, job)
+    api.Created(c, job)
 }
 ```
 
@@ -139,7 +330,10 @@ func (h *Handler) CreateJob(c *gin.Context) {
 - Handlers bind input, call service, return response. No business logic.
 - Use `c.Request.Context()` for context propagation — not `c` itself.
 - Validate at the handler boundary (struct tags or manual). Services receive already-validated input.
-- Return domain errors. Let a shared response helper translate to HTTP.
+- Use shared `api.*` response helpers. Never inline `c.JSON(...)`.
+- Map domain errors to HTTP codes here. `ErrNotFound` → 404, `ErrInvalidType` → 400, else → 500.
+- Log unexpected errors before returning 500. Never log and return the same user-facing message.
+- Always include `logger` in the Handler struct for operational visibility.
 
 ### Config Management
 
@@ -341,16 +535,34 @@ import { Button } from "@/components/ui/button";
 ```json
 {
   "error": {
-    "code": "JOB_NOT_FOUND",
-    "message": "Job with ID 123 not found",
-    "details": {}
+    "code": "TASK_NOT_FOUND",
+    "message": "task with ID abc-123 not found"
   }
 }
 ```
 
-- `code`: machine-readable, UPPER_SNAKE_CASE.
+- `code`: machine-readable, UPPER_SNAKE_CASE. Domain-specific (e.g., `TASK_NOT_FOUND`, `INVALID_TYPE`).
 - `message`: human-readable, safe to display to users.
-- `details`: optional structured data (validation errors, field-level issues).
+
+**Use shared response helpers.** Never inline `c.JSON(...)` for error responses. All handlers use the helpers from `internal/api/`:
+
+```go
+// GOOD: shared helpers
+api.Created(c, task)
+api.OK(c, task)
+api.BadRequest(c, "INVALID_INPUT", "missing required field")
+api.NotFound(c, "TASK_NOT_FOUND", "task not found")
+api.InternalError(c)
+
+// BAD: inline responses — inconsistent format, no structured codes
+c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
+c.JSON(http.StatusCreated, task)
+```
+
+**Rules:**
+- Every error response must include a `code` field for programmatic handling.
+- `api.InternalError()` always returns the same opaque message — never leak internals.
+- Domain errors are mapped to HTTP codes in the handler, not in the service.
 
 ### Config Management
 
@@ -371,6 +583,7 @@ import { Button } from "@/components/ui/button";
 ### Database
 
 - Use raw SQL with sqlx. No ORM.
+- **Never use `SELECT *`.** Always list columns explicitly. Define a `const taskColumns = "id, type, ..."` to avoid drift between SELECT and struct.
 - Migrations: numbered, forward-only. Never edit a migration that's been applied.
 - Migrations live in `backend/internal/database/migrations/`.
 - Use parameterized queries. Never interpolate user input into SQL.
@@ -443,6 +656,9 @@ Before submitting or approving a PR, verify:
 
 - [ ] **No secrets in code or commit history.** Check `.env`, config files, and hardcoded strings.
 - [ ] **Errors are wrapped with context.** No bare `return err`.
+- [ ] **Service helpers extracted.** Repeated GetByID/error blocks live in a single helper.
+- [ ] **State transitions use `canTransition`.** No inline status checks.
+- [ ] **Retry logic implemented.** `Fail` re-queues when `attempts < max_attempts`.
 - [ ] **No `@ts-ignore` without a linked issue.**
 - [ ] **New endpoints have tests.** Both happy path and error cases.
 - [ ] **Database changes have migrations.** Forward-only, no edits to applied migrations.

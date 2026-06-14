@@ -9,11 +9,11 @@
 | Field | Value |
 |-------|-------|
 | **Project** | AI Job Search Agent |
-| **Active Phase** | Phase 1 — Foundation (scaffolding complete, implementation starting) |
-| **Phase Progress** | Scaffolding 100% / Implementation 0% |
-| **Overall Progress** | ~15% (structure built, services compile, no business logic yet) |
-| **Blockers** | None — ready for implementation |
-| **Next Up** | Domain module implementation (jobs, applications, resumes, scoring, tasks, auth) |
+| **Active Phase** | Phase 1 — Foundation (implementation in progress) |
+| **Phase Progress** | Scaffolding 100% / Implementation ~8% (tasks domain complete) |
+| **Overall Progress** | ~20% (structure built, services compile, tasks domain implemented) |
+| **Blockers** | None |
+| **Next Up** | `auth` domain (JWT, register/login/refresh) |
 
 ---
 
