@@ -1,0 +1,7 @@
+name: remoteok
+type: remoteok
+base_url: "https://remoteok.com"
+api_url: "https://remoteok.com/api"
+rate_limit:
+  requests_per_second: 0.5
+  daily_cap: 200

@@ -1,0 +1,6 @@
+name: greenhouse
+type: greenhouse
+base_url: "https://boards.greenhouse.io"
+rate_limit:
+  requests_per_second: 0.5
+  daily_cap: 300

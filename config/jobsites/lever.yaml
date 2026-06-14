@@ -1,0 +1,6 @@
+name: lever
+type: lever
+base_url: "https://jobs.lever.co"
+rate_limit:
+  requests_per_second: 0.5
+  daily_cap: 300

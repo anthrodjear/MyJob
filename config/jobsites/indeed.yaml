@@ -1,0 +1,20 @@
+name: indeed
+type: indeed
+base_url: "https://www.indeed.com"
+search_url: "https://www.indeed.com/jobs?q={query}&l={location}&sort=date"
+rate_limit:
+  requests_per_second: 0.5
+  daily_cap: 500
+  respect_robots_txt: true
+selectors:
+  job_list: ".jobsearch-ResultsList .result"
+  title: ".jobTitle a"
+  company: ".companyName"
+  location: ".companyLocation"
+  snippet: ".job-snippet"
+  link: ".jobTitle a@href"
+pagination:
+  type: "offset"
+  param: "start"
+  per_page: 15
+  max_pages: 10

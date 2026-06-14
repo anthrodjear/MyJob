@@ -1,0 +1,53 @@
+application:
+  approval_tiers:
+    auto_apply:
+      min_score: 95
+      action: "auto_submit"
+      notify: true
+    review:
+      min_score: 80
+      max_score: 94
+      action: "pause_for_approval"
+    reject:
+      max_score: 79
+      action: "skip"
+      log: true
+  auto_generate:
+    resume: true
+    cover_letter: true
+  resume:
+    engine: "latex"
+    template_dir: "./templates/resumes"
+  cover_letter:
+    engine: "latex"
+    template_dir: "./templates/cover-letters"
+    max_length: 400
+
+queue:
+  redis_url: "redis://localhost:6379"
+  concurrency: 5
+  retryAttempts: 3
+
+llm:
+  primary:
+    provider: "openai"
+    model: "gpt-4o"
+  local:
+    provider: "ollama"
+    model: "qwen2.5:latest"
+  embeddings:
+    provider: "ollama"
+    model: "mxbai-embed-large"
+
+voice:
+  provider: "openai_realtime"
+  model: "gpt-4o-realtime-preview"
+  livekit:
+    url: "ws://localhost:7880"
+    api_key: "devkey"
+    api_secret: "devsecret"
+
+email:
+  provider: "microsoft_graph"
+  check_interval: "30m"
+  folders: ["Inbox"]

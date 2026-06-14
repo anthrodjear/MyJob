@@ -1,0 +1,13 @@
+name: custom
+type: custom
+sites:
+  - name: "myjob-mags"
+    url: "https://example.com/jobs"
+    selectors:
+      job_list: ".job-listing"
+      title: "h2.title"
+      company: ".company"
+      link: "a@href"
+    pagination:
+      type: "page"
+      param: "page"
