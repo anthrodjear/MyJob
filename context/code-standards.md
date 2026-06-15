@@ -160,6 +160,35 @@ if task.Status != StatusPending && task.Status != StatusRunning {
 }
 ```
 
+#### Derive validity from transitions (single source of truth)
+
+When you have a transition map, derive `IsValidStatus` from it:
+
+```go
+// GOOD: single source of truth
+var approvalTransitions = map[string][]string{
+    StatusDraft:  {StatusQueued, StatusRejected},
+    StatusQueued: {StatusApplied, StatusRejected},
+    // ...
+}
+
+func IsValidStatus(s string) bool {
+    _, ok := approvalTransitions[s]
+    return ok
+}
+```
+
+```go
+// BAD: two data structures to maintain
+var ValidStatuses = map[string]bool{
+    StatusDraft:  true,
+    StatusQueued: true,
+    // easy to forget one
+}
+```
+
+**Why:** Add a constant, add it to the transition map, done. No second data structure to keep in sync.
+
 #### Use retry logic for transient failures
 
 When a domain has `Attempts`/`MaxAttempts` fields, the `Fail` method must implement retries:
@@ -198,6 +227,56 @@ task.Error = &errMsg
 ```
 
 **Why this matters:** Job scraping, resume generation, email sync, and embedding generation all experience transient failures (network timeouts, rate limits). Without retry, every temporary error becomes permanent.
+
+#### Audit trail for status changes
+
+When status transitions matter (applications, approvals), log every change in an events table:
+
+```go
+// GOOD: transactional status update + audit log
+func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status string, notes string) error {
+    tx, err := r.db.BeginTxx(ctx, nil)
+    if err != nil {
+        return fmt.Errorf("begin tx: %w", err)
+    }
+    defer tx.Rollback()
+
+    // Fetch current status for audit
+    var oldStatus string
+    err = tx.GetContext(ctx, &oldStatus, "SELECT status FROM applications WHERE id = $1", id)
+    if err != nil {
+        if errors.Is(err, sql.ErrNoRows) {
+            return ErrNotFound
+        }
+        return fmt.Errorf("get current status: %w", err)
+    }
+
+    // Update status
+    result, err := tx.ExecContext(ctx, "UPDATE applications SET status = $1, updated_at = $2 WHERE id = $3",
+        status, time.Now(), id)
+    if err != nil {
+        return fmt.Errorf("update status: %w", err)
+    }
+    if rows, _ := result.RowsAffected(); rows == 0 {
+        return ErrNotFound
+    }
+
+    // Log audit event
+    _, err = tx.ExecContext(ctx,
+        "INSERT INTO application_events (id, application_id, old_status, new_status, notes, created_at) VALUES ($1,$2,$3,$4,$5,$6)",
+        uuid.New(), id, oldStatus, status, notes, time.Now())
+    if err != nil {
+        return fmt.Errorf("log event: %w", err)
+    }
+
+    return tx.Commit()
+}
+```
+
+**Rules:**
+- Status updates that matter must be transactional (update + log in same tx).
+- Old status is fetched inside the transaction (not from caller) to avoid race conditions.
+- Audit events are append-only. Never update or delete them.
 
 ### Dispatcher Layer Patterns
 

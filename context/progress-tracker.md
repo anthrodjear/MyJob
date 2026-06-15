@@ -1,6 +1,6 @@
 # Project Progress Tracker
 
-> Auto-updated as milestones complete. Last updated: 2026-06-14
+> Auto-updated as milestones complete. Last updated: 2026-06-15
 
 ---
 
@@ -10,10 +10,10 @@
 |-------|-------|
 | **Project** | AI Job Search Agent |
 | **Active Phase** | Phase 1 — Foundation (implementation in progress) |
-| **Phase Progress** | Scaffolding 100% / Implementation ~17% (tasks + auth domains complete) |
-| **Overall Progress** | ~25% (structure built, services compile, tasks + auth domains implemented) |
+| **Phase Progress** | Scaffolding 100% / Implementation ~33% (4/6 domains complete) |
+| **Overall Progress** | ~30% (structure built, services compile, 4 domains implemented + wired) |
 | **Blockers** | None |
-| **Next Up** | `jobs` domain (job listing CRUD) |
+| **Next Up** | `resumes` domain (resume storage + pgvector) |
 
 ---
 
@@ -28,7 +28,7 @@
 | Directory layout established | Done | Go backend, TS browser agent, Next.js frontend |
 | Module interface definitions | Done | Each domain has handler/service/repository/model/dto scaffold |
 | Docker Compose (8 services) | Done | api, worker, frontend, browser-agent, postgres, redis, ollama, livekit |
-| Database migrations (12 tables) | Done | All migration files written and ready |
+| Database migrations (14 tables) | Done | 001_initial (12) + 002_users + 003_application_events |
 | Config files | Done | YAML configs for scraping sources, matching criteria, generation templates |
 | Makefile | Done | All dev commands defined |
 
@@ -41,27 +41,27 @@
 | TypeScript browser agent | Builds clean | Node.js (Playwright) | Compiles with no errors |
 | Next.js frontend | Builds clean | Next.js 16 + Tailwind | Compiles with no errors |
 
-#### 1.3 Domain Implementation — NOT STARTED
+#### 1.3 Domain Implementation — IN PROGRESS
 
 | Domain | Handler | Service | Repository | Model | DTO | Status |
 |--------|---------|---------|------------|-------|-----|--------|
-| `jobs` | — | — | — | — | — | Not started |
-| `applications` | — | — | — | — | — | Not started |
-| `resumes` | — | — | — | — | — | Not started |
-| `scoring` | — | — | — | — | — | Not started |
 | `tasks` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
 | `auth` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
+| `jobs` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
+| `applications` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
+| `resumes` | — | — | — | — | — | Not started |
+| `scoring` | — | — | — | — | — | Not started |
 
-#### 1.4 API Handlers — NOT STARTED
+#### 1.4 API Handlers — IN PROGRESS
 
 | Endpoint Group | Routes | Status | Notes |
 |----------------|--------|--------|-------|
-| `/api/jobs/*` | scan, list, get, update | Not started | Job discovery + CRUD |
-| `/api/applications/*` | create, list, approve, reject | Not started | Application lifecycle |
-| `/api/resumes/*` | upload, list, get, match | Not started | Resume management + pgvector |
-| `/api/scoring/*` | score, review | Not started | Scoring pipeline |
-| `/api/tasks/*` | get, list | **Complete** | Task status polling |
-| `/api/auth/*` | login, change-password | **Complete** | JWT authentication |
+| `/api/v1/auth/*` | login, change-password | **Complete** | JWT authentication |
+| `/api/v1/tasks/*` | get, list | **Complete** | Task status polling |
+| `/api/v1/jobs/*` | list, get, update, scan | **Complete** | Job discovery + CRUD |
+| `/api/v1/applications/*` | list, get, create, update-status, update-notes, stats, events | **Complete** | Application lifecycle + audit trail |
+| `/api/v1/resumes/*` | — | Not started | Resume management + pgvector |
+| `/api/v1/scoring/*` | — | Not started | Scoring pipeline |
 
 #### 1.5 Worker Task Handlers — NOT STARTED
 
@@ -100,10 +100,10 @@
 
 ### Wave 1: Core Domain (blocking everything else)
 
-1. **`tasks` domain** — Task tracking is used by every async operation. Implement model, repository, service, handler, and DTO. Wire up the async task polling pattern (`POST → {taskId}`, `GET → status`).
-2. **`auth` domain** — Authentication middleware gates all protected routes. Implement JWT-based auth with register/login/refresh endpoints.
-3. **`jobs` domain** — Job listing CRUD. This is the data model that feeds scoring and applications.
-4. **`applications` domain** — Application lifecycle management. Depends on jobs domain for foreign key references.
+1. **`tasks` domain** — ✅ Complete
+2. **`auth` domain** — ✅ Complete
+3. **`jobs` domain** — ✅ Complete (wired into router)
+4. **`applications` domain** — ✅ Complete (wired into router, includes audit trail)
 5. **`resumes` domain** — Resume storage and embedding. Depends on auth for ownership, pgvector for semantic search.
 6. **`scoring` domain** — Scoring pipeline. Depends on jobs + resumes for input data.
 
@@ -126,8 +126,8 @@
 | Milestone | Target | Actual | Status |
 |-----------|--------|--------|--------|
 | Phase 1 scaffolding | Week 1 | Week 1 | Done |
-| Domain module implementation | Week 2-3 | — | Next |
-| API handler implementations | Week 3 | — | Pending |
+| Domain module implementation | Week 2-3 | — | In progress (4/6 done) |
+| API handler implementations | Week 3 | — | In progress (4/6 done) |
 | Worker task handlers | Week 3-4 | — | Pending |
 | Browser agent scrapers | Week 4 | — | Pending |
 | Frontend dashboard pages | Week 4-5 | — | Pending |
@@ -157,6 +157,10 @@
 | 2026-06-14 | Separate Browser Agent service | Isolates browser crashes from backend, independent scaling, mature Playwright SDK |
 | 2026-06-14 | Async task pattern (return taskId) | 30s-5min operations can't block, built-in retry, scalable workers |
 | 2026-06-14 | Local-first Ollama over cloud APIs | Privacy, zero API costs, no data leaves machine |
+| 2026-06-15 | Applications audit trail | `application_events` table logs every status transition for timeline UI + debugging |
+| 2026-06-15 | Derived IsValidStatus from transitions | Single source of truth — add constant, add to map, done |
+| 2026-06-15 | Separate notes from status updates | `PATCH /:id/status` for transitions, `PATCH /:id/notes` for permanent notes |
+| 2026-06-15 | OFFSET pagination noted for later | Applications won't hit 100k rows; revisit if jobs table grows |
 
 ---
 

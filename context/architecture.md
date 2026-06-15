@@ -203,7 +203,20 @@ internal/
 │   ├── repository.go
 │   ├── model.go
 │   └── dto.go
-└── auth/
+├── auth/
+│   ├── handler.go
+│   ├── service.go
+│   ├── repository.go
+│   ├── model.go
+│   ├── dto.go
+│   └── middleware/
+├── jobs/
+│   ├── handler.go
+│   ├── service.go
+│   ├── repository.go
+│   ├── model.go
+│   └── dto.go
+└── applications/
     ├── handler.go
     ├── service.go
     ├── repository.go
@@ -235,6 +248,32 @@ internal/
 - A `Job` can have many `Applications`; each `Application` belongs to one `User` and references one `Resume`.
 - Every `Application` must pass through `Scoring` before submission. Score is immutable once set.
 - `Tasks` track async work: one task per API call that returns `{taskId}`. Task status transitions: `pending → running → completed | failed`.
+
+### Current API Routes
+
+```
+# Public (no auth)
+GET  /health                                    → health check
+POST /api/v1/auth/login                         → JWT login
+POST /api/v1/auth/change-password               → change password (increments session_version)
+
+# Protected (JWT required)
+GET    /api/v1/tasks/:id                        → get task status
+GET    /api/v1/tasks                            → list tasks
+
+GET    /api/v1/jobs                             → list jobs (filters: status, company, source_id, min_score)
+GET    /api/v1/jobs/:id                         → get job
+PATCH  /api/v1/jobs/:id                         → update job status
+POST   /api/v1/job-discovery/scan               → trigger scan (returns task IDs)
+
+GET    /api/v1/applications                     → list applications (filters: status, job_id, portal_type)
+GET    /api/v1/applications/stats               → dashboard statistics
+GET    /api/v1/applications/:id                 → get application
+POST   /api/v1/applications                     → create application
+PUT    /api/v1/applications/:id/status          → update status (with audit trail)
+PATCH  /api/v1/applications/:id/notes           → update permanent notes
+GET    /api/v1/applications/:id/events          → audit timeline
+```
 
 ---
 

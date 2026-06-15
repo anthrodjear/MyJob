@@ -1,8 +1,8 @@
 # State
-_Updated: 2026-06-14 16:45_
+_Updated: 2026-06-15_
 
 ## Current Goal
-`auth` domain complete with session versioning. Next: `jobs` domain (job listing CRUD).
+`applications` domain complete with audit trail. Next: `resumes` domain (resume storage + pgvector).
 
 ## Decisions
 - Go module path: `backend` (not github.com/myjob/backend) — avoids git fetch errors
@@ -13,6 +13,9 @@ _Updated: 2026-06-14 16:45_
 - **Auth model**: Single-user local-first, password hash in Postgres, JWT with session version
 - **Config**: All required vars validated at startup via `config.Validate()`
 - **Session versioning**: JWT includes session_version; password change increments version → invalidates all tokens
+- **Applications audit trail**: `application_events` table logs every status transition
+- **Derived validity**: `IsValidStatus` derived from transition map (single source of truth)
+- **Notes separation**: `PATCH /:id/status` for transitions, `PATCH /:id/notes` for permanent notes
 
 ## Plan Status
 Phase 1: Foundation — Implementation in progress
@@ -38,6 +41,22 @@ Phase 1: Foundation — Implementation in progress
   - Config validation at startup
   - Postgres persistence (survives restart)
   - Mutex for thread safety
+- [x] `jobs` domain — model, repository, service, handler, DTO
+  - GET /jobs — list with filtering (status, company, source_id, min_score)
+  - GET /jobs/:id — get by ID
+  - PATCH /jobs/:id — update status
+  - POST /job-discovery/scan — trigger scan (async, returns task IDs)
+  - Wired into router (protected routes)
+- [x] `applications` domain — model, repository, service, handler, DTO
+  - GET /applications — list with filtering (status, job_id, portal_type)
+  - GET /applications/:id — get by ID
+  - POST /applications — create (default status: draft)
+  - PUT /applications/:id/status — update status (with audit trail)
+  - PATCH /applications/:id/notes — update permanent notes
+  - GET /applications/:id/events — audit timeline
+  - GET /applications/stats — dashboard statistics
+  - Wired into router (protected routes)
+  - Migration 003_application_events (audit trail table)
 
 ## Evidence
 - `go build ./cmd/api` — success
@@ -46,10 +65,13 @@ Phase 1: Foundation — Implementation in progress
 - `npm run build` (frontend) — success
 - `go build ./internal/tasks/...` — success
 - `go build ./internal/auth/...` — success
+- `go build ./internal/jobs/...` — success
+- `go build ./internal/applications/...` — success
 
 ## Open Issues
 - Docker Compose needs frontend service added
-- `jobs`, `applications`, `resumes`, `scoring` domains still skeleton
+- `resumes`, `scoring` domains still skeleton
 - No tests written yet
 - No actual scraping, form filling, or LLM integration yet
 - Migration 002_users needs to run on first boot
+- Migration 003_application_events needs to run on first boot
