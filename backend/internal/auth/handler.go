@@ -52,6 +52,12 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
+	// Update last login timestamp
+	if err := h.service.UpdateLastLogin(c.Request.Context()); err != nil {
+		h.logger.Error("update last login", zap.Error(err))
+		// Non-fatal, don't fail the login
+	}
+
 	httpresp.OK(c, resp)
 }
 

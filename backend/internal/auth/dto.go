@@ -27,6 +27,7 @@ type LoginResponse struct {
 
 // Claims holds the JWT claims for the single local user.
 type Claims struct {
-	UserID string `json:"user_id"`
+	UserID        string `json:"user_id"`
+	SessionVersion int   `json:"session_version"`
 	jwt.RegisteredClaims
 }

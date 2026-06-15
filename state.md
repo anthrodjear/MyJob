@@ -1,8 +1,8 @@
 # State
-_Updated: 2026-06-14 14:22_
+_Updated: 2026-06-14 16:45_
 
 ## Current Goal
-`auth` domain complete. Next: `jobs` domain (job listing CRUD).
+`auth` domain complete with session versioning. Next: `jobs` domain (job listing CRUD).
 
 ## Decisions
 - Go module path: `backend` (not github.com/myjob/backend) — avoids git fetch errors
@@ -10,8 +10,9 @@ _Updated: 2026-06-14 14:22_
 - Skeleton Go files use `package <name>` only — no implementation yet
 - Skeleton TS files use minimal exports — no implementation yet
 - Docker Compose not yet updated with frontend service (pending)
-- **Auth model**: Single-user local-first, password hash in config, JWT for session
+- **Auth model**: Single-user local-first, password hash in Postgres, JWT with session version
 - **Config**: All required vars validated at startup via `config.Validate()`
+- **Session versioning**: JWT includes session_version; password change increments version → invalidates all tokens
 
 ## Plan Status
 Phase 1: Foundation — Implementation in progress
@@ -30,10 +31,13 @@ Phase 1: Foundation — Implementation in progress
 ## Domain Implementation Status
 - [x] `tasks` domain — model, repository, service, handler, dispatcher, DTO
 - [x] `auth` domain — model, repository, service, handler, DTO, middleware
-  - Login (POST /auth/login) → JWT
-  - Change password (POST /auth/change-password)
-  - JWT validation middleware (api/middleware/auth.go)
+  - Login (POST /auth/login) → JWT with session_version
+  - Change password (POST /auth/change-password) → increments session_version
+  - JWT validation middleware checks session_version matches DB
+  - UpdateLastLogin on successful login
   - Config validation at startup
+  - Postgres persistence (survives restart)
+  - Mutex for thread safety
 
 ## Evidence
 - `go build ./cmd/api` — success
@@ -48,4 +52,4 @@ Phase 1: Foundation — Implementation in progress
 - `jobs`, `applications`, `resumes`, `scoring` domains still skeleton
 - No tests written yet
 - No actual scraping, form filling, or LLM integration yet
-- Need to wire auth middleware into router for protected routes
+- Migration 002_users needs to run on first boot

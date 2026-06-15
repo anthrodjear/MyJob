@@ -45,7 +45,10 @@ func main() {
 	defer redis.Close()
 
 	// Initialize auth domain
-	authRepo := auth.NewRepository(cfg.Auth)
+	authRepo, err := auth.NewRepository(postgres.DB, cfg.Auth)
+	if err != nil {
+		logger.Fatal("Failed to create auth repository", zap.Error(err))
+	}
 	authService := auth.NewService(authRepo, cfg.Auth)
 	authHandler := auth.NewHandler(authService, logger)
 

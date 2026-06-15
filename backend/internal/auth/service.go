@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"backend/internal/config"
+
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -16,12 +18,14 @@ var (
 	ErrTokenInvalid       = errors.New("auth: token invalid")
 	ErrTokenExpired       = errors.New("auth: token expired")
 	ErrUserNotFound       = errors.New("auth: user not found")
+	ErrSessionInvalidated = errors.New("auth: session invalidated")
+	ErrPasswordSame       = errors.New("auth: new password must differ from current password")
 )
 
 // Service handles authentication business logic.
 type Service struct {
-	repo   *Repository
-	cfg    config.AuthConfig
+	repo *Repository
+	cfg  config.AuthConfig
 }
 
 // NewService creates a new auth service.
@@ -33,6 +37,7 @@ func NewService(repo *Repository, cfg config.AuthConfig) *Service {
 }
 
 // Login verifies the password and returns a JWT on success.
+// Updates last login timestamp on success.
 func (s *Service) Login(ctx context.Context, password string) (*LoginResponse, error) {
 	hash, err := s.getPasswordHash(ctx)
 	if err != nil {
@@ -47,7 +52,7 @@ func (s *Service) Login(ctx context.Context, password string) (*LoginResponse, e
 		return nil, ErrInvalidCredentials
 	}
 
-	token, expiresAt, err := s.generateToken()
+	token, expiresAt, err := s.generateToken(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("auth: login: generate token: %w", err)
 	}
@@ -59,13 +64,14 @@ func (s *Service) Login(ctx context.Context, password string) (*LoginResponse, e
 }
 
 // ValidateToken parses and validates a JWT, returning the claims.
+// Uses strict validation: issuer must match "myjob".
 func (s *Service) ValidateToken(tokenString string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("auth: unexpected signing method: %v", t.Header["alg"])
 		}
 		return []byte(s.cfg.JWTSecret), nil
-	})
+	}, jwt.WithIssuer("myjob"))
 
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {
@@ -81,8 +87,34 @@ func (s *Service) ValidateToken(tokenString string) (*Claims, error) {
 	return nil, ErrTokenInvalid
 }
 
+// ValidateTokenWithSession validates JWT and checks session version matches.
+// Returns ErrSessionInvalidated if session version has changed (password changed, logout everywhere).
+func (s *Service) ValidateTokenWithSession(ctx context.Context, tokenString string) (*Claims, error) {
+	claims, err := s.ValidateToken(tokenString)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check session version
+	currentVersion, err := s.repo.GetSessionVersion(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("auth: get session version: %w", err)
+	}
+
+	if claims.SessionVersion != currentVersion {
+		return nil, ErrSessionInvalidated
+	}
+
+	return claims, nil
+}
+
 // ChangePassword updates the user's password hash.
+// Validates that new password differs from current.
 func (s *Service) ChangePassword(ctx context.Context, currentPassword, newPassword string) error {
+	if currentPassword == newPassword {
+		return ErrPasswordSame
+	}
+
 	hash, err := s.getPasswordHash(ctx)
 	if err != nil {
 		return fmt.Errorf("auth: change password: %w", err)
@@ -102,6 +134,16 @@ func (s *Service) ChangePassword(ctx context.Context, currentPassword, newPasswo
 	}
 
 	return nil
+}
+
+// Logout increments session version to invalidate all existing tokens (logout everywhere).
+func (s *Service) Logout(ctx context.Context) error {
+	return s.repo.IncrementSessionVersion(ctx)
+}
+
+// Me returns the current user.
+func (s *Service) Me(ctx context.Context) (*User, error) {
+	return s.getUser(ctx)
 }
 
 // getUser fetches the single user.
@@ -125,18 +167,26 @@ func (s *Service) getPasswordHash(ctx context.Context) (string, error) {
 	return hash, nil
 }
 
-// generateToken creates a new JWT with standard claims.
-func (s *Service) generateToken() (string, int64, error) {
+// generateToken creates a new JWT with standard claims including session version.
+// Fails closed if session version cannot be retrieved.
+func (s *Service) generateToken(ctx context.Context) (string, int64, error) {
 	expiresAt := time.Now().Add(s.cfg.JWTExpiry)
 
+	// Get current session version (fail closed)
+	sessionVersion, err := s.repo.GetSessionVersion(ctx)
+	if err != nil {
+		return "", 0, fmt.Errorf("auth: get session version: %w", err)
+	}
+
 	claims := &Claims{
-		UserID: "local-user",
+		UserID:         "local-user",
+		SessionVersion: sessionVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   "local-user",
 			Issuer:    "myjob",
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ID:        fmt.Sprintf("token-%d", time.Now().UnixNano()),
+			ID:        uuid.NewString(),
 		},
 	}
 
@@ -147,4 +197,14 @@ func (s *Service) generateToken() (string, int64, error) {
 	}
 
 	return tokenString, expiresAt.Unix(), nil
+}
+
+// UpdateLastLogin updates the user's last login timestamp implimente in handler.
+func (s *Service) UpdateLastLogin(ctx context.Context) error {
+	return s.repo.UpdateLastLogin(ctx)
+}
+
+// IncrementSessionVersion manually increments the session version (for logout everywhere).
+func (s *Service) IncrementSessionVersion(ctx context.Context) error {
+	return s.repo.IncrementSessionVersion(ctx)
 }
