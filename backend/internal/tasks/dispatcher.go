@@ -38,22 +38,23 @@ func NewDispatcher(client *asynq.Client, logger *zap.Logger) *Dispatcher {
 }
 
 // dispatch is the internal helper that all public methods delegate to.
+// Returns the Asynq task ID for polling.
 func (d *Dispatcher) dispatch(
 	ctx context.Context,
 	taskType string,
 	payload interface{},
-) error {
+) (string, error) {
 	cfg := taskConfig[taskType]
 
 	data, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("tasks: marshal %s: %w", taskType, err)
+		return "", fmt.Errorf("tasks: marshal %s: %w", taskType, err)
 	}
 
 	task := asynq.NewTask(taskType, data)
 	info, err := d.client.EnqueueContext(ctx, task, asynq.MaxRetry(cfg.Retries), asynq.Timeout(cfg.Timeout))
 	if err != nil {
-		return fmt.Errorf("tasks: enqueue %s: %w", taskType, err)
+		return "", fmt.Errorf("tasks: enqueue %s: %w", taskType, err)
 	}
 
 	d.logger.Debug("task dispatched",
@@ -63,39 +64,40 @@ func (d *Dispatcher) dispatch(
 		zap.Duration("timeout", cfg.Timeout),
 	)
 
-	return nil
+	return info.ID, nil
 }
 
 // --- Public dispatch methods (thin wrappers for type-safe API) ---
+// Each returns the Asynq task ID for polling.
 
-func (d *Dispatcher) DispatchJobDiscovery(ctx context.Context, payload JobDiscoveryPayload) error {
+func (d *Dispatcher) DispatchJobDiscovery(ctx context.Context, payload JobDiscoveryPayload) (string, error) {
 	return d.dispatch(ctx, TypeJobDiscovery, payload)
 }
 
-func (d *Dispatcher) DispatchResumeScoring(ctx context.Context, payload ResumeScoringPayload) error {
+func (d *Dispatcher) DispatchResumeScoring(ctx context.Context, payload ResumeScoringPayload) (string, error) {
 	return d.dispatch(ctx, TypeResumeScoring, payload)
 }
 
-func (d *Dispatcher) DispatchApplicationSubmit(ctx context.Context, payload ApplicationSubmitPayload) error {
+func (d *Dispatcher) DispatchApplicationSubmit(ctx context.Context, payload ApplicationSubmitPayload) (string, error) {
 	return d.dispatch(ctx, TypeApplicationSubmit, payload)
 }
 
-func (d *Dispatcher) DispatchEmbeddingGenerate(ctx context.Context, payload EmbeddingPayload) error {
+func (d *Dispatcher) DispatchEmbeddingGenerate(ctx context.Context, payload EmbeddingPayload) (string, error) {
 	return d.dispatch(ctx, TypeEmbeddingGenerate, payload)
 }
 
-func (d *Dispatcher) DispatchCoverLetterGen(ctx context.Context, payload CoverLetterGenPayload) error {
+func (d *Dispatcher) DispatchCoverLetterGen(ctx context.Context, payload CoverLetterGenPayload) (string, error) {
 	return d.dispatch(ctx, TypeCoverLetterGen, payload)
 }
 
-func (d *Dispatcher) DispatchResumeTailor(ctx context.Context, payload ResumeTailorPayload) error {
+func (d *Dispatcher) DispatchResumeTailor(ctx context.Context, payload ResumeTailorPayload) (string, error) {
 	return d.dispatch(ctx, TypeResumeTailor, payload)
 }
 
-func (d *Dispatcher) DispatchEmailCheck(ctx context.Context, payload EmailCheckPayload) error {
+func (d *Dispatcher) DispatchEmailCheck(ctx context.Context, payload EmailCheckPayload) (string, error) {
 	return d.dispatch(ctx, TypeEmailCheck, payload)
 }
 
-func (d *Dispatcher) DispatchInterviewPrep(ctx context.Context, payload InterviewPrepPayload) error {
+func (d *Dispatcher) DispatchInterviewPrep(ctx context.Context, payload InterviewPrepPayload) (string, error) {
 	return d.dispatch(ctx, TypeInterviewPrep, payload)
 }

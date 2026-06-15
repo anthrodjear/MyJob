@@ -9,12 +9,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/hibiken/asynq"
 	"go.uber.org/zap"
 
 	"backend/internal/api"
 	"backend/internal/auth"
 	"backend/internal/config"
 	"backend/internal/database"
+	"backend/internal/jobs"
+	"backend/internal/tasks"
 )
 
 func main() {
@@ -52,10 +55,21 @@ func main() {
 	authService := auth.NewService(authRepo, cfg.Auth)
 	authHandler := auth.NewHandler(authService, logger)
 
+	// Initialize asynq client for task dispatch
+	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: cfg.Redis.URL})
+	defer asynqClient.Close()
+	dispatcher := tasks.NewDispatcher(asynqClient, logger)
+
+	// Initialize jobs domain
+	jobsRepo := jobs.NewRepository(postgres.DB)
+	jobsService := jobs.NewService(jobsRepo, dispatcher, cfg.Scoring)
+	jobsHandler := jobs.NewHandler(jobsService, logger)
+
 	// Setup router with all routes
 	router := api.SetupRouter(api.RouterConfig{
 		AuthHandler: authHandler,
 		AuthService: authService,
+		JobsHandler: jobsHandler,
 		Logger:      logger,
 	})
 

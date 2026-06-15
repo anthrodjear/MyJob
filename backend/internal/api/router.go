@@ -4,14 +4,16 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	"backend/internal/auth"
 	"backend/internal/api/middleware"
+	"backend/internal/auth"
+	"backend/internal/jobs"
 )
 
 // RouterConfig holds dependencies for router setup.
 type RouterConfig struct {
 	AuthHandler *auth.Handler
 	AuthService *auth.Service
+	JobsHandler *jobs.Handler
 	Logger      *zap.Logger
 }
 
@@ -43,12 +45,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		protected := v1.Group("")
 		protected.Use(middleware.AuthMiddleware(cfg.AuthService))
 		{
-			// TODO: Add protected routes here as domains are implemented
-			// protected.GET("/jobs", jobsHandler.List)
-			// protected.POST("/jobs/scan", jobsHandler.Scan)
-			// protected.GET("/applications", appsHandler.List)
-			// protected.POST("/applications", appsHandler.Create)
-			// etc.
+			cfg.JobsHandler.RegisterRoutes(protected)
 		}
 	}
 

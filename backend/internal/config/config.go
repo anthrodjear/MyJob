@@ -17,6 +17,7 @@ type Config struct {
 	Voice       VoiceConfig
 	Email       EmailConfig
 	Queue       QueueConfig
+	Scoring     ScoringConfig
 	RateLimit   RateLimitConfig
 	Environment string
 }
@@ -83,6 +84,11 @@ type QueueConfig struct {
 	RedisURL    string
 	Concurrency int
 	RetryDelay  time.Duration
+}
+
+type ScoringConfig struct {
+	AutoThreshold  int // score >= this = auto apply
+	ReviewThreshold int // score >= this = human review
 }
 
 type AuthConfig struct {
@@ -157,6 +163,10 @@ func Load() *Config {
 			Concurrency: getEnvInt("QUEUE_CONCURRENCY", 5),
 			RetryDelay:  5 * time.Second,
 		},
+		Scoring: ScoringConfig{
+			AutoThreshold:   getEnvInt("SCORING_AUTO_THRESHOLD", 95),
+			ReviewThreshold: getEnvInt("SCORING_REVIEW_THRESHOLD", 80),
+		},
 		RateLimit: RateLimitConfig{
 			RequestsPerMinute: getEnvInt("RATE_LIMIT_RPM", 60),
 			Burst:             getEnvInt("RATE_LIMIT_BURST", 10),
@@ -194,6 +204,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Voice.LiveKit.APIKey == "" || c.Voice.LiveKit.APISecret == "" {
 		return errors.New("config: LiveKit credentials required")
+	}
+	if c.Scoring.AutoThreshold <= c.Scoring.ReviewThreshold {
+		return errors.New("config: scoring auto threshold must be greater than review threshold")
 	}
 	return nil
 }
