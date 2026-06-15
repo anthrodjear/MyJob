@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -86,9 +87,18 @@ type QueueConfig struct {
 	RetryDelay  time.Duration
 }
 
+type ScoringWeights struct {
+	Skill       float64 `json:"skill"`
+	Experience  float64 `json:"experience"`
+	Location    float64 `json:"location"`
+	Salary      float64 `json:"salary"`
+	Description float64 `json:"description"`
+}
+
 type ScoringConfig struct {
-	AutoThreshold  int // score >= this = auto apply
-	ReviewThreshold int // score >= this = human review
+	AutoThreshold   int            // score >= this = auto apply
+	ReviewThreshold int            // score >= this = human review
+	Weights         ScoringWeights // factor weights (must sum to 1.0)
 }
 
 type AuthConfig struct {
@@ -166,6 +176,13 @@ func Load() *Config {
 		Scoring: ScoringConfig{
 			AutoThreshold:   getEnvInt("SCORING_AUTO_THRESHOLD", 95),
 			ReviewThreshold: getEnvInt("SCORING_REVIEW_THRESHOLD", 80),
+			Weights: ScoringWeights{
+				Skill:       getEnvFloat("SCORING_WEIGHT_SKILL", 0.35),
+				Experience:  getEnvFloat("SCORING_WEIGHT_EXPERIENCE", 0.25),
+				Location:    getEnvFloat("SCORING_WEIGHT_LOCATION", 0.10),
+				Salary:      getEnvFloat("SCORING_WEIGHT_SALARY", 0.15),
+				Description: getEnvFloat("SCORING_WEIGHT_DESCRIPTION", 0.15),
+			},
 		},
 		RateLimit: RateLimitConfig{
 			RequestsPerMinute: getEnvInt("RATE_LIMIT_RPM", 60),
@@ -208,6 +225,9 @@ func (c *Config) Validate() error {
 	if c.Scoring.AutoThreshold <= c.Scoring.ReviewThreshold {
 		return errors.New("config: scoring auto threshold must be greater than review threshold")
 	}
+	if err := c.validateScoringWeights(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -236,4 +256,23 @@ func parseFolders(s string) []string {
 		parts[i] = strings.TrimSpace(parts[i])
 	}
 	return parts
+}
+
+func getEnvFloat(key string, defaultValue float64) float64 {
+	if value := os.Getenv(key); value != "" {
+		if floatVal, err := strconv.ParseFloat(value, 64); err == nil {
+			return floatVal
+		}
+	}
+	return defaultValue
+}
+
+func (c *Config) validateScoringWeights() error {
+	sum := c.Scoring.Weights.Skill + c.Scoring.Weights.Experience +
+		c.Scoring.Weights.Location + c.Scoring.Weights.Salary +
+		c.Scoring.Weights.Description
+	if sum < 0.99 || sum > 1.01 { // float tolerance
+		return fmt.Errorf("config: scoring weights must sum to 1.0, got %.2f", sum)
+	}
+	return nil
 }
