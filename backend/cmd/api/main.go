@@ -18,6 +18,7 @@ import (
 	"backend/internal/config"
 	"backend/internal/database"
 	"backend/internal/jobs"
+	"backend/internal/resumes"
 	"backend/internal/tasks"
 )
 
@@ -71,12 +72,18 @@ func main() {
 	appsService := applications.NewService(appsRepo, logger)
 	appsHandler := applications.NewHandler(appsService, logger)
 
+	// Initialize resumes domain
+	resumesRepo := resumes.NewRepository(postgres.DB)
+	resumesService := resumes.NewService(resumesRepo, logger)
+	resumesHandler := resumes.NewHandler(resumesService, logger)
+
 	// Setup router with all routes
 	router := api.SetupRouter(api.RouterConfig{
 		AuthHandler:         authHandler,
 		AuthService:         authService,
 		JobsHandler:         jobsHandler,
 		ApplicationsHandler: appsHandler,
+		ResumesHandler:      resumesHandler,
 		Logger:              logger,
 	})
 

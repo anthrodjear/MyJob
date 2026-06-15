@@ -6,39 +6,56 @@ import (
 	"github.com/google/uuid"
 )
 
-// TableName returns the table name for the Resume model.
-func (Resume) TableName() string {
-	return "resumes"
-}
-
 // Resume represents a resume version.
 type Resume struct {
-	ID                 uuid.UUID  `db:"id" json:"id"`
-	Name               string     `db:"name" json:"name"`
-	Specialization     string     `db:"specialization" json:"specialization"`
-	TemplatePath       string     `db:"template_path" json:"template_path"`
-	FocusSkills        []string   `db:"focus_skills" json:"focus_skills"`
-	HighlightExperience []uuid.UUID `db:"highlight_experience" json:"highlight_experience,omitempty"`
-	PdfPath            *string    `db:"pdf_path" json:"pdf_path,omitempty"`
-	Version            int        `db:"version" json:"version"`
-	CreatedAt          time.Time  `db:"created_at" json:"created_at"`
-	UpdatedAt          time.Time  `db:"updated_at" json:"updated_at"`
+	ID                  uuid.UUID
+	Name                string
+	Specialization      string
+	TemplatePath        string
+	FocusSkills         []string
+	HighlightExperience []uuid.UUID
+	PdfKey              *string
+	Version             int32
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
-// TableName returns the table name for the CoverLetter model.
-func (CoverLetter) TableName() string {
-	return "cover_letters"
+// NewResume creates a new Resume with default values.
+func NewResume(name, specialization, templatePath string, focusSkills []string) *Resume {
+	now := time.Now().UTC()
+	return &Resume{
+		ID:                uuid.New(),
+		Name:              name,
+		Specialization:    specialization,
+		TemplatePath:      templatePath,
+		FocusSkills:       focusSkills,
+		Version:           1,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	}
 }
 
 // CoverLetter represents a generated cover letter.
 type CoverLetter struct {
-	ID        uuid.UUID  `db:"id" json:"id"`
-	JobID     *uuid.UUID `db:"job_id" json:"job_id,omitempty"`
-	ResumeID  *uuid.UUID `db:"resume_id" json:"resume_id,omitempty"`
-	Content   string     `db:"content" json:"content"`
-	PdfPath   *string    `db:"pdf_path" json:"pdf_path,omitempty"`
-	WordCount *int       `db:"word_count" json:"word_count,omitempty"`
-	Version   int        `db:"version" json:"version"`
-	CreatedAt time.Time  `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time  `db:"updated_at" json:"updated_at"`
+	ID        uuid.UUID
+	JobID     *uuid.UUID
+	ResumeID  *uuid.UUID
+	Content   string
+	PdfKey    *string
+	WordCount *int
+	Version   int32
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// NewCoverLetter creates a new CoverLetter with default values.
+func NewCoverLetter(content string) *CoverLetter {
+	now := time.Now().UTC()
+	return &CoverLetter{
+		ID:        uuid.New(),
+		Content:   content,
+		Version:   1,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
 }

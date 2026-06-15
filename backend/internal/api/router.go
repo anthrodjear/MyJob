@@ -8,15 +8,17 @@ import (
 	"backend/internal/applications"
 	"backend/internal/auth"
 	"backend/internal/jobs"
+	"backend/internal/resumes"
 )
 
 // RouterConfig holds dependencies for router setup.
 type RouterConfig struct {
-	AuthHandler       *auth.Handler
-	AuthService       *auth.Service
-	JobsHandler       *jobs.Handler
+	AuthHandler         *auth.Handler
+	AuthService         *auth.Service
+	JobsHandler         *jobs.Handler
 	ApplicationsHandler *applications.Handler
-	Logger            *zap.Logger
+	ResumesHandler      *resumes.Handler
+	Logger              *zap.Logger
 }
 
 // SetupRouter creates and configures the Gin router.
@@ -49,6 +51,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		{
 			cfg.JobsHandler.RegisterRoutes(protected)
 			cfg.ApplicationsHandler.RegisterRoutes(protected)
+			cfg.ResumesHandler.RegisterRoutes(protected)
 		}
 	}
 

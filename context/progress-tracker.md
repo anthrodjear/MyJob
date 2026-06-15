@@ -10,10 +10,10 @@
 |-------|-------|
 | **Project** | AI Job Search Agent |
 | **Active Phase** | Phase 1 — Foundation (implementation in progress) |
-| **Phase Progress** | Scaffolding 100% / Implementation ~33% (4/6 domains complete) |
-| **Overall Progress** | ~30% (structure built, services compile, 4 domains implemented + wired) |
+| **Phase Progress** | Scaffolding 100% / Implementation ~50% (5/6 domains complete) |
+| **Overall Progress** | ~35% (structure built, services compile, 5 domains implemented + wired) |
 | **Blockers** | None |
-| **Next Up** | `resumes` domain (resume storage + pgvector) |
+| **Next Up** | `scoring` domain (scoring pipeline) |
 
 ---
 
@@ -49,7 +49,7 @@
 | `auth` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
 | `jobs` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
 | `applications` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
-| `resumes` | — | — | — | — | — | Not started |
+| `resumes` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
 | `scoring` | — | — | — | — | — | Not started |
 
 #### 1.4 API Handlers — IN PROGRESS
@@ -60,7 +60,8 @@
 | `/api/v1/tasks/*` | get, list | **Complete** | Task status polling |
 | `/api/v1/jobs/*` | list, get, update, scan | **Complete** | Job discovery + CRUD |
 | `/api/v1/applications/*` | list, get, create, update-status, update-notes, stats, events | **Complete** | Application lifecycle + audit trail |
-| `/api/v1/resumes/*` | — | Not started | Resume management + pgvector |
+| `/api/v1/resumes/*` | list, get, create, update, delete | **Complete** | Resume CRUD with optimistic locking |
+| `/api/v1/cover-letters/*` | list, get, create, delete | **Complete** | Cover letter management |
 | `/api/v1/scoring/*` | — | Not started | Scoring pipeline |
 
 #### 1.5 Worker Task Handlers — NOT STARTED
@@ -104,7 +105,7 @@
 2. **`auth` domain** — ✅ Complete
 3. **`jobs` domain** — ✅ Complete (wired into router)
 4. **`applications` domain** — ✅ Complete (wired into router, includes audit trail)
-5. **`resumes` domain** — Resume storage and embedding. Depends on auth for ownership, pgvector for semantic search.
+5. **`resumes` domain** — ✅ Complete (wired into router, optimistic locking, cover letters)
 6. **`scoring` domain** — Scoring pipeline. Depends on jobs + resumes for input data.
 
 ### Wave 2: Workers & Integration
@@ -126,8 +127,8 @@
 | Milestone | Target | Actual | Status |
 |-----------|--------|--------|--------|
 | Phase 1 scaffolding | Week 1 | Week 1 | Done |
-| Domain module implementation | Week 2-3 | — | In progress (4/6 done) |
-| API handler implementations | Week 3 | — | In progress (4/6 done) |
+| Domain module implementation | Week 2-3 | — | In progress (5/6 done) |
+| API handler implementations | Week 3 | — | In progress (5/6 done) |
 | Worker task handlers | Week 3-4 | — | Pending |
 | Browser agent scrapers | Week 4 | — | Pending |
 | Frontend dashboard pages | Week 4-5 | — | Pending |
@@ -161,6 +162,11 @@
 | 2026-06-15 | Derived IsValidStatus from transitions | Single source of truth — add constant, add to map, done |
 | 2026-06-15 | Separate notes from status updates | `PATCH /:id/status` for transitions, `PATCH /:id/notes` for permanent notes |
 | 2026-06-15 | OFFSET pagination noted for later | Applications won't hit 100k rows; revisit if jobs table grows |
+| 2026-06-15 | Domain models no JSON tags | Domain ≠ API. DTOs handle JSON serialization |
+| 2026-06-15 | PdfKey not PdfPath | Storage key, not filesystem path. Service maps to URL |
+| 2026-06-15 | Optimistic locking on resumes | `WHERE id = $7 AND version = $8` prevents concurrent overwrites |
+| 2026-06-15 | RETURNING on Create/Update | DB handles defaults, returns version/timestamps to caller |
+| 2026-06-15 | pq.StringArray for text[] | Safe PostgreSQL array scanning |
 
 ---
 
