@@ -1,4 +1,4 @@
-package api
+package httpresp
 
 import (
 	"net/http"
@@ -37,6 +37,13 @@ func BadRequest(c *gin.Context, code string, msg string) {
 // NotFound sends a 404 JSON response.
 func NotFound(c *gin.Context, code string, msg string) {
 	c.JSON(http.StatusNotFound, ErrorResponse{
+		Error: ErrorBody{Code: code, Message: msg},
+	})
+}
+
+// Unauthorized sends a 401 JSON response.
+func Unauthorized(c *gin.Context, code string, msg string) {
+	c.JSON(http.StatusUnauthorized, ErrorResponse{
 		Error: ErrorBody{Code: code, Message: msg},
 	})
 }

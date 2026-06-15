@@ -46,6 +46,9 @@ help:
 	@echo "  make test        - Run all tests"
 	@echo "  make test-api    - Run Go API tests"
 	@echo "  make test-frontend - Run Frontend tests"
+	@echo ""
+	@echo "  Utils:"
+	@echo "  make hash-password PASSWORD=yourpass - Generate bcrypt hash for AUTH_PASSWORD_HASH"
 
 # First-time setup
 setup:
@@ -120,6 +123,11 @@ build-frontend:
 # Build Browser Agent
 build-browser:
 	cd browser-agent && npm run build
+
+# Generate bcrypt password hash for AUTH_PASSWORD_HASH
+# Usage: make hash-password PASSWORD="yourpassword"
+hash-password:
+	cd backend && go run ../scripts/hash_password.go "$(PASSWORD)"
 
 # ============================================
 # Logs

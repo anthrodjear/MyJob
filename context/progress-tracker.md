@@ -10,10 +10,10 @@
 |-------|-------|
 | **Project** | AI Job Search Agent |
 | **Active Phase** | Phase 1 — Foundation (implementation in progress) |
-| **Phase Progress** | Scaffolding 100% / Implementation ~8% (tasks domain complete) |
-| **Overall Progress** | ~20% (structure built, services compile, tasks domain implemented) |
+| **Phase Progress** | Scaffolding 100% / Implementation ~17% (tasks + auth domains complete) |
+| **Overall Progress** | ~25% (structure built, services compile, tasks + auth domains implemented) |
 | **Blockers** | None |
-| **Next Up** | `auth` domain (JWT, register/login/refresh) |
+| **Next Up** | `jobs` domain (job listing CRUD) |
 
 ---
 
@@ -49,8 +49,8 @@
 | `applications` | — | — | — | — | — | Not started |
 | `resumes` | — | — | — | — | — | Not started |
 | `scoring` | — | — | — | — | — | Not started |
-| `tasks` | — | — | — | — | — | Not started |
-| `auth` | — | — | — | — | — | Not started |
+| `tasks` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
+| `auth` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
 
 #### 1.4 API Handlers — NOT STARTED
 
@@ -60,8 +60,8 @@
 | `/api/applications/*` | create, list, approve, reject | Not started | Application lifecycle |
 | `/api/resumes/*` | upload, list, get, match | Not started | Resume management + pgvector |
 | `/api/scoring/*` | score, review | Not started | Scoring pipeline |
-| `/api/tasks/*` | get, list | Not started | Task status polling |
-| `/api/auth/*` | login, register, refresh | Not started | Authentication |
+| `/api/tasks/*` | get, list | **Complete** | Task status polling |
+| `/api/auth/*` | login, change-password | **Complete** | JWT authentication |
 
 #### 1.5 Worker Task Handlers — NOT STARTED
 

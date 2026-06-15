@@ -19,6 +19,11 @@ func main() {
 	// Load configuration
 	cfg := config.Load()
 
+	// Validate configuration
+	if err := cfg.Validate(); err != nil {
+		panic(fmt.Sprintf("config validation failed: %v", err))
+	}
+
 	// Initialize logger
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()

@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"backend/internal/api"
+	"backend/internal/httpresp"
 )
 
 // Handler holds dependencies for task HTTP handlers.
@@ -25,14 +25,14 @@ func NewHandler(svc *Service, logger *zap.Logger) *Handler {
 func (h *Handler) CreateTask(c *gin.Context) {
 	var req CreateTaskRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		api.BadRequest(c, "INVALID_INPUT", "invalid request body")
+		httpresp.BadRequest(c, "INVALID_INPUT", "invalid request body")
 		return
 	}
 
 	task, err := h.svc.Create(c.Request.Context(), req)
 	if err != nil {
 		if errors.Is(err, ErrInvalidType) {
-			api.BadRequest(c, "INVALID_TYPE", err.Error())
+			httpresp.BadRequest(c, "INVALID_TYPE", err.Error())
 			return
 		}
 		h.logger.Error(
@@ -40,36 +40,36 @@ func (h *Handler) CreateTask(c *gin.Context) {
 			zap.String("task_type", req.Type),
 			zap.Error(err),
 		)
-		api.InternalError(c)
+		httpresp.InternalError(c)
 		return
 	}
 
-	api.Created(c, ToResponse(task))
+	httpresp.Created(c, ToResponse(task))
 }
 
 // GetTask handles GET /tasks/:id.
 func (h *Handler) GetTask(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		api.BadRequest(c, "INVALID_ID", "invalid task id")
+		httpresp.BadRequest(c, "INVALID_ID", "invalid task id")
 		return
 	}
 
 	task, err := h.svc.GetByID(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			api.NotFound(c, "TASK_NOT_FOUND", err.Error())
+			httpresp.NotFound(c, "TASK_NOT_FOUND", err.Error())
 			return
 		}
 		h.logger.Error(
 			"get task",
 			zap.String("task_id", id.String()),
 			zap.Error(err))
-		api.InternalError(c)
+		httpresp.InternalError(c)
 		return
 	}
 
-	api.OK(c, ToResponse(task))
+	httpresp.OK(c, ToResponse(task))
 }
 
 // listTasksQuery holds the query parameters for listing tasks.
@@ -84,7 +84,7 @@ type listTasksQuery struct {
 func (h *Handler) ListTasks(c *gin.Context) {
 	var q listTasksQuery
 	if err := c.ShouldBindQuery(&q); err != nil {
-		api.BadRequest(c, "INVALID_QUERY", "invalid query parameters")
+		httpresp.BadRequest(c, "INVALID_QUERY", "invalid query parameters")
 		return
 	}
 
@@ -105,7 +105,7 @@ func (h *Handler) ListTasks(c *gin.Context) {
 			"list tasks",
 			zap.Error(err),
 		)
-		api.InternalError(c)
+		httpresp.InternalError(c)
 		return
 	}
 
@@ -117,5 +117,5 @@ func (h *Handler) ListTasks(c *gin.Context) {
 		resp.Tasks[i] = ToResponse(&tasks[i])
 	}
 
-	api.OK(c, resp)
+	httpresp.OK(c, resp)
 }

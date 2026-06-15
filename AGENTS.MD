@@ -75,6 +75,19 @@ A local-first AI job search agent that automates job discovery, application scor
 5. **Local-first.** All data stays on the user's machine. No external analytics, no telemetry, no cloud storage.
 6. **Score tiers are immutable policy.** AUTO (95+), REVIEW (80–94), REJECT (<80). Do not add tier logic outside `config/application.yaml`.
 
+## Implementation Workflow
+
+**MANDATORY for all domain file implementation:**
+
+1. **Context7 MCP first** — Before writing any file, query Context7 for latest library docs (gin, sqlx, jwt, bcrypt, etc.). Training data may be outdated.
+2. **One file at a time** — Write a single file, then stop.
+3. **Review with specialized subagent** — Use `senior-backend` subagent to review the file against code-standards.md.
+4. **Fix issues** — Address any findings from the review.
+5. **Wait for user approval** — Do NOT proceed to the next file until user confirms.
+6. **Repeat** — Continue with next file.
+
+**Never batch multiple files. Never skip review. Never proceed without approval.**
+
 ## Go Conventions (`backend/`)
 
 ### File Structure per Domain Module
