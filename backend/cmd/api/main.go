@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"backend/internal/api"
+	"backend/internal/applications"
 	"backend/internal/auth"
 	"backend/internal/config"
 	"backend/internal/database"
@@ -65,12 +66,18 @@ func main() {
 	jobsService := jobs.NewService(jobsRepo, dispatcher, cfg.Scoring)
 	jobsHandler := jobs.NewHandler(jobsService, logger)
 
+	// Initialize applications domain
+	appsRepo := applications.NewRepository(postgres.DB)
+	appsService := applications.NewService(appsRepo, logger)
+	appsHandler := applications.NewHandler(appsService, logger)
+
 	// Setup router with all routes
 	router := api.SetupRouter(api.RouterConfig{
-		AuthHandler: authHandler,
-		AuthService: authService,
-		JobsHandler: jobsHandler,
-		Logger:      logger,
+		AuthHandler:         authHandler,
+		AuthService:         authService,
+		JobsHandler:         jobsHandler,
+		ApplicationsHandler: appsHandler,
+		Logger:              logger,
 	})
 
 	// Start HTTP server
