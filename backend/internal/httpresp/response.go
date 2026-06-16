@@ -59,3 +59,10 @@ func InternalError(c *gin.Context) {
 func Accepted(c *gin.Context, data interface{}) {
 	c.JSON(http.StatusAccepted, data)
 }
+
+// Conflict sends a 409 JSON response for optimistic locking or concurrent modification.
+func Conflict(c *gin.Context, code string, msg string) {
+	c.JSON(http.StatusConflict, ErrorResponse{
+		Error: ErrorBody{Code: code, Message: msg},
+	})
+}

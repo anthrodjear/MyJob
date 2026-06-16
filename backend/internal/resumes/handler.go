@@ -34,6 +34,11 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 		resumes.POST("", h.CreateResume)
 		resumes.PUT("/:id", h.UpdateResume)
 		resumes.DELETE("/:id", h.DeleteResume)
+		resumes.GET("/:id/content", h.GetContent)
+		resumes.PUT("/:id/content", h.UpdateContent)
+		resumes.POST("/:id/generate", h.GenerateContent)
+		resumes.GET("/:id/versions", h.ListVersions)
+		resumes.GET("/:id/versions/:version", h.GetVersion)
 	}
 
 	coverLetters := rg.Group("/cover-letters")
@@ -85,12 +90,12 @@ func (h *Handler) GetResume(c *gin.Context) {
 		return
 	}
 
-	httpresp.OK(c, ToResponse(resume))
+	httpresp.OK(c, ToDetailResponse(resume))
 }
 
 // CreateResume handles POST /resumes.
 func (h *Handler) CreateResume(c *gin.Context) {
-	var req GenerateResumeRequest
+	var req CreateResumeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		httpresp.BadRequest(c, "INVALID_INPUT", "invalid request body")
 		return
@@ -107,7 +112,7 @@ func (h *Handler) CreateResume(c *gin.Context) {
 		return
 	}
 
-	httpresp.Created(c, ToResponse(resume))
+	httpresp.Created(c, ToDetailResponse(resume))
 }
 
 // UpdateResume handles PUT /resumes/:id.
@@ -130,15 +135,27 @@ func (h *Handler) UpdateResume(c *gin.Context) {
 		return
 	}
 
-	// Bind update fields onto existing resume
-	if err := c.ShouldBindJSON(existing); err != nil {
+	// Bind to dedicated DTO — never bind directly onto domain model (field injection risk)
+	var req UpdateResumeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		httpresp.BadRequest(c, "INVALID_INPUT", "invalid request body")
 		return
 	}
 
+	// Apply DTO fields to existing resume (preserves ID, Version, timestamps)
+	existing.Name = req.Name
+	existing.Specialization = req.Specialization
+	existing.TemplatePath = req.TemplatePath
+	existing.FocusSkills = req.FocusSkills
+	existing.HighlightExperience = req.HighlightExperience
+
 	if err := h.svc.Update(c.Request.Context(), existing); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			httpresp.NotFound(c, "RESUME_NOT_FOUND", err.Error())
+			return
+		}
+		if errors.Is(err, ErrVersionConflict) {
+			httpresp.Conflict(c, "VERSION_CONFLICT", "resume was modified by another process — please refresh")
 			return
 		}
 		h.logger.Error("update resume", zap.String("id", id.String()), zap.Error(err))
@@ -146,7 +163,7 @@ func (h *Handler) UpdateResume(c *gin.Context) {
 		return
 	}
 
-	httpresp.OK(c, ToResponse(existing))
+	httpresp.OK(c, ToDetailResponse(existing))
 }
 
 // DeleteResume handles DELETE /resumes/:id.
@@ -168,6 +185,163 @@ func (h *Handler) DeleteResume(c *gin.Context) {
 	}
 
 	httpresp.OK(c, gin.H{"message": "resume deleted"})
+}
+
+// --- Content handlers ---
+
+// GetContent handles GET /resumes/:id/content.
+func (h *Handler) GetContent(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httpresp.BadRequest(c, "INVALID_ID", "invalid resume id")
+		return
+	}
+
+	content, version, err := h.svc.GetContent(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			httpresp.NotFound(c, "RESUME_NOT_FOUND", err.Error())
+			return
+		}
+		if errors.Is(err, ErrNoContent) {
+			httpresp.NotFound(c, "CONTENT_NOT_FOUND", "resume has no generated content")
+			return
+		}
+		h.logger.Error("get content", zap.String("id", id.String()), zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, ResumeContentResponse{
+		ResumeID: id,
+		Version:  version,
+		Content:  *content,
+	})
+}
+
+// UpdateContent handles PUT /resumes/:id/content.
+func (h *Handler) UpdateContent(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httpresp.BadRequest(c, "INVALID_ID", "invalid resume id")
+		return
+	}
+
+	var req UpdateResumeContentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpresp.BadRequest(c, "INVALID_INPUT", "invalid request body")
+		return
+	}
+
+	content, version, err := h.svc.UpdateContent(c.Request.Context(), id, req.Content)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			httpresp.NotFound(c, "RESUME_NOT_FOUND", err.Error())
+			return
+		}
+		if errors.Is(err, ErrVersionConflict) {
+			httpresp.Conflict(c, "VERSION_CONFLICT", "resume was modified by another process — please refresh")
+			return
+		}
+		h.logger.Error("update content", zap.String("id", id.String()), zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, ResumeContentResponse{
+		ResumeID: id,
+		Version:  version,
+		Content:  *content,
+	})
+}
+
+// GenerateContent handles POST /resumes/:id/generate.
+// Generation is synchronous (LLM call blocks), returns 200 OK with the generated content.
+func (h *Handler) GenerateContent(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httpresp.BadRequest(c, "INVALID_ID", "invalid resume id")
+		return
+	}
+
+	var req GenerateResumeContentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpresp.BadRequest(c, "INVALID_INPUT", "invalid request body")
+		return
+	}
+
+	content, version, err := h.svc.GenerateContent(c.Request.Context(), id, req)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			httpresp.NotFound(c, "RESUME_NOT_FOUND", err.Error())
+			return
+		}
+		if errors.Is(err, ErrVersionConflict) {
+			httpresp.Conflict(c, "VERSION_CONFLICT", "resume was modified by another process — please refresh")
+			return
+		}
+		h.logger.Error("generate content", zap.String("id", id.String()), zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, ResumeContentResponse{
+		ResumeID: id,
+		Version:  version,
+		Content:  *content,
+	})
+}
+
+// ListVersions handles GET /resumes/:id/versions.
+func (h *Handler) ListVersions(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httpresp.BadRequest(c, "INVALID_ID", "invalid resume id")
+		return
+	}
+
+	versions, err := h.svc.GetVersions(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			httpresp.NotFound(c, "RESUME_NOT_FOUND", err.Error())
+			return
+		}
+		h.logger.Error("list versions", zap.String("id", id.String()), zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, ResumeVersionListResponse{
+		Versions: ToVersionResponses(versions),
+	})
+}
+
+// GetVersion handles GET /resumes/:id/versions/:version.
+func (h *Handler) GetVersion(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httpresp.BadRequest(c, "INVALID_ID", "invalid resume id")
+		return
+	}
+
+	version, err := strconv.ParseInt(c.Param("version"), 10, 32)
+	if err != nil {
+		httpresp.BadRequest(c, "INVALID_VERSION", "invalid version number")
+		return
+	}
+
+	v, err := h.svc.GetVersion(c.Request.Context(), id, int32(version))
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			httpresp.NotFound(c, "VERSION_NOT_FOUND", "version not found")
+			return
+		}
+		h.logger.Error("get version", zap.String("id", id.String()), zap.Int64("version", version), zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, ToVersionResponse(v))
 }
 
 // --- Cover Letter handlers ---

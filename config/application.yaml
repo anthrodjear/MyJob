@@ -251,3 +251,79 @@ prompts:
       {{.CandidateData}}
 
       Respond in JSON: {"mappings": [{"field_id": "...", "field_label": "...", "candidate_data_key": "...", "value": "...", "confidence": <0.0-1.0>}]}
+
+  # Resume generation: create structured resume content from profile
+  resume_generation:
+    system: |
+      You are a resume content generator. Create a structured, ATS-friendly resume
+      tailored for the user's specialization and target roles. Be precise, factual,
+      and never fabricate experience. Reorder and emphasize based on focus skills.
+    user: |
+      Generate structured resume content based on this profile and job context.
+
+      ## Profile
+      Name: {{.Name}}
+      Specialization: {{.Specialization}}
+      Focus Skills: {{.FocusSkills}}
+      Summary: {{.Summary}}
+      Experience: {{.Experience}}
+      Projects: {{.Projects}}
+      Education: {{.Education}}
+      Certifications: {{.Certifications}}
+      Languages: {{.Languages}}
+      Links: {{.Links}}
+      Career Goals: {{.CareerGoals}}
+
+      {{if .JobTitle}}
+      ## Target Job
+      Title: {{.JobTitle}}
+      Requirements: {{.JobRequirements}}
+      {{end}}
+
+      ## Guidelines
+      - Reorder skills to match focus skills (most relevant first)
+      - Highlight experience relevant to the specialization
+      - Write a concise 2-3 sentence professional summary
+      - Adjust bullet points to mirror the target job language (if provided)
+      - Keep all sections — do not omit education, certifications, or links
+      - Never fabricate experience or skills the candidate doesn't have
+      - Use action verbs and quantified achievements where possible
+
+      ## Output Format
+      Return ONLY valid JSON matching this structure:
+      {
+        "summary": "professional summary",
+        "skills": ["skill1", "skill2", "..."],
+        "experience": [
+          {
+            "title": "job title",
+            "company": "company name",
+            "location": "location",
+            "start_date": "YYYY-MM",
+            "end_date": "YYYY-MM or Present",
+            "description": "role description",
+            "skills_used": ["skill1", "skill2"],
+            "highlights": ["achievement 1", "achievement 2"]
+          }
+        ],
+        "projects": [
+          {
+            "name": "project name",
+            "description": "what it does",
+            "technologies": ["tech1", "tech2"],
+            "link": "url or empty string"
+          }
+        ],
+        "education": [
+          {
+            "institution": "university",
+            "degree": "degree type",
+            "field": "field of study",
+            "start_date": "YYYY-MM",
+            "end_date": "YYYY-MM"
+          }
+        ],
+        "certifications": ["cert1", "cert2"],
+        "languages": [{"language": "English", "proficiency": "native"}],
+        "links": [{"type": "github", "url": "https://..."}]
+      }

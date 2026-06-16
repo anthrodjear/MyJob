@@ -106,13 +106,14 @@ type ScoringConfig struct {
 
 // PromptsConfig holds all LLM prompts centralized in config.
 type PromptsConfig struct {
-	Scoring         PromptPair
-	EmailClassifier PromptPair
-	CoverLetter     PromptPair
-	ResumeTailor    PromptPair
-	InterviewPrep   PromptPair
-	JobExtraction   PromptPair
+	Scoring           PromptPair
+	EmailClassifier   PromptPair
+	CoverLetter       PromptPair
+	ResumeTailor      PromptPair
+	InterviewPrep     PromptPair
+	JobExtraction     PromptPair
 	FormUnderstanding PromptPair
+	ResumeGeneration  PromptPair
 }
 
 // PromptPair holds a system + user prompt template.
@@ -143,7 +144,10 @@ func (c *Config) IsTest() bool {
 }
 
 func Load() *Config {
-	return &Config{
+	// Read application.yaml for prompt loading
+	yamlData, _ := os.ReadFile("config/application.yaml")
+
+	cfg := &Config{
 		Server: ServerConfig{
 			Port:         getEnvInt("SERVER_PORT", 8080),
 			ReadTimeout:  getEnvDuration("SERVER_READ_TIMEOUT", 30*time.Second),
@@ -224,9 +228,10 @@ func Load() *Config {
 			RequestsPerMinute: getEnvInt("RATE_LIMIT_RPM", 60),
 			Burst:             getEnvInt("RATE_LIMIT_BURST", 10),
 		},
-		Prompts:     LoadPrompts(),
+		Prompts:     LoadPromptsFromYAML(yamlData),
 		Environment: getEnv("APP_ENV", "development"),
 	}
+	return cfg
 }
 
 // Validate checks that all required configuration is present.
@@ -385,9 +390,4 @@ func (c *Config) validateScoringWeights() error {
 	return nil
 }
 
-// LoadPrompts loads LLM prompts from the application.yaml config file.
-func LoadPrompts() PromptsConfig {
-	// For now, return empty config - in production this would load from YAML
-	// TODO: Implement YAML loading
-	return PromptsConfig{}
-}
+
