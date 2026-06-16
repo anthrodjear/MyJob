@@ -1,11 +1,15 @@
 package resumes
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 	"text/template"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -46,18 +50,79 @@ func (o *OllamaResumeGenerator) ModelName() string {
 // GenerateContent sends profile + job context to Ollama for structured resume generation.
 func (o *OllamaResumeGenerator) GenerateContent(ctx context.Context, profile map[string]any, jobTitle, jobRequirements string) (*ResumeContent, error) {
 	prompt := o.buildPrompt(profile, jobTitle, jobRequirements)
-	_ = prompt // TODO: use prompt in Ollama API call
 
-	// TODO: Implement Ollama API call (POST /api/generate)
-	// For now, return a placeholder
-	o.logger.Debug("LLM resume generation not yet implemented, returning placeholder",
-		zap.String("model", o.model),
-	)
+	// Call Ollama API
+	rawJSON, err := o.callOllama(ctx, prompt)
+	if err != nil {
+		return nil, fmt.Errorf("ollama resume generation: %w", err)
+	}
 
-	return &ResumeContent{
-		Summary: fmt.Sprintf("Experienced %s with expertise in the requested domain.", profile["Specialization"]),
-		Skills:  []string{"placeholder"},
-	}, nil
+	// Parse the LLM's JSON response as ResumeContent
+	var content ResumeContent
+	if err := json.Unmarshal(rawJSON, &content); err != nil {
+		return nil, fmt.Errorf("parse resume content: %w", err)
+	}
+
+	return &content, nil
+}
+
+// ollamaRequest is the payload for POST /api/generate.
+type ollamaRequest struct {
+	Model  string `json:"model"`
+	Prompt string `json:"prompt"`
+	Stream bool   `json:"stream"`
+}
+
+// ollamaResponse is the response from POST /api/generate.
+type ollamaResponse struct {
+	Response string `json:"response"`
+	Done     bool   `json:"done"`
+}
+
+// callOllama calls the Ollama /api/generate endpoint and returns the raw JSON response.
+func (o *OllamaResumeGenerator) callOllama(ctx context.Context, prompt string) ([]byte, error) {
+	reqBody, err := json.Marshal(ollamaRequest{
+		Model:  o.model,
+		Prompt: prompt,
+		Stream: false,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	url := strings.TrimRight(o.baseURL, "/") + "/api/generate"
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 2 * time.Minute}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("call ollama: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		msg := string(body)
+		if len(msg) > 500 {
+			msg = msg[:500] + "... (truncated)"
+		}
+		return nil, fmt.Errorf("ollama returned %d: %s", resp.StatusCode, msg)
+	}
+
+	var ollamaResp ollamaResponse
+	if err := json.Unmarshal(body, &ollamaResp); err != nil {
+		return nil, fmt.Errorf("unmarshal ollama response: %w", err)
+	}
+
+	return []byte(ollamaResp.Response), nil
 }
 
 // buildPrompt constructs the generation prompt from config template using text/template.
@@ -190,9 +255,9 @@ func (o *OllamaCoverLetterGenerator) ModelName() string {
 // GenerateContent sends job + resume context to Ollama for cover letter generation.
 func (o *OllamaCoverLetterGenerator) GenerateContent(ctx context.Context, jobTitle, jobRequirements, jobDescription string, resumeContent *ResumeContent) (*CoverLetterGenResult, error) {
 	data := map[string]any{
-		"JobTitle":       jobTitle,
+		"JobTitle":        jobTitle,
 		"JobRequirements": jobRequirements,
-		"JobDescription": jobDescription,
+		"JobDescription":  jobDescription,
 	}
 	if resumeContent != nil {
 		data["Skills"] = resumeContent.Skills
@@ -201,19 +266,66 @@ func (o *OllamaCoverLetterGenerator) GenerateContent(ctx context.Context, jobTit
 	}
 
 	prompt := o.buildPrompt(data)
-	_ = prompt // TODO: use prompt in Ollama API call
 
-	// TODO: Implement Ollama API call (POST /api/generate)
-	// For now, return a placeholder
-	o.logger.Debug("LLM cover letter generation not yet implemented, returning placeholder",
-		zap.String("model", o.model),
-	)
+	// Call Ollama API
+	rawJSON, err := o.callOllama(ctx, prompt)
+	if err != nil {
+		return nil, fmt.Errorf("ollama cover letter generation: %w", err)
+	}
 
-	return &CoverLetterGenResult{
-		Content:   fmt.Sprintf("Dear Hiring Manager,\n\nI am writing to express my interest in the %s position.", jobTitle),
-		Strengths: []string{"placeholder"},
-		Gaps:      []string{},
-	}, nil
+	// Parse the LLM's JSON response
+	var result CoverLetterGenResult
+	if err := json.Unmarshal(rawJSON, &result); err != nil {
+		return nil, fmt.Errorf("parse cover letter result: %w", err)
+	}
+
+	return &result, nil
+}
+
+// callOllama calls the Ollama /api/generate endpoint and returns the raw JSON response.
+func (o *OllamaCoverLetterGenerator) callOllama(ctx context.Context, prompt string) ([]byte, error) {
+	reqBody, err := json.Marshal(ollamaRequest{
+		Model:  o.model,
+		Prompt: prompt,
+		Stream: false,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	url := strings.TrimRight(o.baseURL, "/") + "/api/generate"
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 2 * time.Minute}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("call ollama: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		msg := string(body)
+		if len(msg) > 500 {
+			msg = msg[:500] + "... (truncated)"
+		}
+		return nil, fmt.Errorf("ollama returned %d: %s", resp.StatusCode, msg)
+	}
+
+	var ollamaResp ollamaResponse
+	if err := json.Unmarshal(body, &ollamaResp); err != nil {
+		return nil, fmt.Errorf("unmarshal ollama response: %w", err)
+	}
+
+	return []byte(ollamaResp.Response), nil
 }
 
 // buildPrompt constructs the generation prompt from config template using text/template.

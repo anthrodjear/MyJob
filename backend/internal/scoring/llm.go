@@ -5,11 +5,15 @@
 package scoring
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 	"text/template"
+	"time"
 
 	"go.uber.org/zap"
 	"backend/internal/config"
@@ -88,21 +92,79 @@ func (o *OllamaLLMScorer) ModelName() string {
 // ScoreJob sends job + profile to Ollama for semantic scoring.
 func (o *OllamaLLMScorer) ScoreJob(ctx context.Context, job JobData, profile Profile) (*LLMScoreResult, error) {
 	prompt := o.buildPrompt(job, profile)
-	_ = prompt // TODO: use prompt in Ollama API call
 
-	// TODO: Implement Ollama API call
-	// For now, return a placeholder
-	o.logger.Debug("LLM scoring not yet implemented, using heuristic fallback",
-		zap.String("job_id", job.ID.String()),
-	)
+	// Call Ollama API
+	result, err := o.callOllama(ctx, prompt)
+	if err != nil {
+		return nil, fmt.Errorf("ollama scoring: %w", err)
+	}
 
-	return &LLMScoreResult{
-		Score:      50,
-		Reasoning:  fmt.Sprintf("LLM scoring placeholder for job %s — implement Ollama API call", job.ID),
-		Strengths:  []string{},
-		Gaps:       []string{},
-		Confidence: 0.1,
-	}, nil
+	return result, nil
+}
+
+// ollamaRequest is the payload for POST /api/generate.
+type ollamaRequest struct {
+	Model  string `json:"model"`
+	Prompt string `json:"prompt"`
+	Stream bool   `json:"stream"`
+}
+
+// ollamaResponse is the response from POST /api/generate.
+type ollamaResponse struct {
+	Response string `json:"response"`
+	Done     bool   `json:"done"`
+}
+
+// callOllama calls the Ollama /api/generate endpoint and parses the JSON response.
+func (o *OllamaLLMScorer) callOllama(ctx context.Context, prompt string) (*LLMScoreResult, error) {
+	reqBody, err := json.Marshal(ollamaRequest{
+		Model:  o.model,
+		Prompt: prompt,
+		Stream: false,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	url := strings.TrimRight(o.baseURL, "/") + "/api/generate"
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 2 * time.Minute}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("call ollama: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		msg := string(body)
+		if len(msg) > 500 {
+			msg = msg[:500] + "... (truncated)"
+		}
+		return nil, fmt.Errorf("ollama returned %d: %s", resp.StatusCode, msg)
+	}
+
+	var ollamaResp ollamaResponse
+	if err := json.Unmarshal(body, &ollamaResp); err != nil {
+		return nil, fmt.Errorf("unmarshal ollama response: %w", err)
+	}
+
+	// Parse the LLM's JSON response as the scoring result
+	result, err := ParseLLMScoreResult([]byte(ollamaResp.Response))
+	if err != nil {
+		return nil, fmt.Errorf("parse LLM score result: %w", err)
+	}
+
+	return result, nil
 }
 
 // buildPrompt constructs the scoring prompt for the LLM from config template using text/template.

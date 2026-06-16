@@ -76,8 +76,7 @@ type EmbeddingPayload struct {
 
 // CoverLetterGenPayload is the params for a cover letter generation task.
 type CoverLetterGenPayload struct {
-	JobID         uuid.UUID `json:"job_id"`
-	ResumeID      uuid.UUID `json:"resume_id"`
+	CoverLetterID uuid.UUID `json:"cover_letter_id"`
 	CorrelationID uuid.UUID `json:"correlation_id"`
 }
 
