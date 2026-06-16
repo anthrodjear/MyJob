@@ -72,6 +72,7 @@ type OllamaLLMScorer struct {
 	baseURL   string
 	model     string
 	prompt    config.PromptPair
+	client    *http.Client
 }
 
 // NewOllamaLLMScorer creates a new Ollama-based LLM scorer with prompt from config.
@@ -81,6 +82,7 @@ func NewOllamaLLMScorer(logger *zap.Logger, baseURL, model string, prompt config
 		baseURL: baseURL,
 		model:   model,
 		prompt:  prompt,
+		client:  &http.Client{Timeout: 2 * time.Minute},
 	}
 }
 
@@ -133,8 +135,7 @@ func (o *OllamaLLMScorer) callOllama(ctx context.Context, prompt string) (*LLMSc
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 2 * time.Minute}
-	resp, err := client.Do(httpReq)
+	resp, err := o.client.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("call ollama: %w", err)
 	}
@@ -238,14 +239,22 @@ Return ONLY valid JSON. Do not wrap in markdown. Do not explain your answer.
 
 	// Execute system template
 	systemBuf := new(strings.Builder)
-	if err := template.Must(template.New("system").Parse(system)).Execute(systemBuf, data); err != nil {
-		o.logger.Warn("system template error", zap.Error(err))
+	systemTmpl, err := template.New("system").Parse(system)
+	if err != nil {
+		o.logger.Warn("system template parse error, using fallback", zap.Error(err))
+		systemBuf.WriteString("You are a job match scoring agent. Evaluate how well a job posting matches a candidate's profile.")
+	} else if err := systemTmpl.Execute(systemBuf, data); err != nil {
+		o.logger.Warn("system template execute error", zap.Error(err))
 	}
 
 	// Execute user template
 	userBuf := new(strings.Builder)
-	if err := template.Must(template.New("user").Parse(user)).Execute(userBuf, data); err != nil {
-		o.logger.Warn("user template error", zap.Error(err))
+	userTmpl, err := template.New("user").Parse(user)
+	if err != nil {
+		o.logger.Warn("user template parse error, using fallback", zap.Error(err))
+		userBuf.WriteString("Evaluate how well this job matches the candidate's profile. Return ONLY valid JSON.")
+	} else if err := userTmpl.Execute(userBuf, data); err != nil {
+		o.logger.Warn("user template execute error", zap.Error(err))
 	}
 
 	return systemBuf.String() + "\n\n" + userBuf.String()

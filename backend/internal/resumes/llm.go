@@ -30,6 +30,7 @@ type OllamaResumeGenerator struct {
 	baseURL string
 	model   string
 	prompt  config.PromptPair
+	client  *http.Client
 }
 
 // NewOllamaResumeGenerator creates a new Ollama-based resume generator.
@@ -39,6 +40,7 @@ func NewOllamaResumeGenerator(logger *zap.Logger, baseURL, model string, prompt 
 		baseURL: baseURL,
 		model:   model,
 		prompt:  prompt,
+		client:  &http.Client{Timeout: 2 * time.Minute},
 	}
 }
 
@@ -97,8 +99,7 @@ func (o *OllamaResumeGenerator) callOllama(ctx context.Context, prompt string) (
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 2 * time.Minute}
-	resp, err := client.Do(httpReq)
+	resp, err := o.client.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("call ollama: %w", err)
 	}
@@ -144,9 +145,13 @@ Experience: {{.Experience}}
 Return ONLY valid JSON.`
 	}
 
-	// Add job context to template data (safe: map is only used once per call)
-	data["JobTitle"] = jobTitle
-	data["JobRequirements"] = jobRequirements
+	// Create a copy to avoid mutating caller's map
+	tmplData := make(map[string]any, len(data)+2)
+	for k, v := range data {
+		tmplData[k] = v
+	}
+	tmplData["JobTitle"] = jobTitle
+	tmplData["JobRequirements"] = jobRequirements
 
 	systemBuf := new(strings.Builder)
 	systemTmpl, err := template.New("system").Parse(system)
@@ -235,6 +240,7 @@ type OllamaCoverLetterGenerator struct {
 	baseURL string
 	model   string
 	prompt  config.PromptPair
+	client  *http.Client
 }
 
 // NewOllamaCoverLetterGenerator creates a new Ollama-based cover letter generator.
@@ -244,6 +250,7 @@ func NewOllamaCoverLetterGenerator(logger *zap.Logger, baseURL, model string, pr
 		baseURL: baseURL,
 		model:   model,
 		prompt:  prompt,
+		client:  &http.Client{Timeout: 2 * time.Minute},
 	}
 }
 
@@ -300,8 +307,7 @@ func (o *OllamaCoverLetterGenerator) callOllama(ctx context.Context, prompt stri
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 2 * time.Minute}
-	resp, err := client.Do(httpReq)
+	resp, err := o.client.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("call ollama: %w", err)
 	}
