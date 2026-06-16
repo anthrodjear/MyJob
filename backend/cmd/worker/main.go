@@ -1,81 +1,92 @@
 package main
 
 import (
-	"context"
 	"fmt"
+	"net/url"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
+	"strings"
 
 	"github.com/hibiken/asynq"
 	"go.uber.org/zap"
 
+	"backend/internal/applications"
 	"backend/internal/config"
 	"backend/internal/database"
+	"backend/internal/jobs"
+	"backend/internal/resumes"
+	"backend/internal/scoring"
+	"backend/internal/tasks"
 )
 
 func main() {
-	// Load configuration
 	cfg := config.Load()
 
-	// Validate configuration
-	if err := cfg.Validate(); err != nil {
-		panic(fmt.Sprintf("config validation failed: %v", err))
+	logger, err := zap.NewProduction()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to initialize logger: %v\n", err)
+		os.Exit(1)
 	}
-
-	// Initialize logger
-	logger, _ := zap.NewProduction()
 	defer logger.Sync()
 
-	// Connect to PostgreSQL
+	if err := cfg.Validate(); err != nil {
+		logger.Fatal("config validation failed", zap.Error(err))
+	}
+
 	postgres, err := database.NewPostgresDB(cfg.Database.URL, logger)
 	if err != nil {
 		logger.Fatal("Failed to connect to PostgreSQL", zap.Error(err))
 	}
 	defer postgres.Close()
 
-	// Connect to Redis
 	redis, err := database.NewRedisClient(cfg.Redis.URL, logger)
 	if err != nil {
 		logger.Fatal("Failed to connect to Redis", zap.Error(err))
 	}
 	defer redis.Close()
 
-	// Initialize Asynq server
+	// --- Domain initialization ---
+	scoringRepo := scoring.NewRepository(postgres.DB)
+	scoringLLM := scoring.NewLLMScorerFromConfig(logger, cfg.LLM, cfg.Prompts)
+	scoringService := scoring.NewService(scoringRepo, scoringLLM, logger, cfg.Scoring)
+
+	jobsRepo := jobs.NewRepository(postgres.DB)
+	jobsService := jobs.NewService(jobsRepo, nil, cfg.Scoring)
+
+	resumesRepo := resumes.NewRepository(postgres.DB)
+	resumesLLM := resumes.NewResumeGeneratorFromConfig(logger, cfg.LLM, cfg.Prompts)
+	coverLetterLLM := resumes.NewCoverLetterGeneratorFromConfig(logger, cfg.LLM, cfg.Prompts)
+	resumesService := resumes.NewService(resumesRepo, resumesLLM, coverLetterLLM, logger)
+
+	applicationsRepo := applications.NewRepository(postgres.DB)
+	applicationsService := applications.NewService(applicationsRepo, logger)
+
+	browserAgentURL := getEnv("BROWSER_AGENT_URL", "http://localhost:3000")
+	browserClient := NewHTTPBrowserAgentClient(browserAgentURL, logger)
+
+	// --- Asynq server ---
+	redisAddr := parseRedisAddr(cfg.Redis.URL, logger)
+
 	srv := asynq.NewServer(
-		asynq.RedisClientOpt{Addr: fmt.Sprintf("localhost:%s", "6379")},
+		asynq.RedisClientOpt{Addr: redisAddr},
 		asynq.Config{
 			Concurrency: cfg.Queue.Concurrency,
 		},
 	)
 
-	// Register task handlers
 	mux := asynq.NewServeMux()
-	mux.HandleFunc("scrape_source", handleScrapeSource)
-	mux.HandleFunc("generate_resume", handleGenerateResume)
-	mux.HandleFunc("generate_coverletter", handleGenerateCoverLetter)
-	mux.HandleFunc("fill_form", handleFillForm)
-	mux.HandleFunc("submit_application", handleSubmitApplication)
-	mux.HandleFunc("sync_emails", handleSyncEmails)
-	mux.HandleFunc("generate_interview_prep", handleGenerateInterviewPrep)
-	mux.HandleFunc("create_embeddings", handleCreateEmbeddings)
+	mux.HandleFunc(tasks.TypeJobDiscovery, newHandleScrapeSource(jobsService, scoringService, browserClient, logger))
+	mux.HandleFunc(tasks.TypeJobScoring, newHandleScoring(scoringService, logger))
+	mux.HandleFunc(tasks.TypeResumeGenerate, newHandleGenerateResume(resumesService, jobsService, logger))
+	mux.HandleFunc(tasks.TypeCoverLetterGen, newHandleGenerateCoverLetter(resumesService, jobsService, logger))
+	mux.HandleFunc("fill_form", newHandleFillForm(browserClient, logger))
+	mux.HandleFunc(tasks.TypeApplicationSubmit, newHandleSubmitApplication(applicationsService, jobsService, browserClient, logger))
+	mux.HandleFunc(tasks.TypeEmailCheck, newHandleSyncEmails(applicationsService, browserClient, cfg.Email, logger))
+	mux.HandleFunc(tasks.TypeInterviewPrep, newHandleGenerateInterviewPrep(applicationsService, jobsService, logger))
+	mux.HandleFunc(tasks.TypeEmbeddingGenerate, handleCreateEmbeddings)
 	mux.HandleFunc("voice_session", handleVoiceSession)
-
-	// Graceful shutdown
-	_, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go func() {
-		quit := make(chan os.Signal, 1)
-		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-		<-quit
-		cancel()
-	}()
 
 	logger.Info("Worker started")
 
-	// Start processing tasks
 	if err := srv.Run(mux); err != nil {
 		logger.Fatal("Worker failed", zap.Error(err))
 	}
@@ -83,66 +94,26 @@ func main() {
 	logger.Info("Worker stopped")
 }
 
-// Task handler functions
-func handleScrapeSource(ctx context.Context, t *asynq.Task) error {
-	fmt.Println("Handling scrape_source task")
-	// TODO: Implement scraping logic
-	time.Sleep(5 * time.Second)
-	return nil
+// parseRedisAddr extracts host:port from a redis:// URL for asynq.
+func parseRedisAddr(redisURL string, logger *zap.Logger) string {
+	if !strings.Contains(redisURL, "://") {
+		return redisURL
+	}
+	u, err := url.Parse(redisURL)
+	if err != nil {
+		logger.Fatal("invalid Redis URL", zap.String("url", redisURL), zap.Error(err))
+	}
+	addr := u.Host
+	if !strings.Contains(addr, ":") {
+		addr += ":6379"
+	}
+	return addr
 }
 
-func handleGenerateResume(ctx context.Context, t *asynq.Task) error {
-	fmt.Println("Handling generate_resume task")
-	// TODO: Implement resume generation
-	time.Sleep(10 * time.Second)
-	return nil
-}
-
-func handleGenerateCoverLetter(ctx context.Context, t *asynq.Task) error {
-	fmt.Println("Handling generate_coverletter task")
-	// TODO: Implement cover letter generation
-	time.Sleep(5 * time.Second)
-	return nil
-}
-
-func handleFillForm(ctx context.Context, t *asynq.Task) error {
-	fmt.Println("Handling fill_form task")
-	// TODO: Dispatch to browser agent
-	time.Sleep(15 * time.Second)
-	return nil
-}
-
-func handleSubmitApplication(ctx context.Context, t *asynq.Task) error {
-	fmt.Println("Handling submit_application task")
-	// TODO: Dispatch to browser agent
-	time.Sleep(10 * time.Second)
-	return nil
-}
-
-func handleSyncEmails(ctx context.Context, t *asynq.Task) error {
-	fmt.Println("Handling sync_emails task")
-	// TODO: Implement email sync
-	time.Sleep(30 * time.Second)
-	return nil
-}
-
-func handleGenerateInterviewPrep(ctx context.Context, t *asynq.Task) error {
-	fmt.Println("Handling generate_interview_prep task")
-	// TODO: Implement interview prep generation
-	time.Sleep(20 * time.Second)
-	return nil
-}
-
-func handleCreateEmbeddings(ctx context.Context, t *asynq.Task) error {
-	fmt.Println("Handling create_embeddings task")
-	// TODO: Implement embedding creation
-	time.Sleep(5 * time.Second)
-	return nil
-}
-
-func handleVoiceSession(ctx context.Context, t *asynq.Task) error {
-	fmt.Println("Handling voice_session task")
-	// TODO: Implement voice session
-	time.Sleep(60 * time.Second)
-	return nil
+// getEnv returns the environment variable value or a default.
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
 }

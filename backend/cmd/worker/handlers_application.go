@@ -1,0 +1,290 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/hibiken/asynq"
+	"go.uber.org/zap"
+
+	"backend/internal/applications"
+	"backend/internal/config"
+	"backend/internal/jobs"
+	"backend/internal/tasks"
+)
+
+// newHandleFillForm processes fill_form tasks.
+func newHandleFillForm(browserClient BrowserAgentClient, logger *zap.Logger) asynq.HandlerFunc {
+	return func(ctx context.Context, t *asynq.Task) error {
+		log := logger.Named("task.fill_form")
+
+		var payload struct {
+			PortalURL  string            `json:"portal_url"`
+			PortalType string            `json:"portal_type"`
+			FormData   map[string]string `json:"form_data"`
+			ResumePath string            `json:"resume_path,omitempty"`
+		}
+		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+			log.Error("unmarshal payload", zap.String("task_type", t.Type()), zap.Error(err))
+			return fmt.Errorf("fill_form: unmarshal payload: %w", err)
+		}
+
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+		defer cancel()
+
+		log.Info("filling form", zap.String("portal_url", payload.PortalURL))
+
+		resp, err := browserClient.FillForm(ctx, FillFormRequest{
+			PortalURL: payload.PortalURL, PortalType: payload.PortalType,
+			FormData: payload.FormData, ResumePath: payload.ResumePath,
+		})
+		if err != nil {
+			log.Error("fill form", zap.String("portal_url", payload.PortalURL), zap.Error(err))
+			return fmt.Errorf("fill_form: %s: %w", payload.PortalURL, err)
+		}
+
+		log.Info("form filled", zap.String("portal_url", payload.PortalURL), zap.Bool("success", resp.Success))
+		return nil
+	}
+}
+
+// newHandleSubmitApplication processes application_submit tasks.
+func newHandleSubmitApplication(
+	applicationsSvc *applications.Service,
+	jobsSvc *jobs.Service,
+	browserClient BrowserAgentClient,
+	logger *zap.Logger,
+) asynq.HandlerFunc {
+	return func(ctx context.Context, t *asynq.Task) error {
+		log := logger.Named("task.application_submit")
+
+		var payload tasks.ApplicationSubmitPayload
+		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+			log.Error("unmarshal payload", zap.String("task_type", t.Type()), zap.Error(err))
+			return fmt.Errorf("application_submit: unmarshal payload: %w", err)
+		}
+
+		ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+		defer cancel()
+
+		log.Info("submitting application",
+			zap.String("application_id", payload.ApplicationID.String()),
+			zap.String("correlation_id", payload.CorrelationID.String()),
+		)
+
+		app, err := applicationsSvc.GetByID(ctx, payload.ApplicationID)
+		if err != nil {
+			if errors.Is(err, applications.ErrNotFound) {
+				log.Warn("application not found, skipping")
+				return nil
+			}
+			log.Error("fetch application", zap.Error(err))
+			return fmt.Errorf("application_submit: fetch %s: %w", payload.ApplicationID, err)
+		}
+
+		job, err := jobsSvc.GetByID(ctx, app.JobID)
+		if err != nil {
+			if errors.Is(err, jobs.ErrNotFound) {
+				log.Warn("job not found, skipping", zap.String("job_id", app.JobID.String()))
+				return nil
+			}
+			log.Error("fetch job", zap.String("job_id", app.JobID.String()), zap.Error(err))
+			return fmt.Errorf("application_submit: fetch job %s: %w", app.JobID, err)
+		}
+
+		portalURL := job.URL
+		if app.PortalURL != nil && *app.PortalURL != "" {
+			portalURL = *app.PortalURL
+		}
+		portalType := "greenhouse"
+		if app.PortalType != nil && *app.PortalType != "" {
+			portalType = *app.PortalType
+		}
+
+		var formData map[string]string
+		if err := json.Unmarshal(payload.FormData, &formData); err != nil {
+			log.Error("unmarshal form data", zap.Error(err))
+			return fmt.Errorf("application_submit: unmarshal form data: %w", err)
+		}
+
+		resp, err := browserClient.FillForm(ctx, FillFormRequest{
+			PortalURL: portalURL, PortalType: portalType, FormData: formData,
+		})
+		if err != nil {
+			log.Error("fill form", zap.String("portal_url", portalURL), zap.Error(err))
+			return fmt.Errorf("application_submit: fill form %s: %w", payload.ApplicationID, err)
+		}
+		if !resp.Success {
+			log.Warn("form fill reported failure, skipping retry",
+				zap.String("application_id", payload.ApplicationID.String()),
+				zap.String("portal_url", portalURL),
+				zap.String("message", resp.Message),
+			)
+			return nil // business-level failure, not retryable
+		}
+
+		if err := applicationsSvc.UpdateStatus(ctx, payload.ApplicationID, applications.StatusApplied, "Submitted via browser agent"); err != nil {
+			log.Error("update status", zap.Error(err))
+			return fmt.Errorf("application_submit: update status %s: %w", payload.ApplicationID, err)
+		}
+
+		log.Info("application submitted",
+			zap.String("application_id", payload.ApplicationID.String()),
+			zap.String("portal_url", portalURL),
+		)
+		return nil
+	}
+}
+
+// newHandleSyncEmails processes email_check tasks.
+func newHandleSyncEmails(
+	applicationsSvc *applications.Service,
+	browserClient BrowserAgentClient,
+	emailCfg config.EmailConfig,
+	logger *zap.Logger,
+) asynq.HandlerFunc {
+	return func(ctx context.Context, t *asynq.Task) error {
+		log := logger.Named("task.email_check")
+
+		var payload tasks.EmailCheckPayload
+		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+			log.Error("unmarshal payload", zap.String("task_type", t.Type()), zap.Error(err))
+			return fmt.Errorf("email_check: unmarshal payload: %w", err)
+		}
+
+		ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		defer cancel()
+
+		log.Info("checking emails",
+			zap.String("application_id", payload.ApplicationID.String()),
+			zap.String("correlation_id", payload.CorrelationID.String()),
+		)
+
+		_, err := applicationsSvc.GetByID(ctx, payload.ApplicationID)
+		if err != nil {
+			if errors.Is(err, applications.ErrNotFound) {
+				log.Warn("application not found, skipping")
+				return nil
+			}
+			log.Error("fetch application", zap.Error(err))
+			return fmt.Errorf("email_check: fetch %s: %w", payload.ApplicationID, err)
+		}
+
+		if emailCfg.Provider == "" || emailCfg.TenantID == "" {
+			log.Warn("email provider not configured, skipping")
+			return nil
+		}
+
+		resp, err := browserClient.CheckEmails(ctx, CheckEmailsRequest{
+			TenantID: emailCfg.TenantID, ClientID: emailCfg.ClientID,
+			ClientSecret: emailCfg.ClientSecret, Folders: emailCfg.Folders,
+			ApplicationID: payload.ApplicationID.String(),
+		})
+		if err != nil {
+			log.Error("check emails", zap.Error(err))
+			return fmt.Errorf("email_check: %s: %w", payload.ApplicationID, err)
+		}
+
+		for _, email := range resp.Emails {
+			log.Info("email received",
+				zap.String("application_id", payload.ApplicationID.String()),
+				zap.String("from", email.From),
+				zap.String("subject", email.Subject),
+				zap.String("classification", email.Classification),
+				zap.String("correlation_id", payload.CorrelationID.String()),
+			)
+
+			var statusErr error
+			switch email.Classification {
+			case "rejection":
+				statusErr = applicationsSvc.UpdateStatus(ctx, payload.ApplicationID, applications.StatusRejected, "Rejected: "+email.Subject)
+			case "interview":
+				statusErr = applicationsSvc.UpdateStatus(ctx, payload.ApplicationID, applications.StatusPhoneScreen, "Interview: "+email.Subject)
+			case "offer":
+				statusErr = applicationsSvc.UpdateStatus(ctx, payload.ApplicationID, applications.StatusOffer, "Offer: "+email.Subject)
+			}
+			if statusErr != nil {
+				log.Error("update application status",
+					zap.String("application_id", payload.ApplicationID.String()),
+					zap.String("classification", email.Classification),
+					zap.String("correlation_id", payload.CorrelationID.String()),
+					zap.Error(statusErr),
+				)
+				return fmt.Errorf("email_check: update status %s: %w", payload.ApplicationID, statusErr)
+			}
+		}
+
+		log.Info("email check complete",
+			zap.String("application_id", payload.ApplicationID.String()),
+			zap.Int("emails_found", len(resp.Emails)),
+		)
+		return nil
+	}
+}
+
+// newHandleGenerateInterviewPrep processes interview_prep tasks.
+func newHandleGenerateInterviewPrep(
+	applicationsSvc *applications.Service,
+	jobsSvc *jobs.Service,
+	logger *zap.Logger,
+) asynq.HandlerFunc {
+	return func(ctx context.Context, t *asynq.Task) error {
+		log := logger.Named("task.interview_prep")
+
+		var payload tasks.InterviewPrepPayload
+		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+			log.Error("unmarshal payload", zap.String("task_type", t.Type()), zap.Error(err))
+			return fmt.Errorf("interview_prep: unmarshal payload: %w", err)
+		}
+
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+		defer cancel()
+
+		log.Info("generating interview prep",
+			zap.String("application_id", payload.ApplicationID.String()),
+			zap.String("correlation_id", payload.CorrelationID.String()),
+		)
+
+		app, err := applicationsSvc.GetByID(ctx, payload.ApplicationID)
+		if err != nil {
+			if errors.Is(err, applications.ErrNotFound) {
+				log.Warn("application not found, skipping")
+				return nil
+			}
+			log.Error("fetch application", zap.Error(err))
+			return fmt.Errorf("interview_prep: fetch %s: %w", payload.ApplicationID, err)
+		}
+
+		job, err := jobsSvc.GetByID(ctx, app.JobID)
+		if err != nil {
+			if errors.Is(err, jobs.ErrNotFound) {
+				log.Warn("job not found, skipping")
+				return nil
+			}
+			log.Error("fetch job", zap.Error(err))
+			return fmt.Errorf("interview_prep: fetch job %s: %w", app.JobID, err)
+		}
+
+		log.Info("interview prep generated",
+			zap.String("application_id", payload.ApplicationID.String()),
+			zap.String("job_title", job.Title),
+			zap.String("company", job.Company),
+			zap.String("status", "placeholder — LLM generation pending"),
+		)
+
+		return nil
+	}
+}
+
+// handleCreateEmbeddings is a stub — pending Ollama embedding integration.
+func handleCreateEmbeddings(ctx context.Context, t *asynq.Task) error {
+	return fmt.Errorf("handler %s: not implemented", t.Type())
+}
+
+// handleVoiceSession is a stub — pending LiveKit integration.
+func handleVoiceSession(ctx context.Context, t *asynq.Task) error {
+	return fmt.Errorf("handler %s: not implemented", t.Type())
+}
