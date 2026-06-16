@@ -21,7 +21,7 @@ var (
 // validTypes is the set of allowed task types.
 var validTypes = map[string]bool{
 	TypeJobDiscovery:      true,
-	TypeResumeScoring:     true,
+	TypeJobScoring:        true,
 	TypeApplicationSubmit: true,
 	TypeEmbeddingGenerate: true,
 	TypeCoverLetterGen:    true,
