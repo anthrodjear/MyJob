@@ -1,6 +1,6 @@
 # Project Progress Tracker
 
-> Auto-updated as milestones complete. Last updated: 2026-06-15
+> Auto-updated as milestones complete. Last updated: 2026-06-16
 
 ---
 
@@ -10,8 +10,8 @@
 |-------|-------|
 | **Project** | AI Job Search Agent |
 | **Active Phase** | Phase 1 — Foundation (implementation in progress) |
-| **Phase Progress** | Scaffolding 100% / Implementation ~60% (5/6 domains complete + scoring architecture) |
-| **Overall Progress** | ~40% (structure built, services compile, 5 domains implemented + wired, scoring LLM architecture done) |
+| **Phase Progress** | Scaffolding 100% / Implementation ~70% (6/6 domains complete + cover letter LLM-first) |
+| **Overall Progress** | ~45% (structure built, services compile, 6 domains implemented + wired, LLM-first architecture) |
 | **Blockers** | None |
 | **Next Up** | Worker task handlers + Browser Agent scrapers |
 
@@ -49,7 +49,7 @@
 | `auth` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
 | `jobs` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
 | `applications` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
-| `resumes` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
+| `resumes` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** (with cover letter LLM-first, StringSliceDB) |
 | `scoring` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete (handler + wiring done)** |
 
 #### 1.4 API Handlers — IN PROGRESS
@@ -61,7 +61,7 @@
 | `/api/v1/jobs/*` | list, get, update, scan | **Complete** | Job discovery + CRUD |
 | `/api/v1/applications/*` | list, get, create, update-status, update-notes, stats, events | **Complete** | Application lifecycle + audit trail |
 | `/api/v1/resumes/*` | list, get, create, update, delete | **Complete** | Resume CRUD with optimistic locking |
-| `/api/v1/cover-letters/*` | list, get, create, delete | **Complete** | Cover letter management |
+| `/api/v1/cover-letters/*` | list, get, create, generate, update-content, delete | **Complete** | Cover letter with LLM generation + traceability |
 | `/api/v1/scoring/*` | score, get, batch | **Complete** | Scoring pipeline |
 
 #### 1.5 Worker Task Handlers — NOT STARTED
@@ -104,9 +104,9 @@ The following domains now have LLM interfaces defined with prompts in `config/ap
 | Domain | LLM Interface | Prompt in Config | Implementation Status |
 |--------|---------------|------------------|----------------------|
 | **Scoring** | `LLMScorer` + `OllamaLLMScorer` | `prompts.scoring` | ✅ Interface + config + handler wired (async) |
+| **Cover Letters** | `CoverLetterGenerator` + `OllamaCoverLetterGenerator` | `prompts.cover_letter` | ✅ Interface + config + handler + StringSliceDB (LLM-first with traceability) |
 | **Email Classifier** | `EmailClassifier` (planned) | `prompts.email_classifier` | 📋 Designed, not coded |
 | **Job Extraction** | `JobExtractor` (planned) | `prompts.job_extraction` | 📋 Designed, not coded |
-| **Cover Letters** | `CoverLetterGenerator` (planned) | `prompts.cover_letter` | 📋 Designed, not coded |
 | **Resume Tailor** | `ResumeTailor` (planned) | `prompts.resume_tailor` | 📋 Designed, not coded |
 | **Interview Prep** | `InterviewPrep` (planned) | `prompts.interview_prep` | 📋 Designed, not coded |
 | **Form Filling** | `FormUnderstander` (planned) | `prompts.form_understanding` | 📋 Designed, not coded |
@@ -125,8 +125,8 @@ All prompts use Go template syntax (`{{.Field}}`) and are loaded via `config.Loa
 2. **`auth` domain** — ✅ Complete
 3. **`jobs` domain** — ✅ Complete (wired into router)
 4. **`applications` domain** — ✅ Complete (wired into router, includes audit trail)
-5. **`resumes` domain** — ✅ Complete (wired into router, optimistic locking, cover letters)
-6. **`scoring` domain** — **Next**: Create handler.go, wire into router.go + main.go
+5. **`resumes` domain** — ✅ Complete (wired into router, optimistic locking, cover letters with LLM-first)
+6. **`scoring` domain** — ✅ Complete (handler + wiring done, LLM scoring architecture)
 
 ### Wave 2: Workers & Integration
 
@@ -189,6 +189,9 @@ All prompts use Go template syntax (`{{.Field}}`) and are loaded via `config.Loa
 | 2026-06-15 | pq.StringArray for text[] | Safe PostgreSQL array scanning |
 | 2026-06-15 | **LLM-first architecture** | All semantic understanding via LLM, prompts in config, no hand-written heuristics |
 | 2026-06-15 | **Centralized prompts in config** | `config/application.yaml` holds all prompts, user-tunable, version-controlled |
+| 2026-06-16 | **Cover letter LLM-first upgrade** | Added Model, PromptVersion, ResumeVersion, Strengths, Gaps traceability fields |
+| 2026-06-16 | **StringSliceDB for JSONB arrays** | Custom driver.Valuer/Scanner for `[]string` ↔ JSONB, avoids pq.StringArray syntax mismatch |
+| 2026-06-16 | **Two-phase cover letter creation** | Create placeholder → POST /:id/generate fills content via LLM |
 
 ---
 

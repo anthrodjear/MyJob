@@ -86,8 +86,8 @@ Return ONLY valid JSON.`
 	systemBuf := new(strings.Builder)
 	systemTmpl, err := template.New("system").Parse(system)
 	if err != nil {
-		o.logger.Warn("system template parse error", zap.Error(err))
-		systemBuf.WriteString(system)
+		o.logger.Warn("system template parse error, using fallback", zap.Error(err))
+		systemBuf.WriteString(`You are a resume content generator. Create a structured, ATS-friendly resume.`)
 	} else if err := systemTmpl.Execute(systemBuf, data); err != nil {
 		o.logger.Warn("system template execute error", zap.Error(err))
 	}
@@ -95,8 +95,8 @@ Return ONLY valid JSON.`
 	userBuf := new(strings.Builder)
 	userTmpl, err := template.New("user").Parse(user)
 	if err != nil {
-		o.logger.Warn("user template parse error", zap.Error(err))
-		userBuf.WriteString(user)
+		o.logger.Warn("user template parse error, using fallback", zap.Error(err))
+		userBuf.WriteString(`Generate structured resume content. Return ONLY valid JSON.`)
 	} else if err := userTmpl.Execute(userBuf, data); err != nil {
 		o.logger.Warn("user template execute error", zap.Error(err))
 	}
@@ -145,4 +145,143 @@ func ParseResumeContent(data []byte) (*ResumeContent, error) {
 		return nil, err
 	}
 	return &content, nil
+}
+
+// --- Cover Letter Generation ---
+
+// CoverLetterGenResult holds the LLM output for cover letter generation.
+type CoverLetterGenResult struct {
+	Content   string   `json:"content"`
+	Strengths []string `json:"strengths"`
+	Gaps      []string `json:"gaps"`
+}
+
+// CoverLetterGenerator defines the interface for LLM-based cover letter generation.
+type CoverLetterGenerator interface {
+	// GenerateContent creates cover letter content with traceability metadata.
+	GenerateContent(ctx context.Context, jobTitle, jobRequirements, jobDescription string, resumeContent *ResumeContent) (*CoverLetterGenResult, error)
+	// ModelName returns the identifier of the LLM model used.
+	ModelName() string
+}
+
+// OllamaCoverLetterGenerator calls a local Ollama model for cover letter generation.
+type OllamaCoverLetterGenerator struct {
+	logger  *zap.Logger
+	baseURL string
+	model   string
+	prompt  config.PromptPair
+}
+
+// NewOllamaCoverLetterGenerator creates a new Ollama-based cover letter generator.
+func NewOllamaCoverLetterGenerator(logger *zap.Logger, baseURL, model string, prompt config.PromptPair) *OllamaCoverLetterGenerator {
+	return &OllamaCoverLetterGenerator{
+		logger:  logger.Named("llm.cover_letter"),
+		baseURL: baseURL,
+		model:   model,
+		prompt:  prompt,
+	}
+}
+
+// ModelName returns the Ollama model identifier.
+func (o *OllamaCoverLetterGenerator) ModelName() string {
+	return o.model
+}
+
+// GenerateContent sends job + resume context to Ollama for cover letter generation.
+func (o *OllamaCoverLetterGenerator) GenerateContent(ctx context.Context, jobTitle, jobRequirements, jobDescription string, resumeContent *ResumeContent) (*CoverLetterGenResult, error) {
+	data := map[string]any{
+		"JobTitle":       jobTitle,
+		"JobRequirements": jobRequirements,
+		"JobDescription": jobDescription,
+	}
+	if resumeContent != nil {
+		data["Skills"] = resumeContent.Skills
+		data["Experience"] = resumeContent.Experience
+		data["Summary"] = resumeContent.Summary
+	}
+
+	prompt := o.buildPrompt(data)
+	_ = prompt // TODO: use prompt in Ollama API call
+
+	// TODO: Implement Ollama API call (POST /api/generate)
+	// For now, return a placeholder
+	o.logger.Debug("LLM cover letter generation not yet implemented, returning placeholder",
+		zap.String("model", o.model),
+	)
+
+	return &CoverLetterGenResult{
+		Content:   fmt.Sprintf("Dear Hiring Manager,\n\nI am writing to express my interest in the %s position.", jobTitle),
+		Strengths: []string{"placeholder"},
+		Gaps:      []string{},
+	}, nil
+}
+
+// buildPrompt constructs the generation prompt from config template using text/template.
+func (o *OllamaCoverLetterGenerator) buildPrompt(data map[string]any) string {
+	system := o.prompt.System
+	user := o.prompt.User
+
+	if system == "" {
+		system = `You are a professional cover letter writer. Write compelling, personalized cover letters.`
+	}
+	if user == "" {
+		user = `Write a cover letter for this job application.
+
+Job Title: {{.JobTitle}}
+Requirements: {{.JobRequirements}}
+
+Return the cover letter text only, no JSON.`
+	}
+
+	systemBuf := new(strings.Builder)
+	systemTmpl, err := template.New("system").Parse(system)
+	if err != nil {
+		o.logger.Warn("system template parse error, using fallback", zap.Error(err))
+		systemBuf.WriteString(`You are a professional cover letter writer. Write compelling, personalized cover letters.`)
+	} else if err := systemTmpl.Execute(systemBuf, data); err != nil {
+		o.logger.Warn("system template execute error", zap.Error(err))
+	}
+
+	userBuf := new(strings.Builder)
+	userTmpl, err := template.New("user").Parse(user)
+	if err != nil {
+		o.logger.Warn("user template parse error, using fallback", zap.Error(err))
+		userBuf.WriteString(`Write a cover letter. Return the cover letter text only, no JSON.`)
+	} else if err := userTmpl.Execute(userBuf, data); err != nil {
+		o.logger.Warn("user template execute error", zap.Error(err))
+	}
+
+	return systemBuf.String() + "\n\n" + userBuf.String()
+}
+
+// NoopCoverLetterGenerator is a fallback when LLM is disabled or unavailable.
+type NoopCoverLetterGenerator struct {
+	logger *zap.Logger
+}
+
+// NewNoopCoverLetterGenerator creates a no-op cover letter generator.
+func NewNoopCoverLetterGenerator(logger *zap.Logger) *NoopCoverLetterGenerator {
+	return &NoopCoverLetterGenerator{logger: logger.Named("llm.cover_letter.noop")}
+}
+
+// GenerateContent returns empty content — used when LLM generation is disabled.
+func (n *NoopCoverLetterGenerator) GenerateContent(_ context.Context, _, _, _ string, _ *ResumeContent) (*CoverLetterGenResult, error) {
+	return &CoverLetterGenResult{
+		Content:   "LLM generation disabled — please add content manually.",
+		Strengths: []string{},
+		Gaps:      []string{},
+	}, nil
+}
+
+// ModelName returns the model identifier.
+func (n *NoopCoverLetterGenerator) ModelName() string {
+	return "noop"
+}
+
+// NewCoverLetterGeneratorFromConfig creates a CoverLetterGenerator based on configuration.
+func NewCoverLetterGeneratorFromConfig(logger *zap.Logger, cfg config.LLMConfig, prompts config.PromptsConfig) CoverLetterGenerator {
+	if cfg.Local.Provider == "ollama" && cfg.Local.BaseURL != "" {
+		return NewOllamaCoverLetterGenerator(logger, cfg.Local.BaseURL, cfg.Local.Model, prompts.CoverLetter)
+	}
+	return NewNoopCoverLetterGenerator(logger)
 }

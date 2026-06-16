@@ -76,7 +76,8 @@ func main() {
 	// Initialize resumes domain
 	resumesRepo := resumes.NewRepository(postgres.DB)
 	resumesLLM := resumes.NewResumeGeneratorFromConfig(logger, cfg.LLM, cfg.Prompts)
-	resumesService := resumes.NewService(resumesRepo, resumesLLM, logger)
+	coverLetterLLM := resumes.NewCoverLetterGeneratorFromConfig(logger, cfg.LLM, cfg.Prompts)
+	resumesService := resumes.NewService(resumesRepo, resumesLLM, coverLetterLLM, logger)
 	resumesHandler := resumes.NewHandler(resumesService, logger)
 
 	// Initialize scoring domain

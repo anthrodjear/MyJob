@@ -46,6 +46,8 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 		coverLetters.GET("", h.ListCoverLetters)
 		coverLetters.GET("/:id", h.GetCoverLetter)
 		coverLetters.POST("", h.CreateCoverLetter)
+		coverLetters.POST("/:id/generate", h.GenerateCoverLetter)
+		coverLetters.PUT("/:id/content", h.UpdateCoverLetterContent)
 		coverLetters.DELETE("/:id", h.DeleteCoverLetter)
 	}
 }
@@ -389,7 +391,7 @@ func (h *Handler) GetCoverLetter(c *gin.Context) {
 
 // CreateCoverLetter handles POST /cover-letters.
 func (h *Handler) CreateCoverLetter(c *gin.Context) {
-	var req GenerateCoverLetterRequest
+	var req CreateCoverLetterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		httpresp.BadRequest(c, "INVALID_INPUT", "invalid request body")
 		return
@@ -403,6 +405,70 @@ func (h *Handler) CreateCoverLetter(c *gin.Context) {
 	}
 
 	httpresp.Created(c, ToCoverLetterResponse(cl))
+}
+
+// GenerateCoverLetter handles POST /cover-letters/:id/generate.
+func (h *Handler) GenerateCoverLetter(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httpresp.BadRequest(c, "INVALID_ID", "invalid cover letter id")
+		return
+	}
+
+	var req GenerateCoverLetterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpresp.BadRequest(c, "INVALID_INPUT", "invalid request body")
+		return
+	}
+
+	cl, err := h.svc.GenerateCoverLetter(c.Request.Context(), id, req)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			httpresp.NotFound(c, "COVER_LETTER_NOT_FOUND", err.Error())
+			return
+		}
+		if errors.Is(err, ErrVersionConflict) {
+			httpresp.Conflict(c, "VERSION_CONFLICT", "cover letter was modified by another process — please refresh")
+			return
+		}
+		h.logger.Error("generate cover letter", zap.String("id", id.String()), zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, ToCoverLetterResponse(cl))
+}
+
+// UpdateCoverLetterContent handles PUT /cover-letters/:id/content.
+func (h *Handler) UpdateCoverLetterContent(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httpresp.BadRequest(c, "INVALID_ID", "invalid cover letter id")
+		return
+	}
+
+	var req UpdateCoverLetterContentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpresp.BadRequest(c, "INVALID_INPUT", "invalid request body")
+		return
+	}
+
+	cl, err := h.svc.UpdateCoverLetterContent(c.Request.Context(), id, req.Content)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			httpresp.NotFound(c, "COVER_LETTER_NOT_FOUND", err.Error())
+			return
+		}
+		if errors.Is(err, ErrVersionConflict) {
+			httpresp.Conflict(c, "VERSION_CONFLICT", "cover letter was modified by another process — please refresh")
+			return
+		}
+		h.logger.Error("update cover letter content", zap.String("id", id.String()), zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, ToCoverLetterResponse(cl))
 }
 
 // DeleteCoverLetter handles DELETE /cover-letters/:id.

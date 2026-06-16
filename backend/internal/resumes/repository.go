@@ -15,6 +15,11 @@ import (
 const resumeColumns = `id, name, specialization, template_path, focus_skills, highlight_experience,
                        content, pdf_key, version, created_at, updated_at`
 
+// coverLetterColumns lists all cover letter columns for SELECT queries.
+const coverLetterColumns = `id, job_id, resume_id, job_title, content, model, prompt_version,
+                            resume_version, pdf_key, strengths, gaps, word_count, version,
+                            created_at, updated_at`
+
 // Repository defines the interface for resume and cover letter data access.
 // Used for testability — mock this in unit tests.
 type Repository interface {
@@ -31,6 +36,8 @@ type Repository interface {
 	GetCoverLetterByID(ctx context.Context, id uuid.UUID) (*CoverLetter, error)
 	ListCoverLetters(ctx context.Context, limit, offset int) ([]*CoverLetter, int64, error)
 	CreateCoverLetter(ctx context.Context, cl *CoverLetter) error
+	UpdateCoverLetterContent(ctx context.Context, id uuid.UUID, content string, model, promptVersion *string, resumeVersion *int32, strengths, gaps *StringSliceDB, wordCount *int, currentVersion int32) (int32, error)
+	UpdateCoverLetterPdfKey(ctx context.Context, id uuid.UUID, pdfKey string) error
 	DeleteCoverLetter(ctx context.Context, id uuid.UUID) error
 }
 
@@ -241,7 +248,7 @@ func (r *PostgresRepository) GetVersion(ctx context.Context, resumeID uuid.UUID,
 func (r *PostgresRepository) GetCoverLetterByID(ctx context.Context, id uuid.UUID) (*CoverLetter, error) {
 	var cl CoverLetter
 	err := r.db.GetContext(ctx, &cl,
-		`SELECT id, job_id, resume_id, content, pdf_key, word_count, version, created_at, updated_at
+		`SELECT `+coverLetterColumns+`
 		 FROM cover_letters WHERE id = $1`, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -261,7 +268,7 @@ func (r *PostgresRepository) ListCoverLetters(ctx context.Context, limit, offset
 
 	var letters []*CoverLetter
 	err := r.db.SelectContext(ctx, &letters,
-		`SELECT id, job_id, resume_id, content, pdf_key, word_count, version, created_at, updated_at
+		`SELECT `+coverLetterColumns+`
 		 FROM cover_letters ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list cover letters: %w", err)
@@ -272,12 +279,65 @@ func (r *PostgresRepository) ListCoverLetters(ctx context.Context, limit, offset
 // CreateCoverLetter inserts a new cover letter and returns the DB-assigned values.
 func (r *PostgresRepository) CreateCoverLetter(ctx context.Context, cl *CoverLetter) error {
 	return r.db.QueryRowxContext(ctx,
-		`INSERT INTO cover_letters (id, job_id, resume_id, content, pdf_key, word_count, version, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		`INSERT INTO cover_letters (id, job_id, resume_id, job_title, content, model, prompt_version,
+		                           resume_version, pdf_key, strengths, gaps, word_count, version,
+		                           created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		 RETURNING version, created_at, updated_at`,
-		cl.ID, cl.JobID, cl.ResumeID, cl.Content, cl.PdfKey, cl.WordCount,
-		cl.Version, cl.CreatedAt, cl.UpdatedAt,
+		cl.ID, cl.JobID, cl.ResumeID, cl.JobTitle, cl.Content, cl.Model, cl.PromptVersion,
+		cl.ResumeVersion, cl.PdfKey, cl.Strengths, cl.Gaps,
+		cl.WordCount, cl.Version, cl.CreatedAt, cl.UpdatedAt,
 	).Scan(&cl.Version, &cl.CreatedAt, &cl.UpdatedAt)
+}
+
+// UpdateCoverLetterContent updates content and LLM traceability fields with optimistic locking.
+// Returns the new version number.
+func (r *PostgresRepository) UpdateCoverLetterContent(ctx context.Context, id uuid.UUID, content string, model, promptVersion *string, resumeVersion *int32, strengths, gaps *StringSliceDB, wordCount *int, currentVersion int32) (int32, error) {
+	var newVersion int32
+	err := r.db.QueryRowContext(ctx,
+		`UPDATE cover_letters SET content = $1, model = $2, prompt_version = $3,
+		        resume_version = $4, strengths = $5, gaps = $6, word_count = $7,
+		        version = version + 1, updated_at = NOW()
+		 WHERE id = $8 AND version = $9
+		 RETURNING version`,
+		content, model, promptVersion, resumeVersion,
+		strengths, gaps, wordCount, id, currentVersion,
+	).Scan(&newVersion)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// Distinguish: not found vs version conflict
+			var exists bool
+			if existsErr := r.db.QueryRowContext(ctx,
+				"SELECT EXISTS(SELECT 1 FROM cover_letters WHERE id = $1)", id,
+			).Scan(&exists); existsErr != nil {
+				return 0, fmt.Errorf("check cover letter exists: %w", existsErr)
+			}
+			if !exists {
+				return 0, ErrNotFound
+			}
+			return 0, ErrVersionConflict
+		}
+		return 0, fmt.Errorf("update cover letter content: %w", err)
+	}
+	return newVersion, nil
+}
+
+// UpdateCoverLetterPdfKey updates only the PDF storage key.
+func (r *PostgresRepository) UpdateCoverLetterPdfKey(ctx context.Context, id uuid.UUID, pdfKey string) error {
+	result, err := r.db.ExecContext(ctx,
+		`UPDATE cover_letters SET pdf_key = $1, updated_at = NOW() WHERE id = $2`,
+		pdfKey, id)
+	if err != nil {
+		return fmt.Errorf("update cover letter pdf key: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // DeleteCoverLetter deletes a cover letter by ID.

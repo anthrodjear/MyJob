@@ -92,6 +92,31 @@ func (r *ResumeContentDB) Scan(value interface{}) error {
 	return json.Unmarshal(bytes, r)
 }
 
+// StringSliceDB wraps []string for JSONB database storage.
+// Used for columns like strengths/gaps that are JSONB arrays in PostgreSQL.
+type StringSliceDB []string
+
+// Value implements driver.Valuer for database storage.
+func (s StringSliceDB) Value() (driver.Value, error) {
+	if s == nil {
+		return nil, nil
+	}
+	return json.Marshal(s)
+}
+
+// Scan implements sql.Scanner for database retrieval.
+func (s *StringSliceDB) Scan(value interface{}) error {
+	if value == nil {
+		*s = nil
+		return nil
+	}
+	bytes, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+	return json.Unmarshal(bytes, s)
+}
+
 // Resume represents a resume version.
 type Resume struct {
 	ID                  uuid.UUID
@@ -133,25 +158,30 @@ type ResumeVersion struct {
 	CreatedAt time.Time
 }
 
-// CoverLetter represents a generated cover letter.
+// CoverLetter represents a generated cover letter with LLM traceability.
 type CoverLetter struct {
-	ID        uuid.UUID
-	JobID     *uuid.UUID
-	ResumeID  *uuid.UUID
-	Content   string // Can be plain text or JSON for structured content
-	PdfKey    *string
-	WordCount *int
-	Version   int32
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID             uuid.UUID
+	JobID          *uuid.UUID
+	ResumeID       *uuid.UUID
+	JobTitle       *string        // denormalized job title for quick display
+	Content        string         // plain text cover letter content
+	Model          *string        // LLM model used (e.g., "ollama/qwen2.5")
+	PromptVersion  *string        // prompt version used for traceability
+	ResumeVersion  *int32         // resume version used for generation
+	PdfKey         *string        // storage key for generated PDF
+	Strengths      *StringSliceDB // LLM-identified strengths to highlight
+	Gaps           *StringSliceDB // LLM-identified gaps to address
+	WordCount      *int
+	Version        int32
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 // NewCoverLetter creates a new CoverLetter with default values.
-func NewCoverLetter(content string) *CoverLetter {
+func NewCoverLetter() *CoverLetter {
 	now := time.Now().UTC()
 	return &CoverLetter{
 		ID:        uuid.New(),
-		Content:   content,
 		Version:   1,
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -163,5 +193,5 @@ var (
 	ErrInvalidInput    = errors.New("invalid input")
 	ErrNotFound        = errors.New("resume not found")
 	ErrNoContent       = errors.New("resume has no content")
-	ErrVersionConflict = errors.New("version conflict — resume was modified by another process")
+	ErrVersionConflict = errors.New("version conflict — resource was modified by another process")
 )

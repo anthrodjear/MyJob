@@ -191,7 +191,8 @@ internal/
 │   ├── service.go
 │   ├── repository.go
 │   ├── model.go
-│   └── dto.go
+│   ├── dto.go
+│   └── llm.go          # ResumeGenerator + CoverLetterGenerator interfaces
 ├── scoring/
 │   ├── handler.go
 │   ├── service.go
@@ -274,6 +275,24 @@ POST   /api/v1/applications                     → create application
 PUT    /api/v1/applications/:id/status          → update status (with audit trail)
 PATCH  /api/v1/applications/:id/notes           → update permanent notes
 GET    /api/v1/applications/:id/events          → audit timeline
+
+GET    /api/v1/resumes                          → list resumes
+GET    /api/v1/resumes/:id                      → get resume
+POST   /api/v1/resumes                          → create resume
+PUT    /api/v1/resumes/:id                      → update resume
+DELETE /api/v1/resumes/:id                      → delete resume
+GET    /api/v1/resumes/:id/content              → get resume content
+PUT    /api/v1/resumes/:id/content              → update resume content
+POST   /api/v1/resumes/:id/generate             → generate resume content via LLM
+GET    /api/v1/resumes/:id/versions             → list resume versions
+GET    /api/v1/resumes/:id/versions/:version    → get specific version
+
+GET    /api/v1/cover-letters                    → list cover letters
+GET    /api/v1/cover-letters/:id                → get cover letter
+POST   /api/v1/cover-letters                    → create cover letter placeholder
+POST   /api/v1/cover-letters/:id/generate       → generate cover letter via LLM
+PUT    /api/v1/cover-letters/:id/content        → update cover letter content
+DELETE /api/v1/cover-letters/:id                → delete cover letter
 ```
 
 ---

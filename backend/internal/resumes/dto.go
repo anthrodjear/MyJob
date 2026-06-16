@@ -41,10 +41,20 @@ type UpdateResumeContentRequest struct {
 	Content ResumeContent `json:"content" binding:"required"`
 }
 
-// GenerateCoverLetterRequest is the payload for POST /cover-letters.
-type GenerateCoverLetterRequest struct {
+// CreateCoverLetterRequest is the payload for POST /cover-letters.
+// Creates an empty cover letter placeholder — use POST /cover-letters/:id/generate to fill content.
+type CreateCoverLetterRequest struct {
 	JobID    uuid.UUID  `json:"job_id" binding:"required"`
 	ResumeID *uuid.UUID `json:"resume_id"`
+}
+
+// GenerateCoverLetterRequest is the payload for POST /cover-letters/:id/generate.
+// Triggers LLM generation of cover letter content with job context.
+type GenerateCoverLetterRequest struct {
+	JobTitle        string     `json:"job_title" binding:"required,max=200"`
+	JobRequirements string     `json:"job_requirements" binding:"required,max=10000"`
+	JobDescription  string     `json:"job_description" binding:"required,max=50000"`
+	ResumeID        *uuid.UUID `json:"resume_id"` // override: use specific resume
 }
 
 // --- Response DTOs ---
@@ -102,15 +112,27 @@ type ResumeVersionListResponse struct {
 
 // CoverLetterResponse is the API response for a single cover letter.
 type CoverLetterResponse struct {
-	ID        uuid.UUID  `json:"id"`
-	JobID     *uuid.UUID `json:"job_id,omitempty"`
-	ResumeID  *uuid.UUID `json:"resume_id,omitempty"`
-	Content   string     `json:"content"`
-	PdfKey    *string    `json:"pdf_key,omitempty"`
-	WordCount *int       `json:"word_count,omitempty"`
-	Version   int32      `json:"version"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
+	ID             uuid.UUID      `json:"id"`
+	JobID          *uuid.UUID     `json:"job_id,omitempty"`
+	ResumeID       *uuid.UUID     `json:"resume_id,omitempty"`
+	JobTitle       *string        `json:"job_title,omitempty"`
+	Content        string         `json:"content"`
+	Model          *string        `json:"model,omitempty"`
+	PromptVersion  *string        `json:"prompt_version,omitempty"`
+	ResumeVersion  *int32         `json:"resume_version,omitempty"`
+	Strengths      *StringSliceDB `json:"strengths,omitempty"`
+	Gaps           *StringSliceDB `json:"gaps,omitempty"`
+	PdfKey         *string        `json:"pdf_key,omitempty"`
+	WordCount      *int           `json:"word_count,omitempty"`
+	Version        int32          `json:"version"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+}
+
+// UpdateCoverLetterContentRequest is the payload for PUT /cover-letters/:id/content.
+// Allows manual override of cover letter content.
+type UpdateCoverLetterContentRequest struct {
+	Content string `json:"content" binding:"required,min=10,max=50000"`
 }
 
 // CoverLetterListResponse is the API response for listing cover letters.
@@ -185,15 +207,21 @@ func ToVersionResponses(versions []*ResumeVersion) []ResumeVersionResponse {
 // ToCoverLetterResponse converts a CoverLetter domain model to an API response.
 func ToCoverLetterResponse(cl *CoverLetter) CoverLetterResponse {
 	return CoverLetterResponse{
-		ID:        cl.ID,
-		JobID:     cl.JobID,
-		ResumeID:  cl.ResumeID,
-		Content:   cl.Content,
-		PdfKey:    cl.PdfKey,
-		WordCount: cl.WordCount,
-		Version:   cl.Version,
-		CreatedAt: cl.CreatedAt,
-		UpdatedAt: cl.UpdatedAt,
+		ID:             cl.ID,
+		JobID:          cl.JobID,
+		ResumeID:       cl.ResumeID,
+		JobTitle:       cl.JobTitle,
+		Content:        cl.Content,
+		Model:          cl.Model,
+		PromptVersion:  cl.PromptVersion,
+		ResumeVersion:  cl.ResumeVersion,
+		Strengths:      cl.Strengths,
+		Gaps:           cl.Gaps,
+		PdfKey:         cl.PdfKey,
+		WordCount:      cl.WordCount,
+		Version:        cl.Version,
+		CreatedAt:      cl.CreatedAt,
+		UpdatedAt:      cl.UpdatedAt,
 	}
 }
 

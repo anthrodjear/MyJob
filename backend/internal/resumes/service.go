@@ -15,14 +15,16 @@ import (
 type Service struct {
 	repo   Repository
 	llm    ResumeGenerator
+	clgen  CoverLetterGenerator
 	logger *zap.Logger
 }
 
 // NewService creates a new resumes service.
-func NewService(repo Repository, llm ResumeGenerator, logger *zap.Logger) *Service {
+func NewService(repo Repository, llm ResumeGenerator, clgen CoverLetterGenerator, logger *zap.Logger) *Service {
 	return &Service{
 		repo:   repo,
 		llm:    llm,
+		clgen:  clgen,
 		logger: logger.Named("resumes"),
 	}
 }
@@ -343,10 +345,10 @@ func (s *Service) ListCoverLetters(ctx context.Context, limit, offset int) ([]*C
 	return s.repo.ListCoverLetters(ctx, limit, offset)
 }
 
-// CreateCoverLetter creates a new cover letter with placeholder content.
-// The actual content is generated asynchronously by a worker task.
-func (s *Service) CreateCoverLetter(ctx context.Context, req GenerateCoverLetterRequest) (*CoverLetter, error) {
-	cl := NewCoverLetter("")
+// CreateCoverLetter creates a new cover letter placeholder.
+// Use GenerateCoverLetter to fill content via LLM.
+func (s *Service) CreateCoverLetter(ctx context.Context, req CreateCoverLetterRequest) (*CoverLetter, error) {
+	cl := NewCoverLetter()
 	cl.JobID = &req.JobID
 	if req.ResumeID != nil {
 		cl.ResumeID = req.ResumeID
@@ -360,6 +362,123 @@ func (s *Service) CreateCoverLetter(ctx context.Context, req GenerateCoverLetter
 		zap.String("id", cl.ID.String()),
 		zap.String("job_id", req.JobID.String()),
 	)
+	return cl, nil
+}
+
+// GenerateCoverLetter triggers LLM-based cover letter generation.
+// Returns the generated content and new version.
+func (s *Service) GenerateCoverLetter(ctx context.Context, clID uuid.UUID, req GenerateCoverLetterRequest) (*CoverLetter, error) {
+	cl, err := s.getCoverLetter(ctx, clID)
+	if err != nil {
+		return nil, fmt.Errorf("generate cover letter: %w", err)
+	}
+
+	// Determine resume to use
+	var resumeContent *ResumeContent
+	resumeVersion := (*int32)(nil)
+	resumeID := cl.ResumeID
+	if req.ResumeID != nil {
+		resumeID = req.ResumeID
+	}
+
+	if resumeID != nil {
+		resume, err := s.getResume(ctx, *resumeID)
+		if err != nil {
+			return nil, fmt.Errorf("get resume for cover letter: %w", err)
+		}
+		if hasContent(resume.Content) {
+			c := ResumeContent(resume.Content)
+			resumeContent = &c
+			resumeVersion = &resume.Version
+		}
+	}
+
+	// Generate via LLM
+	result, err := s.clgen.GenerateContent(ctx, req.JobTitle, req.JobRequirements, req.JobDescription, resumeContent)
+	if err != nil {
+		return nil, fmt.Errorf("llm cover letter generation: %w", err)
+	}
+
+	// Compute word count
+	wordCount := len(strings.Fields(result.Content))
+
+	// Convert []string to StringSliceDB for JSONB storage
+	strengths := StringSliceDB(result.Strengths)
+	gaps := StringSliceDB(result.Gaps)
+
+	// Update cover letter with generated content + traceability
+	modelName := s.clgen.ModelName()
+	newVersion, err := s.repo.UpdateCoverLetterContent(ctx, clID, result.Content,
+		&modelName, nil, resumeVersion, &strengths, &gaps, &wordCount, cl.Version)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, ErrNotFound
+		}
+		if errors.Is(err, ErrVersionConflict) {
+			return nil, ErrVersionConflict
+		}
+		return nil, fmt.Errorf("update cover letter content: %w", err)
+	}
+
+	cl.Content = result.Content
+	cl.Model = &modelName
+	cl.ResumeVersion = resumeVersion
+	cl.Strengths = &strengths
+	cl.Gaps = &gaps
+	cl.Version = newVersion
+	cl.WordCount = &wordCount
+
+	s.logger.Info("cover letter generated",
+		zap.String("id", clID.String()),
+		zap.Int32("version", newVersion),
+		zap.String("model", modelName),
+		zap.Int("word_count", wordCount),
+	)
+
+	return cl, nil
+}
+
+// UpdateCoverLetterContent manually overrides the cover letter content.
+func (s *Service) UpdateCoverLetterContent(ctx context.Context, clID uuid.UUID, content string) (*CoverLetter, error) {
+	cl, err := s.getCoverLetter(ctx, clID)
+	if err != nil {
+		return nil, fmt.Errorf("update cover letter content: %w", err)
+	}
+
+	wordCount := len(strings.Fields(content))
+	newVersion, err := s.repo.UpdateCoverLetterContent(ctx, clID, content,
+		cl.Model, cl.PromptVersion, cl.ResumeVersion, cl.Strengths, cl.Gaps, &wordCount, cl.Version)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, ErrNotFound
+		}
+		if errors.Is(err, ErrVersionConflict) {
+			return nil, ErrVersionConflict
+		}
+		return nil, fmt.Errorf("update cover letter content: %w", err)
+	}
+
+	cl.Content = content
+	cl.Version = newVersion
+	cl.WordCount = &wordCount
+
+	s.logger.Info("cover letter content updated",
+		zap.String("id", clID.String()),
+		zap.Int32("version", newVersion),
+	)
+
+	return cl, nil
+}
+
+// getCoverLetter is a helper that fetches a cover letter and translates errors.
+func (s *Service) getCoverLetter(ctx context.Context, id uuid.UUID) (*CoverLetter, error) {
+	cl, err := s.repo.GetCoverLetterByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("get cover letter: %w", err)
+	}
 	return cl, nil
 }
 
