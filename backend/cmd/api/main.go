@@ -19,6 +19,7 @@ import (
 	"backend/internal/database"
 	"backend/internal/jobs"
 	"backend/internal/resumes"
+	"backend/internal/scoring"
 	"backend/internal/tasks"
 )
 
@@ -77,6 +78,12 @@ func main() {
 	resumesService := resumes.NewService(resumesRepo, logger)
 	resumesHandler := resumes.NewHandler(resumesService, logger)
 
+	// Initialize scoring domain
+	scoringRepo := scoring.NewRepository(postgres.DB)
+	scoringLLM := scoring.NewLLMScorerFromConfig(logger, cfg.LLM, cfg.Prompts)
+	scoringService := scoring.NewService(scoringRepo, scoringLLM, logger, cfg.Scoring)
+	scoringHandler := scoring.NewHandler(scoringService, dispatcher, logger)
+
 	// Setup router with all routes
 	router := api.SetupRouter(api.RouterConfig{
 		AuthHandler:         authHandler,
@@ -84,6 +91,7 @@ func main() {
 		JobsHandler:         jobsHandler,
 		ApplicationsHandler: appsHandler,
 		ResumesHandler:      resumesHandler,
+		ScoringHandler:      scoringHandler,
 		Logger:              logger,
 	})
 

@@ -9,6 +9,7 @@ import (
 	"backend/internal/auth"
 	"backend/internal/jobs"
 	"backend/internal/resumes"
+	"backend/internal/scoring"
 )
 
 // RouterConfig holds dependencies for router setup.
@@ -18,6 +19,7 @@ type RouterConfig struct {
 	JobsHandler         *jobs.Handler
 	ApplicationsHandler *applications.Handler
 	ResumesHandler      *resumes.Handler
+	ScoringHandler      *scoring.Handler
 	Logger              *zap.Logger
 }
 
@@ -52,6 +54,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			cfg.JobsHandler.RegisterRoutes(protected)
 			cfg.ApplicationsHandler.RegisterRoutes(protected)
 			cfg.ResumesHandler.RegisterRoutes(protected)
+			cfg.ScoringHandler.RegisterRoutes(protected)
 		}
 	}
 

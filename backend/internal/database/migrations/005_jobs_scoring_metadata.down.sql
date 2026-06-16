@@ -1,0 +1,3 @@
+ALTER TABLE jobs DROP COLUMN IF EXISTS scoring_reasoning;
+ALTER TABLE jobs DROP COLUMN IF EXISTS scoring_model;
+ALTER TABLE jobs DROP COLUMN IF EXISTS scoring_source;

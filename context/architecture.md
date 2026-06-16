@@ -10,6 +10,7 @@ An AI-powered job search automation platform that discovers, scores, and applies
 - **Score-gated automation** — Every application passes a scoring pipeline. High-confidence applications (≥95) are auto-submitted; mid-range (80–94) enter a human review queue; low scores are rejected.
 - **Domain isolation within a monolith** — Each bounded context (jobs, applications, resumes, etc.) owns its own handler/service/repository/model/dto. No cross-domain service calls.
 - **Local-first AI** — Ollama runs LLM inference and embedding generation on-premise, avoiding external API dependencies for the core scoring pipeline.
+- **LLM-first architecture** — All semantic understanding (scoring, email classification, job extraction, cover letters, resume tailoring, interviews, form filling) is delegated to LLMs via centralized prompt configuration. Hand-written heuristics are eliminated.
 
 ---
 
@@ -327,6 +328,7 @@ GET    /api/v1/applications/:id/events          → audit timeline
 | Vector search | pgvector extension | Co-locate vectors with relational data, no separate vector DB |
 | Cache / Queue | Redis 7 | Asynq dependency, rate limiting, session store — one tool for three jobs |
 | AI inference | Ollama | Local LLM execution, no API costs, data stays on-premise |
+| Prompt management | YAML config (`config/application.yaml`) | All prompts centralized, user-tunable without redeployment, version-controlled |
 
 **Why pgvector over a dedicated vector DB (Pinecone/Weaviate)?**
 
@@ -334,6 +336,44 @@ GET    /api/v1/applications/:id/events          → audit timeline
 - Vector search is a supplementary feature (resume similarity), not the primary query pattern
 - PostgreSQL's hybrid queries (relational + vector in one query) are powerful for our scoring pipeline
 - If vector search becomes a bottleneck, we can extract to a dedicated DB later without changing the API surface
+
+---
+
+## LLM Prompt Management
+
+All LLM prompts are centralized in `config/application.yaml` under the `prompts` section. This enables:
+
+- **User customization** — Prompts can be edited without code changes or redeployment
+- **Version control** — Prompt evolution tracked in git alongside code
+- **A/B testing** — Multiple prompt variants can be configured and tested
+- **Provider agnostic** — Same prompt structure works with Ollama, OpenAI, Anthropic
+
+### Prompt Categories
+
+| Prompt | Domain | Input | Output |
+|--------|--------|-------|--------|
+| `scoring` | Scoring | Job + Profile | Score (0-100), tier, reasoning |
+| `email_classifier` | Emails | From, Subject, Body | Category, confidence, reasoning |
+| `cover_letter` | Cover Letters | Job + Candidate | Cover letter text |
+| `resume_tailor` | Resumes | Job + Base Resume | Tailored resume content |
+| `interview_prep` | Interviews | Job + Candidate | Mock questions (JSON) |
+| `job_extraction` | Jobs/Scraping | Raw HTML/Text | Structured job data (JSON) |
+| `form_understanding` | Browser Agent | Form fields + Candidate data | Field mappings (JSON) |
+
+### Prompt Template Syntax
+
+Prompts use Go template syntax (`{{.Field}}`) for variable interpolation. The `OllamaLLMScorer` and similar implementations perform simple string replacement for template variables.
+
+Example (from config):
+```yaml
+prompts:
+  scoring:
+    user: |
+      ## Job
+      Title: {{.Title}}
+      Company: {{.Company}}
+      ...
+```
 
 ---
 
@@ -430,28 +470,28 @@ Every job listing passes through a multi-stage scoring pipeline before an applic
 
 ```
 Raw Job Listing
-       │
-       ▼
+        │
+        ▼
 ┌─────────────┐
 │  Relevance  │  LLM analyzes job description vs user profile
 │   Score     │  Output: 0-100 relevance score
 └──────┬──────┘
-       │
-       ▼
+        │
+        ▼
 ┌─────────────┐
 │  Qualification│  LLM checks required skills vs resume
 │   Score     │  Output: 0-100 qualification score
 └──────┬──────┘
-       │
-       ▼
+        │
+        ▼
 ┌─────────────┐
 │   Final     │  Weighted combination of all sub-scores
 │   Score     │  Output: 0-100 final score
 └──────┬──────┘
-       │
-       ├── 95+  → AUTO   (application submitted automatically)
-       ├── 80-94 → REVIEW (queued for human approval)
-       └── <80  → REJECT (discarded, reason logged)
+        │
+        ├── 95+  → AUTO   (application submitted automatically)
+        ├── 80-94 → REVIEW (queued for human approval)
+        └── <80  → REJECT (discarded, reason logged)
 ```
 
 **Score components:**
@@ -463,6 +503,18 @@ Raw Job Listing
 | Experience level | 20% | LLM: years/seniority required vs experience |
 | Location/remote | 15% | Rule-based: remote policy vs user preference |
 | Salary range | 10% | Rule-based: posted range vs user expectation |
+
+### Hybrid Scoring Modes
+
+The scoring service supports three modes via `SCORING_MODE` config:
+
+| Mode | Flow | Cost | Latency |
+|------|------|------|---------|
+| `heuristic` | Keyword matching only (no LLM) | $0 | ~1ms |
+| `llm` | LLM semantic scoring only | ~$0.01/job | ~2-5s |
+| `hybrid` | Heuristic pre-filter → LLM for final | ~$0.01/borderline | ~1-2s |
+
+**Default: `hybrid`** — Heuristics fast-filter obvious mismatches (score < 60), LLM scores borderline and good candidates for accuracy.
 
 ---
 

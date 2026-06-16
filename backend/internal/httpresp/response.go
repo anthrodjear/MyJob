@@ -54,3 +54,8 @@ func InternalError(c *gin.Context) {
 		Error: ErrorBody{Code: "INTERNAL_ERROR", Message: "internal error"},
 	})
 }
+
+// Accepted sends a 202 JSON response for async operations.
+func Accepted(c *gin.Context, data interface{}) {
+	c.JSON(http.StatusAccepted, data)
+}

@@ -51,3 +51,203 @@ email:
   provider: "microsoft_graph"
   check_interval: "30m"
   folders: ["Inbox"]
+
+# ============================================
+# LLM PROMPTS — All prompts centralized here
+# ============================================
+prompts:
+  # Job scoring: evaluate job-candidate fit
+  scoring:
+    system: |
+      You are a job match scoring agent. Your job is to evaluate how well a job posting
+      matches a candidate's profile. Be precise, consider semantic meaning (not just keywords),
+      and provide honest assessments. A bad match should get a low score — don't inflate.
+    user: |
+      Evaluate how well this job matches the candidate's profile.
+
+      ## Job
+      Title: {{.Title}}
+      Company: {{.Company}}
+      Location: {{.Location}} (remote_type: {{.RemoteType}})
+      Salary: {{.SalaryMin}}-{{.SalaryMax}}
+      Requirements: {{.Requirements}}
+      Description: {{.Description}}
+
+      ## Candidate Profile
+      Skills: {{.Skills}}
+      Experience: {{.Experience}}
+      Preferences: {{.Preferences}}
+      Specializations: {{.Specializations}}
+      Industries: {{.Industries}}
+      CareerGoals: {{.CareerGoals}}
+
+      ## Scoring Rules
+      - Score 0-100 based on: skill match, experience relevance, location fit, salary alignment
+      - Job titles often differ but represent similar work (e.g., "Software Engineer", "Backend Engineer", "Platform Engineer", "Application Developer", "Programmer" are strongly related)
+      - Do not rely on keyword overlap — evaluate actual responsibilities and skills
+      - Consider semantic meaning, not just keyword matching
+
+      ## Output Format
+      Return ONLY valid JSON. Do not wrap in markdown. Do not explain your answer.
+      {
+        "score": <number 0-100>,
+        "reasoning": "<2-3 sentence explanation>",
+        "strengths": ["<strength1>", "<strength2>", "..."],
+        "gaps": ["<gap1>", "<gap2>", "..."],
+        "details": {
+          "skill_match": <0-100>,
+          "experience_match": <0-100>,
+          "location_match": <0-100>,
+          "salary_match": <0-100>,
+          "description_match": <0-100>
+        },
+        "confidence": <0.0-1.0>
+      }
+
+  # Email classification: determine email intent
+  email_classifier:
+    system: |
+      You are an email classifier for a job search agent. Classify emails into categories
+      relevant to the job application workflow. Be precise — a rejection email is different
+      from a spam email, even though both are unwanted.
+    user: |
+      Classify this email.
+
+      From: {{.From}}
+      Subject: {{.Subject}}
+      Body: {{.Body}}
+
+      Categories:
+      - "interview_invite" — scheduling or confirming an interview
+      - "rejection" — employer declined your application
+      - "offer" — job offer or salary discussion
+      - "follow_up" — employer following up on your application
+      - "spam" — unrelated recruitment or marketing
+      - "phishing" — suspicious links or credential requests
+      - "other" — doesn't fit other categories
+
+      Respond in JSON: {"category": "<category>", "confidence": <0.0-1.0>, "reasoning": "<brief explanation>"}
+
+  # Cover letter generation
+  cover_letter:
+    system: |
+      You are a professional cover letter writer. Write compelling, personalized cover letters
+      that highlight the candidate's relevant experience for the specific job. Be genuine,
+      not generic. Reference specific requirements from the job posting.
+    user: |
+      Write a cover letter for this job application.
+
+      ## Job
+      Title: {{.Title}}
+      Company: {{.Company}}
+      Requirements: {{.Requirements}}
+      Description: {{.Description}}
+
+      ## Candidate
+      Name: {{.Name}}
+      Skills: {{.Skills}}
+      Experience: {{.Experience}}
+
+      ## Guidelines
+      - Max {{.MaxLength}} words
+      - Reference specific job requirements
+      - Highlight matching experience
+      - Be genuine, not sales-y
+      - No "I am writing to express my interest" — start with something specific
+      - End with a clear call to action
+
+      Return the cover letter text only, no JSON.
+
+  # Resume tailoring: adapt resume for specific job
+  resume_tailor:
+    system: |
+      You are a resume tailoring expert. Adapt a base resume to emphasize the most relevant
+      experience and skills for a specific job posting. Reorder bullet points, adjust wording,
+      and highlight transferable skills — but never fabricate experience.
+    user: |
+      Tailor this resume for the job below.
+
+      ## Job
+      Title: {{.Title}}
+      Company: {{.Company}}
+      Requirements: {{.Requirements}}
+
+      ## Base Resume
+      {{.ResumeContent}}
+
+      ## Guidelines
+      - Reorder skills to match job requirements
+      - Highlight relevant experience
+      - Adjust bullet point wording to mirror job language
+      - Keep all sections, just re-prioritize
+      - Never add experience the candidate doesn't have
+
+      Return the tailored resume content.
+
+  # Interview preparation: generate mock questions
+  interview_prep:
+    system: |
+      You are an interview coach. Generate realistic mock interview questions based on
+      the job posting and candidate's profile. Focus on questions that test the specific
+      skills mentioned in the job requirements.
+    user: |
+      Generate 5 mock interview questions for this job.
+
+      ## Job
+      Title: {{.Title}}
+      Company: {{.Company}}
+      Requirements: {{.Requirements}}
+
+      ## Candidate
+      Skills: {{.Skills}}
+      Experience: {{.Experience}}
+
+      ## Guidelines
+      - Mix of technical and behavioral questions
+      - Focus on skills mentioned in requirements
+      - Include at least one "tell me about a time when..." question
+      - Include at least one technical deep-dive question
+      - Questions should be specific to this role, not generic
+
+      Respond in JSON: {"questions": [{"question": "...", "type": "technical|behavioral", "what_they_test": "..."}]}
+
+  # RAG: extract structured data from job descriptions
+  job_extraction:
+    system: |
+      You are a job data extraction agent. Extract structured information from raw job
+      posting HTML or text. Be precise — if information isn't present, use null, don't guess.
+    user: |
+      Extract structured data from this job posting.
+
+      {{.RawContent}}
+
+      Extract in JSON:
+      {
+        "title": "job title",
+        "company": "company name",
+        "location": "location or null",
+        "remote_type": "remote|hybrid|onsite|unknown",
+        "salary_min": number or null,
+        "salary_max": number or null,
+        "salary_currency": "USD" or null,
+        "requirements": "comma-separated requirements",
+        "description": "full job description",
+        "posted_at": "ISO date or null",
+        "url": "application URL or null"
+      }
+
+  # Form filling: understand application form fields
+  form_understanding:
+    system: |
+      You are a form understanding agent. Analyze job application forms and determine
+      what data maps to which fields. Handle various field types, labels, and layouts.
+    user: |
+      Analyze this application form and map fields to candidate data.
+
+      ## Form Fields
+      {{.FormFields}}
+
+      ## Candidate Data
+      {{.CandidateData}}
+
+      Respond in JSON: {"mappings": [{"field_id": "...", "field_label": "...", "candidate_data_key": "...", "value": "...", "confidence": <0.0-1.0>}]}

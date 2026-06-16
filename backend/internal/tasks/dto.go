@@ -54,8 +54,8 @@ type JobDiscoveryPayload struct {
 
 // ResumeScoringPayload is the params for a resume scoring task.
 type ResumeScoringPayload struct {
-	JobID    uuid.UUID `json:"job_id"`
-	ResumeID uuid.UUID `json:"resume_id"`
+	JobID    uuid.UUID  `json:"job_id"`
+	ResumeID *uuid.UUID `json:"resume_id,omitempty"` // optional; uses profile if not provided
 }
 
 // ApplicationSubmitPayload is the params for an application submission task.

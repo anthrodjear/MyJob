@@ -10,10 +10,10 @@
 |-------|-------|
 | **Project** | AI Job Search Agent |
 | **Active Phase** | Phase 1 — Foundation (implementation in progress) |
-| **Phase Progress** | Scaffolding 100% / Implementation ~50% (5/6 domains complete) |
-| **Overall Progress** | ~35% (structure built, services compile, 5 domains implemented + wired) |
+| **Phase Progress** | Scaffolding 100% / Implementation ~60% (5/6 domains complete + scoring architecture) |
+| **Overall Progress** | ~40% (structure built, services compile, 5 domains implemented + wired, scoring LLM architecture done) |
 | **Blockers** | None |
-| **Next Up** | `scoring` domain (scoring pipeline) |
+| **Next Up** | Worker task handlers + Browser Agent scrapers |
 
 ---
 
@@ -50,7 +50,7 @@
 | `jobs` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
 | `applications` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
 | `resumes` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
-| `scoring` | — | — | — | — | — | Not started |
+| `scoring` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete (handler + wiring done)** |
 
 #### 1.4 API Handlers — IN PROGRESS
 
@@ -62,14 +62,14 @@
 | `/api/v1/applications/*` | list, get, create, update-status, update-notes, stats, events | **Complete** | Application lifecycle + audit trail |
 | `/api/v1/resumes/*` | list, get, create, update, delete | **Complete** | Resume CRUD with optimistic locking |
 | `/api/v1/cover-letters/*` | list, get, create, delete | **Complete** | Cover letter management |
-| `/api/v1/scoring/*` | — | Not started | Scoring pipeline |
+| `/api/v1/scoring/*` | score, get, batch | **Complete** | Scoring pipeline |
 
 #### 1.5 Worker Task Handlers — NOT STARTED
 
 | Task Type | Queue Name | Status | Notes |
 |-----------|------------|--------|-------|
 | Job discovery | `jobs:discover` | Not started | Scrapes sources via Browser Agent |
-| Resume scoring | `scoring:resume` | Not started | LLM scoring pipeline |
+| Resume scoring | `scoring:resume` | **Architecture ready** | LLM scoring pipeline via Ollama |
 | Application submission | `applications:submit` | Not started | Fills forms via Browser Agent |
 | Embedding generation | `resumes:embed` | Not started | pgvector embedding via Ollama |
 
@@ -81,6 +81,8 @@
 | RemoteOK | remoteok.go | Not started | Remote-first listings |
 | Greenhouse | greenhouse.go | Not started | ATS-hosted jobs |
 | Lever | lever.go | Not started | ATS-hosted jobs |
+
+**Architecture change:** All scrapers will use LLM-based extraction (`job_extraction` prompt) instead of CSS selectors.
 
 #### 1.7 Frontend Pages — NOT STARTED
 
@@ -95,6 +97,24 @@
 
 ---
 
+## LLM-First Architecture Status
+
+The following domains now have LLM interfaces defined with prompts in `config/application.yaml`:
+
+| Domain | LLM Interface | Prompt in Config | Implementation Status |
+|--------|---------------|------------------|----------------------|
+| **Scoring** | `LLMScorer` + `OllamaLLMScorer` | `prompts.scoring` | ✅ Interface + config + handler wired (async) |
+| **Email Classifier** | `EmailClassifier` (planned) | `prompts.email_classifier` | 📋 Designed, not coded |
+| **Job Extraction** | `JobExtractor` (planned) | `prompts.job_extraction` | 📋 Designed, not coded |
+| **Cover Letters** | `CoverLetterGenerator` (planned) | `prompts.cover_letter` | 📋 Designed, not coded |
+| **Resume Tailor** | `ResumeTailor` (planned) | `prompts.resume_tailor` | 📋 Designed, not coded |
+| **Interview Prep** | `InterviewPrep` (planned) | `prompts.interview_prep` | 📋 Designed, not coded |
+| **Form Filling** | `FormUnderstander` (planned) | `prompts.form_understanding` | 📋 Designed, not coded |
+
+All prompts use Go template syntax (`{{.Field}}`) and are loaded via `config.LoadPrompts()`.
+
+---
+
 ## Upcoming Tasks — Phase 1 Implementation Order
 
 > Recommended implementation sequence based on data flow dependencies.
@@ -106,12 +126,12 @@
 3. **`jobs` domain** — ✅ Complete (wired into router)
 4. **`applications` domain** — ✅ Complete (wired into router, includes audit trail)
 5. **`resumes` domain** — ✅ Complete (wired into router, optimistic locking, cover letters)
-6. **`scoring` domain** — Scoring pipeline. Depends on jobs + resumes for input data.
+6. **`scoring` domain** — **Next**: Create handler.go, wire into router.go + main.go
 
 ### Wave 2: Workers & Integration
 
 7. **Worker task handlers** — Wire domain services into Asynq task processors.
-8. **Browser Agent scrapers** — Implement source adapters (Indeed, RemoteOK, Greenhouse, Lever).
+8. **Browser Agent scrapers** — Implement source adapters using LLM extraction.
 9. **Ollama integration** — LLM calls for scoring, cover letter generation, resume tailoring.
 
 ### Wave 3: Frontend & Polish
@@ -127,8 +147,8 @@
 | Milestone | Target | Actual | Status |
 |-----------|--------|--------|--------|
 | Phase 1 scaffolding | Week 1 | Week 1 | Done |
-| Domain module implementation | Week 2-3 | — | In progress (5/6 done) |
-| API handler implementations | Week 3 | — | In progress (5/6 done) |
+| Domain module implementation | Week 2-3 | — | In progress (5/6 done + scoring arch) |
+| API handler implementations | Week 3 | — | In progress (5/6 done + scoring) |
 | Worker task handlers | Week 3-4 | — | Pending |
 | Browser agent scrapers | Week 4 | — | Pending |
 | Frontend dashboard pages | Week 4-5 | — | Pending |
@@ -167,6 +187,8 @@
 | 2026-06-15 | Optimistic locking on resumes | `WHERE id = $7 AND version = $8` prevents concurrent overwrites |
 | 2026-06-15 | RETURNING on Create/Update | DB handles defaults, returns version/timestamps to caller |
 | 2026-06-15 | pq.StringArray for text[] | Safe PostgreSQL array scanning |
+| 2026-06-15 | **LLM-first architecture** | All semantic understanding via LLM, prompts in config, no hand-written heuristics |
+| 2026-06-15 | **Centralized prompts in config** | `config/application.yaml` holds all prompts, user-tunable, version-controlled |
 
 ---
 
