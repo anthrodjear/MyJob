@@ -16,10 +16,11 @@ var taskConfig = map[string]struct {
 	Timeout time.Duration
 }{
 	TypeJobDiscovery:      {Retries: 3, Timeout: 5 * time.Minute},
-	TypeResumeScoring:     {Retries: 3, Timeout: 2 * time.Minute},
+	TypeJobScoring:        {Retries: 3, Timeout: 2 * time.Minute},
 	TypeApplicationSubmit: {Retries: 3, Timeout: 10 * time.Minute},
 	TypeEmbeddingGenerate: {Retries: 5, Timeout: 1 * time.Minute},
 	TypeCoverLetterGen:    {Retries: 3, Timeout: 3 * time.Minute},
+	TypeResumeGenerate:    {Retries: 3, Timeout: 3 * time.Minute},
 	TypeResumeTailor:      {Retries: 3, Timeout: 3 * time.Minute},
 	TypeEmailCheck:        {Retries: 5, Timeout: 1 * time.Minute},
 	TypeInterviewPrep:     {Retries: 3, Timeout: 5 * time.Minute},
@@ -74,8 +75,8 @@ func (d *Dispatcher) DispatchJobDiscovery(ctx context.Context, payload JobDiscov
 	return d.dispatch(ctx, TypeJobDiscovery, payload)
 }
 
-func (d *Dispatcher) DispatchResumeScoring(ctx context.Context, payload ResumeScoringPayload) (string, error) {
-	return d.dispatch(ctx, TypeResumeScoring, payload)
+func (d *Dispatcher) DispatchJobScoring(ctx context.Context, payload JobScoringPayload) (string, error) {
+	return d.dispatch(ctx, TypeJobScoring, payload)
 }
 
 func (d *Dispatcher) DispatchApplicationSubmit(ctx context.Context, payload ApplicationSubmitPayload) (string, error) {
@@ -88,6 +89,10 @@ func (d *Dispatcher) DispatchEmbeddingGenerate(ctx context.Context, payload Embe
 
 func (d *Dispatcher) DispatchCoverLetterGen(ctx context.Context, payload CoverLetterGenPayload) (string, error) {
 	return d.dispatch(ctx, TypeCoverLetterGen, payload)
+}
+
+func (d *Dispatcher) DispatchResumeGenerate(ctx context.Context, payload ResumeGeneratePayload) (string, error) {
+	return d.dispatch(ctx, TypeResumeGenerate, payload)
 }
 
 func (d *Dispatcher) DispatchResumeTailor(ctx context.Context, payload ResumeTailorPayload) (string, error) {

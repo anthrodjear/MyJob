@@ -58,7 +58,7 @@ func (h *Handler) ScoreJobAsync(c *gin.Context) {
 		return
 	}
 
-	taskID, err := h.dispatcher.DispatchResumeScoring(c.Request.Context(), tasks.ResumeScoringPayload{
+	taskID, err := h.dispatcher.DispatchJobScoring(c.Request.Context(), tasks.JobScoringPayload{
 		JobID: req.JobID,
 	})
 	if err != nil {
@@ -157,7 +157,7 @@ func (h *Handler) BatchScoreAsync(c *gin.Context) {
 	taskIDs := make([]string, 0, len(jobIDs))
 	failed := make([]uuid.UUID, 0)
 	for _, jobID := range jobIDs {
-		taskID, err := h.dispatcher.DispatchResumeScoring(c.Request.Context(), tasks.ResumeScoringPayload{
+		taskID, err := h.dispatcher.DispatchJobScoring(c.Request.Context(), tasks.JobScoringPayload{
 			JobID: jobID,
 		})
 		if err != nil {

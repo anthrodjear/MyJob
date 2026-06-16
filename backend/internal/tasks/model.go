@@ -37,10 +37,11 @@ const (
 // Task type constants.
 const (
 	TypeJobDiscovery      = "job_discovery"
-	TypeResumeScoring     = "resume_scoring"
+	TypeJobScoring        = "job_scoring"
 	TypeApplicationSubmit = "application_submit"
 	TypeEmbeddingGenerate = "embedding_generate"
 	TypeCoverLetterGen    = "cover_letter_gen"
+	TypeResumeGenerate    = "resume_generate"
 	TypeResumeTailor      = "resume_tailor"
 	TypeEmailCheck        = "email_check"
 	TypeInterviewPrep     = "interview_prep"

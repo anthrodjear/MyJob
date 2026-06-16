@@ -47,50 +47,63 @@ type TaskListResponse struct {
 
 // JobDiscoveryPayload is the params for a job discovery task.
 type JobDiscoveryPayload struct {
-	SourceID uuid.UUID `json:"source_id"`
-	Keywords []string  `json:"keywords"`
-	Location string    `json:"location"`
+	SourceID      uuid.UUID `json:"source_id"`
+	Keywords      []string  `json:"keywords"`
+	Location      string    `json:"location"`
+	CorrelationID uuid.UUID `json:"correlation_id"`
 }
 
-// ResumeScoringPayload is the params for a resume scoring task.
-type ResumeScoringPayload struct {
-	JobID    uuid.UUID  `json:"job_id"`
-	ResumeID *uuid.UUID `json:"resume_id,omitempty"` // optional; uses profile if not provided
+// JobScoringPayload is the params for a job scoring task.
+type JobScoringPayload struct {
+	JobID         uuid.UUID `json:"job_id"`
+	CorrelationID uuid.UUID `json:"correlation_id"`
 }
 
 // ApplicationSubmitPayload is the params for an application submission task.
 type ApplicationSubmitPayload struct {
 	ApplicationID uuid.UUID       `json:"application_id"`
 	FormData      json.RawMessage `json:"form_data"`
+	CorrelationID uuid.UUID       `json:"correlation_id"`
 }
 
 // EmbeddingPayload is the params for an embedding generation task.
 type EmbeddingPayload struct {
-	SourceType string    `json:"source_type"`
-	SourceID   uuid.UUID `json:"source_id"`
-	Content    string    `json:"content"`
+	SourceType    string    `json:"source_type"`
+	SourceID      uuid.UUID `json:"source_id"`
+	Content       string    `json:"content"`
+	CorrelationID uuid.UUID `json:"correlation_id"`
 }
 
 // CoverLetterGenPayload is the params for a cover letter generation task.
 type CoverLetterGenPayload struct {
-	JobID    uuid.UUID `json:"job_id"`
-	ResumeID uuid.UUID `json:"resume_id"`
+	JobID         uuid.UUID `json:"job_id"`
+	ResumeID      uuid.UUID `json:"resume_id"`
+	CorrelationID uuid.UUID `json:"correlation_id"`
+}
+
+// ResumeGeneratePayload is the params for a resume generation task.
+type ResumeGeneratePayload struct {
+	JobID         uuid.UUID `json:"job_id"`
+	CorrelationID uuid.UUID `json:"correlation_id"`
 }
 
 // ResumeTailorPayload is the params for a resume tailoring task.
 type ResumeTailorPayload struct {
-	JobID    uuid.UUID `json:"job_id"`
-	ResumeID uuid.UUID `json:"resume_id"`
+	JobID         uuid.UUID `json:"job_id"`
+	ResumeID      uuid.UUID `json:"resume_id"`
+	CorrelationID uuid.UUID `json:"correlation_id"`
 }
 
 // EmailCheckPayload is the params for an email check task.
 type EmailCheckPayload struct {
 	ApplicationID uuid.UUID `json:"application_id"`
+	CorrelationID uuid.UUID `json:"correlation_id"`
 }
 
 // InterviewPrepPayload is the params for an interview preparation task.
 type InterviewPrepPayload struct {
 	ApplicationID uuid.UUID `json:"application_id"`
+	CorrelationID uuid.UUID `json:"correlation_id"`
 }
 
 // ToResponse converts a Task model to a TaskResponse DTO.
