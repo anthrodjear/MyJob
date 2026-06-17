@@ -23,7 +23,7 @@ This project is **not standalone**. Always use the superpowers skills and the sk
 | Skill | When to Use |
 |-------|-------------|
 | `using-superpowers` | **ALWAYS** — before any code change, debugging, planning, or review |
-| `brainstorming` | Before building new features or making architecture decisions |
+| `brainstorming` | Before building new features, before starting on a new module or making architecture decisions |
 | `writing-plans` | After design approval, to decompose into executable tasks |
 | `executing-plans` | When implementing from an approved plan |
 | `test-driven-development` | Before writing any production code |
@@ -37,7 +37,7 @@ This project is **not standalone**. Always use the superpowers skills and the sk
 
 | Skill | When to Use |
 |-------|-------------|
-| `architect` | Before starting any non-trivial feature |
+| `architect` | Before starting any non-trivial feature ie changing from one module to another|
 | `imprint` | After building UI components — extract patterns to `ui-registry.md` |
 | `recover` | When something goes wrong during a build |
 

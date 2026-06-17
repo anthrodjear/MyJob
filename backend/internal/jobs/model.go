@@ -22,7 +22,9 @@ type Job struct {
 	Description     string          `db:"description" json:"description"`
 	Requirements    string          `db:"requirements" json:"requirements"`
 	URL             string          `db:"url" json:"url"`
+	ApplicationURL  string          `db:"application_url" json:"application_url"`
 	CompanyURL      string          `db:"company_url" json:"company_url"`
+	Source          string          `db:"source" json:"source"`
 	PostedAt        *time.Time      `db:"posted_at" json:"posted_at,omitempty"`
 	ScrapedAt       time.Time       `db:"scraped_at" json:"scraped_at"`
 	MatchScore      float64         `db:"match_score" json:"match_score"`

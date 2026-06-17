@@ -1,0 +1,3 @@
+DROP INDEX IF EXISTS idx_jobs_source;
+ALTER TABLE jobs DROP COLUMN IF EXISTS source;
+ALTER TABLE jobs DROP COLUMN IF EXISTS application_url;

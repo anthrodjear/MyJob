@@ -22,7 +22,9 @@ type CreateJobInput struct {
 	Description    string     `json:"description"`
 	Requirements   string     `json:"requirements"`
 	URL            string     `json:"url"`
+	ApplicationURL string     `json:"application_url"`
 	CompanyURL     string     `json:"company_url"`
+	Source         string     `json:"source"`
 	PostedAt       *time.Time `json:"posted_at,omitempty"`
 }
 
@@ -42,7 +44,9 @@ type JobResponse struct {
 	Description     string          `json:"description"`
 	Requirements    string          `json:"requirements"`
 	URL             string          `json:"url"`
+	ApplicationURL  string          `json:"application_url"`
 	CompanyURL      string          `json:"company_url"`
+	Source          string          `json:"source"`
 	PostedAt        *time.Time      `json:"posted_at,omitempty"`
 	ScrapedAt       time.Time       `json:"scraped_at"`
 	MatchScore      float64         `json:"match_score"`
@@ -88,7 +92,9 @@ func ToResponse(j *Job) JobResponse {
 		Description:    j.Description,
 		Requirements:   j.Requirements,
 		URL:            j.URL,
+		ApplicationURL: j.ApplicationURL,
 		CompanyURL:     j.CompanyURL,
+		Source:         j.Source,
 		PostedAt:       j.PostedAt,
 		ScrapedAt:      j.ScrapedAt,
 		MatchScore:     j.MatchScore,

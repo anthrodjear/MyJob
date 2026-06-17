@@ -53,7 +53,9 @@ type ScrapedJob struct {
 	Description    string `json:"description"`
 	Requirements   string `json:"requirements"`
 	URL            string `json:"url"`
+	ApplicationURL string `json:"application_url"`
 	CompanyURL     string `json:"company_url"`
+	Source         string `json:"source"`
 }
 
 // FillFormRequest is the payload sent to the browser agent for form filling.

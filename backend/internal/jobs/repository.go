@@ -30,7 +30,7 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Job, error) {
 		SELECT
 			j.id, j.source_id, j.external_id, j.title, j.company, j.location,
 			j.remote_type, j.salary_min, j.salary_max, j.salary_currency,
-			j.description, j.requirements, j.url, j.company_url,
+			j.description, j.requirements, j.url, j.application_url, j.company_url, j.source,
 			j.posted_at, j.scraped_at, j.match_score, j.match_details,
 			j.status, j.created_at, j.updated_at,
 			s.name as source_name
@@ -62,7 +62,7 @@ func (r *Repository) List(ctx context.Context, filter ListFilter) ([]Job, int, e
 		SELECT
 			j.id, j.source_id, j.external_id, j.title, j.company, j.location,
 			j.remote_type, j.salary_min, j.salary_max, j.salary_currency,
-			j.description, j.requirements, j.url, j.company_url,
+			j.description, j.requirements, j.url, j.application_url, j.company_url, j.source,
 			j.posted_at, j.scraped_at, j.match_score, j.match_details,
 			j.status, j.created_at, j.updated_at,
 			s.name as source_name
@@ -89,13 +89,13 @@ func (r *Repository) Create(ctx context.Context, job *Job) error {
 		INSERT INTO jobs (
 			id, source_id, external_id, title, company, location,
 			remote_type, salary_min, salary_max, salary_currency,
-			description, requirements, url, company_url,
+			description, requirements, url, application_url, company_url, source,
 			posted_at, scraped_at, match_score, match_details,
 			status, created_at, updated_at
 		) VALUES (
 			:id, :source_id, :external_id, :title, :company, :location,
 			:remote_type, :salary_min, :salary_max, :salary_currency,
-			:description, :requirements, :url, :company_url,
+			:description, :requirements, :url, :application_url, :company_url, :source,
 			:posted_at, :scraped_at, :match_score, :match_details,
 			:status, :created_at, :updated_at
 		)
@@ -126,13 +126,13 @@ func (r *Repository) BulkCreate(ctx context.Context, jobs []*Job) (int, error) {
 			INSERT INTO jobs (
 				id, source_id, external_id, title, company, location,
 				remote_type, salary_min, salary_max, salary_currency,
-				description, requirements, url, company_url,
+				description, requirements, url, application_url, company_url, source,
 				posted_at, scraped_at, match_score, match_details,
 				status, created_at, updated_at
 			) VALUES (
 				:id, :source_id, :external_id, :title, :company, :location,
 				:remote_type, :salary_min, :salary_max, :salary_currency,
-				:description, :requirements, :url, :company_url,
+				:description, :requirements, :url, :application_url, :company_url, :source,
 				:posted_at, :scraped_at, :match_score, :match_details,
 				:status, :created_at, :updated_at
 			)
