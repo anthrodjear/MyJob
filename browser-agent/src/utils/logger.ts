@@ -134,11 +134,14 @@ function emit(
   const serializedBindings = deepSerialize(bindings) as Record<string, unknown>;
   const serializedFields = deepSerialize(fields) as Record<string, unknown>;
 
+  // Bindings (from child()) take precedence over per-call fields.
+  // This ensures context like {component: 'X'} isn't overwritten by
+  // accidental field key collisions in the log call.
   const entry = {
     level,
     time: new Date().toISOString(),
-    ...serializedBindings,
     ...serializedFields,
+    ...serializedBindings,
     msg: msg ?? '',
   };
 

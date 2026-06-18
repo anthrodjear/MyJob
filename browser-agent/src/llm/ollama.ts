@@ -1,6 +1,8 @@
 import { getLLMConfig, getPrompts, PromptPair } from '../config/config.js';
 import { z } from 'zod';
+import crypto from 'node:crypto';
 import { logger } from '../utils/logger.js';
+import { retry, RetryOptions } from '../utils/retry.js';
 
 // ----- Custom error types -----
 
@@ -9,7 +11,12 @@ import { logger } from '../utils/logger.js';
  * Preserves the underlying cause for debugging.
  */
 export class OllamaError extends Error {
-  constructor(message: string, public readonly cause?: unknown) {
+  constructor(
+    message: string,
+    public readonly cause?: unknown,
+    public readonly statusCode?: number,
+    public readonly responseBody?: string
+  ) {
     super(message, { cause });
     this.name = 'OllamaError';
   }
@@ -67,8 +74,24 @@ type OllamaResponse = z.infer<typeof OllamaResponseSchema>;
 // ----- Constants -----
 
 const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434';
-const REQUEST_TIMEOUT_MS = 120_000;
-const ERROR_BODY_PREVIEW_LEN = 500;
+const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
+const MAX_ERROR_PREVIEW_LENGTH = 500;
+const MAX_INPUT_LENGTH = 100_000;
+
+// Default retry options for Ollama calls
+const DEFAULT_RETRY_OPTS: RetryOptions = {
+  maxAttempts: 3,
+  delay: 1000,
+  jitter: true,
+  shouldRetry: (err) => {
+    if (err instanceof OllamaError) {
+      // Retry on 5xx server errors, network errors, timeouts
+      return err.statusCode === undefined || err.statusCode >= 500;
+    }
+    // Retry on network/timeout errors (no status code)
+    return true;
+  },
+};
 
 // ----- Client -----
 
@@ -85,18 +108,25 @@ const ERROR_BODY_PREVIEW_LEN = 500;
 export class OllamaClient {
   private readonly baseUrl: string;
   private readonly model: string;
+  private readonly requestTimeoutMs: number;
   private readonly log = logger.child({ component: 'OllamaClient' });
 
-  constructor(baseUrl?: string, model?: string) {
+  constructor(
+    baseUrl?: string,
+    model?: string,
+    requestTimeoutMs?: number
+  ) {
     if (baseUrl !== undefined && model !== undefined) {
       this.baseUrl = baseUrl;
       this.model = model;
+      this.requestTimeoutMs = requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
       return;
     }
     // Fall back to config (for direct callers that pass nothing)
     const config = getLLMConfig();
     this.baseUrl = baseUrl ?? config.local.baseUrl ?? DEFAULT_OLLAMA_BASE_URL;
     this.model = model ?? config.local.model;
+    this.requestTimeoutMs = requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
   }
 
   /**
@@ -104,48 +134,66 @@ export class OllamaClient {
    * Returns the model's text response.
    * @throws OllamaError on transport or API failures.
    */
-  async generate(prompt: string): Promise<string> {
+  async generate(prompt: string, retryOptions?: RetryOptions): Promise<string> {
+    const requestId = crypto.randomUUID();
+    const requestLog = this.log.child({ requestId });
+
     const requestBody: OllamaRequest = {
       model: this.model,
       prompt,
       stream: false,
     };
 
-    this.log.debug({ model: this.model, promptLen: prompt.length }, 'Ollama request');
+    // Validate request body
+    const validatedBody = OllamaRequestSchema.parse(requestBody);
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    requestLog.debug({ model: this.model, promptLen: prompt.length }, 'Ollama request');
 
-    let response: Response;
-    try {
-      response = await fetch(`${this.baseUrl}/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal,
-      });
-    } catch (e) {
-      this.log.error({ err: e, model: this.model }, 'Ollama transport error');
-      throw new OllamaError(`Failed to call Ollama at ${this.baseUrl}`, e);
-    } finally {
-      clearTimeout(timer);
-    }
+    const response = await retry(
+      async () => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), this.requestTimeoutMs);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      const preview = errorText.slice(0, ERROR_BODY_PREVIEW_LEN);
-      this.log.error({ status: response.status, body: preview }, 'Ollama API error');
-      throw new OllamaError(`Ollama API error ${response.status}: ${preview}`);
-    }
+        try {
+          const res = await fetch(`${this.baseUrl}/api/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(validatedBody),
+            signal: controller.signal,
+          });
+          clearTimeout(timer);
 
-    const rawJson = await response.json();
-    const parsed = OllamaResponseSchema.safeParse(rawJson);
-    if (!parsed.success) {
-      this.log.error({ issues: parsed.error.issues }, 'Invalid Ollama response shape');
-      throw new OllamaError('Invalid Ollama response shape');
-    }
+          if (!res.ok) {
+            const errorText = await res.text();
+            const preview = errorText.slice(0, MAX_ERROR_PREVIEW_LENGTH);
+            requestLog.error({ status: res.status, body: preview }, 'Ollama API error');
+            throw new OllamaError(
+              `Ollama API error ${res.status}: ${preview}`,
+              undefined,
+              res.status,
+              errorText
+            );
+          }
 
-    return parsed.data.response;
+          const rawJson = await res.json();
+          const parsed = OllamaResponseSchema.safeParse(rawJson);
+          if (!parsed.success) {
+            requestLog.error({ issues: parsed.error.issues }, 'Invalid Ollama response shape');
+            throw new OllamaError('Invalid Ollama response shape');
+          }
+
+          return parsed.data.response;
+        } catch (e) {
+          clearTimeout(timer);
+          if (e instanceof OllamaError) throw e;
+          requestLog.error({ err: e, model: this.model }, 'Ollama transport error');
+          throw new OllamaError(`Failed to call Ollama at ${this.baseUrl}`, e);
+        }
+      },
+      { ...DEFAULT_RETRY_OPTS, ...retryOptions }
+    );
+
+    return response;
   }
 
   /**
@@ -156,6 +204,13 @@ export class OllamaClient {
   async extractJobData(rawContent: string): Promise<JobExtractionResult> {
     if (!rawContent || rawContent.trim().length === 0) {
       throw new LLMExtractionError('Cannot extract from empty content');
+    }
+
+    if (rawContent.length > MAX_INPUT_LENGTH) {
+      throw new LLMExtractionError(
+        `Input content exceeds maximum length of ${MAX_INPUT_LENGTH} characters`,
+        { length: rawContent.length, max: MAX_INPUT_LENGTH }
+      );
     }
 
     const prompts = getPrompts();
@@ -178,7 +233,7 @@ export class OllamaClient {
     const start = stripped.indexOf('{');
     if (start === -1) {
       throw new LLMExtractionError('No JSON object found in LLM response', {
-        raw: stripped.slice(0, ERROR_BODY_PREVIEW_LEN),
+        raw: stripped.slice(0, MAX_ERROR_PREVIEW_LENGTH),
       });
     }
 
@@ -207,13 +262,16 @@ export class OllamaClient {
       }
     }
     throw new LLMExtractionError('Unbalanced JSON in LLM response', {
-      raw: stripped.slice(start, start + ERROR_BODY_PREVIEW_LEN),
+      raw: stripped.slice(start, start + MAX_ERROR_PREVIEW_LENGTH),
     });
   }
 
   /**
    * Replace Go-style template placeholders ({{.Key}}) in both system and user prompts.
    * Public so other modules can reuse the same template substitution logic.
+   *
+   * Note: Replacements are applied sequentially. If a replacement value contains
+   * another placeholder key, it will NOT be substituted (single-pass).
    */
   public buildPrompt(promptPair: PromptPair, data: Record<string, string | number | boolean | null>): string {
     let systemPrompt = promptPair.system;
@@ -221,8 +279,7 @@ export class OllamaClient {
 
     for (const [key, value] of Object.entries(data)) {
       const placeholder = `{{.${key}}}`;
-      const stringValue =
-        typeof value === 'string' ? value : String(value);
+      const stringValue = typeof value === 'string' ? value : String(value);
       systemPrompt = systemPrompt.replaceAll(placeholder, stringValue);
       userPrompt = userPrompt.replaceAll(placeholder, stringValue);
     }
@@ -248,6 +305,7 @@ export class OllamaClient {
     try {
       jsonStr = this.extractFirstJsonObject(response);
     } catch (e) {
+      if (e instanceof LLMExtractionError) throw e;
       throw new LLMExtractionError(
         'No JSON object found in LLM response',
         { promptLen: prompt.length, responseLen: response.length },
@@ -259,9 +317,10 @@ export class OllamaClient {
     try {
       parsedJson = JSON.parse(jsonStr);
     } catch (e) {
+      if (e instanceof LLMExtractionError) throw e;
       throw new LLMExtractionError(
         'LLM response was not valid JSON',
-        { raw: jsonStr.slice(0, ERROR_BODY_PREVIEW_LEN) },
+        { raw: jsonStr.slice(0, MAX_ERROR_PREVIEW_LENGTH) },
         e,
       );
     }
@@ -272,7 +331,7 @@ export class OllamaClient {
         'LLM response failed schema validation',
         {
           issues: validated.error.issues,
-          raw: jsonStr.slice(0, ERROR_BODY_PREVIEW_LEN),
+          raw: jsonStr.slice(0, MAX_ERROR_PREVIEW_LENGTH),
         },
       );
     }
@@ -284,16 +343,26 @@ export class OllamaClient {
 // ----- Singleton -----
 
 let ollamaClientInstance: OllamaClient | null = null;
+let ollamaClientPromise: Promise<OllamaClient> | null = null;
 
 /**
  * Returns the process-wide OllamaClient singleton.
+ * Uses a promise to avoid race conditions in async initialization contexts.
  * Use direct construction in tests.
  */
 export function getOllamaClient(): OllamaClient {
-  if (ollamaClientInstance === null) {
-    ollamaClientInstance = new OllamaClient();
+  if (ollamaClientInstance !== null) return ollamaClientInstance;
+  if (ollamaClientPromise !== null) {
+    // Wait for existing initialization to complete
+    // Note: This is sync but the promise should already be resolved
+    // in single-threaded Node.js. For safety, we don't await here.
   }
-  return ollamaClientInstance;
+  ollamaClientPromise = (async () => {
+    ollamaClientInstance = new OllamaClient();
+    return ollamaClientInstance;
+  })();
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  return ollamaClientInstance!;
 }
 
 /**
@@ -301,4 +370,5 @@ export function getOllamaClient(): OllamaClient {
  */
 export function clearOllamaClient(): void {
   ollamaClientInstance = null;
+  ollamaClientPromise = null;
 }

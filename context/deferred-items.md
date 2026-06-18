@@ -83,3 +83,28 @@ Full details only on `GET /jobs/:id`.
 **Why:** Description + MatchDetails can be large. List responses with 100 jobs = huge payloads.
 
 **Priority:** Low — optimize when payload size becomes a problem.
+
+---
+
+## 5. Backend Interview Domain — Empty Stubs
+
+**What:** `backend/internal/interviews/` exists with 5 empty files (model.go, dto.go, service.go, repository.go, handler.go). Needs implementation to support voice sessions.
+
+**Files needed:**
+- `interviews/model.go` — `Interview` entity (id, application_id, mode, status, livekit_room, transcript, created_at)
+- `interviews/dto.go` — Request/response types
+- `interviews/repository.go` — CRUD + status queries
+- `interviews/service.go` — Business logic (start session, end session, get transcript)
+- `interviews/handler.go` — HTTP handlers
+
+**Also needed:**
+- `tasks/model.go` — Add `TypeVoiceSession = "voice_session"` constant
+- `tasks/dto.go` — Add `VoiceSessionPayload` struct
+- `tasks/dispatcher.go` — Add `DispatchVoiceSession()` method
+- `handlers_application.go` — Implement `handleVoiceSession` (currently a stub)
+
+**Why:** Voice session task needs to be dispatched from the API and processed by the browser-agent.
+
+**Depends on:** Voice module implementation in `browser-agent/voice/`.
+
+**Priority:** High — blocks voice session functionality.

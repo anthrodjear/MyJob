@@ -6,10 +6,14 @@
  * @returns The result of `fn` on first success.
  * @throws The last error from `fn` if all attempts fail.
  * @throws TypeError if `maxAttempts < 1` or `delay < 0`.
+ * @throws DOMException('AbortError') if the provided signal is aborted.
  *
  * @example
  *   // Simple — 3 attempts, 1s base delay
- *   const data = await retry(() => fetch(url).then(r => r.json()));
+ *   const data = await retry(async () => {
+ *     const r = await fetch(url);
+ *     return r.json();
+ *   });
  *
  * @example
  *   // With options and logging
@@ -56,7 +60,7 @@ export interface RetryOptions {
   onRetry?: (error: unknown, attempt: number) => void;
   /**
    * Decide whether to retry on this error. Return `false` to fail immediately.
-   * Checked before every retry, including the final attempt boundary.
+   * Called after each failure to decide whether to retry.
    * Default: always retry (returns `true`).
    */
   shouldRetry?: (error: unknown) => boolean;
@@ -110,13 +114,34 @@ export async function retry<T>(
       opts.onRetry?.(error, i + 1);
 
       const base = delay * 2 ** i;
-      await new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(resolve, jitter ? withJitter(base) : base);
-        opts.signal?.addEventListener('abort', () => {
-          clearTimeout(timer);
-          reject(new DOMException('Retry aborted', 'AbortError'));
-        }, { once: true });
-      });
+      const sleepMs = jitter ? withJitter(base) : base;
+
+      // Use AbortSignal's built-in timeout support (ES2023) or manual listener
+      // that is not race.
+      if (opts.signal) {
+        // Check if already aborted before waiting
+        if (opts.signal.aborted) {
+          throw new DOMException('Retry aborted', 'AbortError');
+        }
+        // Use AbortSignal.any for race between timeout and abort
+        const abortPromise = new Promise<never>((_, reject) => {
+          opts.signal!.addEventListener('abort', () => {
+            reject(new DOMException('Retry aborted', 'AbortError'));
+          }, { once: true });
+        });
+
+        try {
+          await Promise.race([
+            new Promise<void>(resolve => setTimeout(resolve, sleepMs)),
+            abortPromise,
+          ]);
+        } catch (e) {
+          if (e instanceof DOMException && e.name === 'AbortError') throw e;
+          throw e;
+        }
+      } else {
+        await new Promise<void>(resolve => setTimeout(resolve, sleepMs));
+      }
     }
   }
 

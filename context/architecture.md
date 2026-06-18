@@ -63,7 +63,7 @@ An AI-powered job search automation platform that discovers, scores, and applies
 |-----------|---------|------|----------------|
 | **API Server** | Go (Gin) | 8080 | REST endpoints, auth, input validation, task dispatch, result polling |
 | **Worker Service** | Go (Asynq) | — | Background task processor: job discovery, scoring, application submission, embedding generation |
-| **Browser Agent** | TypeScript (Playwright) | 3000 | Headless browser automation: scrape job listings, fill application forms, handle CAPTCHAs |
+| **Browser Agent** | TypeScript (Playwright) | 3000 | Headless browser automation: scrape job listings, fill application forms, handle CAPTCHAs, interview agent (voice) |
 | **Frontend** | Next.js 16 + Tailwind | 3000* | User dashboard, application review queue, resume management, settings |
 | **PostgreSQL 16** | SQL + pgvector | 5432 | Persistent storage for all domain data + vector similarity search |
 | **Redis 7** | In-memory | 6379 | Asynq task queue, rate limiting counters, session storage, result caching |
@@ -148,23 +148,93 @@ Resume uploaded via Frontend
   Enables semantic search: "find resumes similar to this job description"
 ```
 
-### 4. Real-Time Voice Flow (LiveKit)
+### 4. Interview Agent (Voice)
+
+**Modes:**
+- **Assist Mode** — User attends interview. Agent listens, provides real-time suggestions.
+- **Autonomous Mode** — User absent. Agent answers interviewer questions directly.
+
+**Layered architecture (inside `browser-agent/voice/`):**
 
 ```
-User joins voice session from Frontend
+┌─────────────────────────────────────────────────────────┐
+│                   Interview Session                      │
+│  (session.ts — orchestrates layers, mode switching)      │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+│  │   Hearing     │  │   Reasoning   │  │   Speaking   │  │
+│  │   Layer       │  │   Layer       │  │   Layer      │  │
+│  │              │  │              │  │              │  │
+│  │  STTProvider │  │  Planner     │  │  TTSProvider │  │
+│  │  (whisper,   │  │  Responder   │  │  (elevenlabs,│  │
+│  │   deepgram)  │  │  Memory      │  │   openai,    │  │
+│  │              │  │  Retrieval   │  │   local)     │  │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  │
+│         │                 │                 │            │
+│         ▼                 ▼                 ▼            │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │              Brain (brain/)                        │   │
+│  │                                                    │   │
+│  │  planner.ts — decide what to say next              │   │
+│  │  responder.ts — generate answers (Ollama + context)│   │
+│  │  memory.ts — conversation history + key facts      │   │
+│  │  retrieval.ts — fetch resume, job, app context     │   │
+│  └──────────────────────────────────────────────────┘   │
+│                                                          │
+├─────────────────────────────────────────────────────────┤
+│  ┌──────────────┐  ┌──────────────┐                     │
+│  │  Transport    │  │  Providers   │                     │
+│  │  Layer        │  │  (pluggable) │                     │
+│  │              │  │              │                     │
+│  │  LiveKit     │  │  openai      │                     │
+│  │  (join/leave │  │  elevenlabs  │                     │
+│  │   publish/   │  │  local       │                     │
+│  │   subscribe) │  │              │                     │
+│  └──────────────┘  └──────────────┘                     │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Fast path (low latency):**
+```
+Audio → OpenAI Realtime API → Answer
+```
+
+**Deep path (rich context, runs in parallel):**
+```
+Transcript → Memory → Resume + Job + App Context → Ollama → Answer
+```
+
+**Data flow:**
+```
+Frontend POST /api/v1/interviews/:id/start
        │
        ▼
-  LiveKit WebRTC connection established
+  Backend enqueues voice_session task
        │
        ▼
-  User speaks ──▶ LiveKit STT ──▶ Transcript sent to Ollama
+  Browser Agent picks up task
        │
        ▼
-  LLM response ──▶ LiveKit TTS ──▶ Audio played back to user
+  InterviewSession joins LiveKit room
+       │
+       ▼
+  User speaks → LiveKit transports audio → STTProvider transcribes
+       │
+       ▼
+  Brain retrieves context (resume, job, application, company research)
+       │
+       ▼
+  Planner decides response strategy → Responder generates answer via Ollama
+       │
+       ▼
+  TTSProvider speaks answer back through LiveKit
        │
        ▼
   Session transcript stored in PostgreSQL
 ```
+
+**Key principle:** Interview intelligence lives in `brain/`, not inside voice providers. Providers are pure STT/TTS — they don't know about resumes, jobs, or interviews.
 
 ---
 
@@ -198,7 +268,8 @@ internal/
 │   ├── service.go
 │   ├── repository.go
 │   ├── model.go
-│   └── dto.go
+│   ├── dto.go
+│   └── llm.go          # LLMScorer interface
 ├── tasks/
 │   ├── handler.go
 │   ├── service.go
@@ -218,12 +289,26 @@ internal/
 │   ├── repository.go
 │   ├── model.go
 │   └── dto.go
-└── applications/
-    ├── handler.go
-    ├── service.go
-    ├── repository.go
-    ├── model.go
-    └── dto.go
+├── applications/
+│   ├── handler.go
+│   ├── service.go
+│   ├── repository.go
+│   ├── model.go
+│   └── dto.go
+├── httpresp/
+│   └── response.go     # Shared HTTP response helpers
+└── logger/
+    └── logger.go       # Zap logger initialization
+
+cmd/
+├── api/
+│   └── main.go         # REST API entrypoint
+└── worker/
+    ├── main.go                  # Worker entrypoint — init + wiring only
+    ├── browser_agent.go         # BrowserAgentClient interface + HTTP client
+    ├── handlers_job.go          # Discovery + scoring handlers
+    ├── handlers_resume.go       # Resume + cover letter generation handlers
+    └── handlers_application.go  # Submit, fill form, email check, interview prep, stubs
 ```
 
 ### Domain Relationships
@@ -375,6 +460,7 @@ All LLM prompts are centralized in `config/application.yaml` under the `prompts`
 | `email_classifier` | Emails | From, Subject, Body | Category, confidence, reasoning |
 | `cover_letter` | Cover Letters | Job + Candidate | Cover letter text |
 | `resume_tailor` | Resumes | Job + Base Resume | Tailored resume content |
+| `resume_generation` | Resumes | Profile + Job context | Structured ResumeContent (JSON) |
 | `interview_prep` | Interviews | Job + Candidate | Mock questions (JSON) |
 | `job_extraction` | Jobs/Scraping | Raw HTML/Text | Structured job data (JSON) |
 | `form_understanding` | Browser Agent | Form fields + Candidate data | Field mappings (JSON) |
@@ -392,6 +478,129 @@ prompts:
       Title: {{.Title}}
       Company: {{.Company}}
       ...
+```
+
+---
+
+## Browser Agent Scraper Architecture
+
+The Browser Agent uses a tiered scraper system that balances reliability, speed, and cost. Instead of building a scraper for every job site, we maintain a small set of dedicated API scrapers and one powerful fallback scraper that handles everything else.
+
+### Tier System
+
+| Tier | Strategy | Speed | Cost | Reliability |
+|------|----------|-------|------|-------------|
+| **Tier 1: API-Native** | Direct HTTP fetch, JSON parsing | ~100ms | $0 | Very high |
+| **Tier 2: Config-based** | Add URL to YAML, CustomScraper handles it | ~5-15s | ~$0.001/job | High |
+| **Tier 3: Browser + LLM** | Playwright rendering + LLM extraction | ~15-30s | ~$0.01/job | High |
+
+### Dedicated API Scrapers (Tier 1)
+
+These sites expose structured JSON APIs — no browser needed:
+
+| Scraper | Source | Strategy | LLM Usage |
+|---------|--------|----------|-----------|
+| **Greenhouse** | `boards-api.greenhouse.io/v1/boards/{token}/jobs` | Paginated JSON API | None — direct field mapping |
+| **Lever** | `api.lever.co/v0/postings/{board}` | JSON API, pagination via `offset` | None — direct field mapping |
+| **RemoteOK** | `remoteok.com/api` | Single JSON endpoint (skip first metadata entry) | None — direct field mapping |
+
+**Characteristics:**
+- Standalone classes — do NOT extend `BaseScraper`
+- No browser dependency, no Playwright context
+- `retry()` from `utils/retry.ts` for resilience
+- Typed interfaces (`LeverJob`, `RemoteOKJob`) replace `Record<string, unknown>`
+- `baseUrl` validation at wrapper function level
+- Stable external IDs: deterministic hash (SHA-256 for Indeed, prefix+jobId for API scrapers)
+
+### Custom Scraper (Tier 2/3 — Fallback)
+
+For career sites without a structured API (Fuzu, MyJobMag, company career pages), `CustomScraper` uses a hybrid discovery strategy:
+
+```
+Custom Scraper Strategy:
+│
+├─ Strategy 1: JSON-LD Extraction (cheapest)
+│   └─ Parse script[type="application/ld+json"] for schema.org/JobPosting
+│
+├─ Strategy 2: Link Discovery (medium)
+│   └─ Find job-related links (/job|career|position|vacancy|opening/)
+│   └─ Visit each page, try JSON-LD, then LLM fallback
+│
+└─ Strategy 3: Full-Page LLM Fallback (most expensive)
+    └─ autoScroll → extractPageContent → extractWithLLM
+```
+
+**Key features:**
+- Extends `BaseScraper` for browser management
+- `autoScroll()` triggers lazy-loaded content
+- `extractPageContent()` strips noise (scripts, nav, footer, forms)
+- `MAX_CONTENT_LENGTH = 200K` prevents token limit issues
+- URL-based company inference: `inferCompany(url)` from hostname
+- Error containment: catch + return `[]` instead of propagating
+
+### Discovery Flow
+
+```
+Discovery Job
+       │
+       ▼
+Read job_sources from config
+       │
+       ▼
+For each source:
+  ┌─────────────────────────────────────────┐
+  │ Detect ATS from URL pattern             │
+  │   greenhouse.io  → Tier 1 (API)         │
+  │   lever.co       → Tier 1 (API)         │
+  │   remoteok.com   → Tier 1 (API)         │
+  │   (anything else)→ CustomScraper        │
+  └─────────────────────────────────────────┘
+       │
+       ▼
+  Scrape jobs
+       │
+       ▼
+  Store in PostgreSQL
+```
+
+### Adding a New Job Source
+
+**For API-native sites (Tier 1):**
+1. Add wrapper function in `src/scrapers/{site}.ts`
+2. Add typed interface for API response
+3. Wire into `server.ts` scraper map
+4. Add URL to `config/application.yaml` under `job_sources`
+
+**For everything else (Tier 2):**
+1. Add URL to `config/application.yaml` under `job_sources.custom`
+2. No code changes needed — CustomScraper handles it
+
+**After collecting data for a few weeks**, evaluate whether a site needs a dedicated scraper:
+- Does it contribute many jobs?
+- Is extraction quality poor?
+- Does the site change frequently?
+
+Only then invest in a Tier 1 scraper.
+
+### Config Example
+
+```yaml
+job_sources:
+  greenhouse:
+    - https://boards.greenhouse.io/openai
+    - https://boards.greenhouse.io/stripe
+
+  lever:
+    - https://jobs.lever.co/figma
+    - https://jobs.lever.co/notion
+
+  remoteok:
+    - https://remoteok.com
+
+  custom:
+    - https://careers.fuzu.com
+    - https://www.myjobmag.co.ke/jobs
+    - https://careers.somecompany.com
 ```
 
 ---
@@ -560,4 +769,4 @@ The scoring service supports three modes via `SCORING_MODE` config:
 
 ---
 
-*Last updated: 2026-06-14*
+*Last updated: 2026-06-16*

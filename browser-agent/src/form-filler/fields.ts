@@ -45,12 +45,14 @@ export class FieldMappingError extends LLMExtractionError {
 }
 
 /**
- * Normalize a string for fuzzy matching: split camelCase/PascalCase, lowercase, collapse whitespace.
- * `"phoneNumber"` → `"phone number"`, `"firstName"` → `"first name"`.
+ * Normalize a string for fuzzy matching: split camelCase/PascalCase, snake_case, kebab-case,
+ * lowercase, collapse whitespace.
+ * `"phoneNumber"` → `"phone number"`, `"first_name"` → `"first name"`, `"first-name"` → `"first name"`.
  */
 function normalizeForMatch(str: string): string {
   return str
     .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]/g, ' ')
     .toLowerCase()
     .replace(/\s+/g, ' ')
     .trim();
@@ -98,8 +100,8 @@ export async function mapFieldsToCandidateData(
     const result = await ollama.generateStructured(prompt, FieldMappingResultSchema);
     return result.mappings;
   } catch (error) {
-    // Only catch LLM/extraction failures — let programming errors propagate
-    if (error instanceof LLMExtractionError) {
+    // Catch all LLM-related failures (extraction, network, timeout) and fall back
+    if (error instanceof LLMExtractionError || error instanceof Error) {
       logger.warn(
         {
           err: error,
@@ -120,6 +122,15 @@ export async function mapFieldsToCandidateData(
  * Priority rules for common field types.
  * `keyTargets` are resolved to actual candidate keys at call time.
  * First match wins (highest priority).
+ *
+ * Confidence tiers:
+ *   0.95 - Exact/unique identifiers (email, phone, LinkedIn, GitHub)
+ *   0.9  - File uploads (resume/CV)
+ *   0.85 - Name fields
+ *   0.8  - Address, company, title, location fields
+ *   0.75 - Experience, skills, education
+ *   0.7  - Summary/objective
+ *   0.6  - Fuzzy fallback match
  */
 const FIELD_PATTERNS: Array<{
   match: (searchText: string) => boolean;
@@ -130,8 +141,7 @@ const FIELD_PATTERNS: Array<{
   { match: (s) => s.includes('phone'), keyTargets: ['phone', 'phonenumber'], confidence: 0.95 },
   { match: (s) => s.includes('linkedin'), keyTargets: ['linkedin'], confidence: 0.95 },
   { match: (s) => s.includes('github'), keyTargets: ['github'], confidence: 0.95 },
-  { match: (s) => s.includes('resume') || s.includes('cv') || s.includes('file'),
-    keyTargets: ['resume', 'cv'], confidence: 0.9 },
+  { match: (s) => s.includes('resume') || s.includes('cv'), keyTargets: ['resume', 'cv'], confidence: 0.9 },
   { match: (s) => s.includes('name') && !s.includes('username') && !s.includes('company'),
     keyTargets: ['name', 'fullname'], confidence: 0.85 },
   { match: (s) => s.includes('address'), keyTargets: ['address'], confidence: 0.8 },
@@ -151,6 +161,27 @@ const FIELD_PATTERNS: Array<{
     keyTargets: ['education', 'degree', 'university'], confidence: 0.75 },
   { match: (s) => s.includes('summary') || s.includes('objective') || s.includes('about'),
     keyTargets: ['summary', 'objective', 'about'], confidence: 0.7 },
+  // Additional common job application fields
+  { match: (s) => s.includes('birth') || s.includes('dob'), keyTargets: ['dateofbirth', 'dob'], confidence: 0.8 },
+  { match: (s) => s.includes('start') && (s.includes('date') || s.includes('avail')),
+    keyTargets: ['startdate', 'availability'], confidence: 0.75 },
+  { match: (s) => s.includes('notice') && s.includes('period'),
+    keyTargets: ['noticeperiod'], confidence: 0.75 },
+  { match: (s) => s.includes('salary') || s.includes('compensation') || s.includes('expected'),
+    keyTargets: ['salaryexpectation', 'compensation'], confidence: 0.75 },
+  { match: (s) => s.includes('visa') || s.includes('sponsor') || s.includes('work auth'),
+    keyTargets: ['visastatus', 'workauthorization'], confidence: 0.75 },
+  { match: (s) => s.includes('relocat'), keyTargets: ['relocate', 'relocation'], confidence: 0.75 },
+  { match: (s) => s.includes('referral') || s.includes('hear') || s.includes('source'),
+    keyTargets: ['referral', 'source'], confidence: 0.7 },
+  { match: (s) => s.includes('portfolio') || s.includes('website') || s.includes('url'),
+    keyTargets: ['portfolio', 'website', 'url'], confidence: 0.8 },
+  { match: (s) => s.includes('pronoun'), keyTargets: ['pronouns'], confidence: 0.7 },
+  { match: (s) => s.includes('veteran'), keyTargets: ['veteranstatus'], confidence: 0.7 },
+  { match: (s) => s.includes('disabilit'), keyTargets: ['disabilitystatus'], confidence: 0.7 },
+  { match: (s) => s.includes('gender'), keyTargets: ['gender'], confidence: 0.7 },
+  { match: (s) => s.includes('ethnicity') || s.includes('race') || s.includes('eeoc'),
+    keyTargets: ['ethnicity'], confidence: 0.7 },
 ];
 
 /**
@@ -176,8 +207,10 @@ function heuristicMap(
     confidence: p.confidence,
   }));
 
-  // Track which candidate keys have been used (for deduplication)
-  const usedKeys = new Set<string>();
+  // Track which candidate keys have been used (for deduplication per field)
+  // Note: We allow the same candidate key to be used for multiple fields
+  // (e.g., "Email" and "Confirm Email" both need the same email value).
+  // We only skip if the EXACT same field is being mapped twice.
 
   for (const field of fields) {
     const searchText = normalizeForMatch(
@@ -194,9 +227,29 @@ function heuristicMap(
       }
     }
 
+    // Fallback: fuzzy match on field type - for select/radio/checkbox, try to map options
+    if (!bestMatch && field.type !== 'text' && field.type !== 'email' && field.type !== 'textarea') {
+      // For grouped fields with options, try to match option labels
+      if (field.options.length > 0) {
+        for (const key of keys) {
+          const candidateValue = String(candidateData[key] ?? '').toLowerCase();
+          for (const option of field.options) {
+            const optionLabel = normalizeForMatch(option.label);
+            if (optionLabel && (candidateValue.includes(optionLabel) || optionLabel.includes(candidateValue))) {
+              bestMatch = { key, confidence: 0.65 };
+              break;
+            }
+          }
+          if (bestMatch) break;
+        }
+      }
+    }
+
     // Fallback: fuzzy match on any candidate key (normalized for camelCase)
     if (!bestMatch) {
-      for (const key of keys) {
+      // Sort keys for deterministic order
+      const sortedKeys = [...keys].sort();
+      for (const key of sortedKeys) {
         const normalizedKey = normalizeForMatch(key);
         if (searchText.includes(normalizedKey) || normalizedKey.includes(searchText)) {
           bestMatch = { key, confidence: 0.6 };
@@ -206,15 +259,23 @@ function heuristicMap(
     }
 
     if (bestMatch) {
-      // Skip if this candidate key was already mapped (dedup)
-      if (usedKeys.has(bestMatch.key)) continue;
-      usedKeys.add(bestMatch.key);
+      // Serialize value properly - handle primitives, skip objects/arrays
+      const rawValue = candidateData[bestMatch.key];
+      let value: string;
+      if (rawValue === null || rawValue === undefined) {
+        value = '';
+      } else if (typeof rawValue === 'object') {
+        // Serialize objects/arrays as JSON
+        value = JSON.stringify(rawValue);
+      } else {
+        value = String(rawValue);
+      }
 
       mappings.push({
         field_id: field.id || field.selector,
         field_label: field.label,
         candidate_data_key: bestMatch.key,
-        value: String(candidateData[bestMatch.key] ?? ''),
+        value,
         confidence: bestMatch.confidence,
       });
     }

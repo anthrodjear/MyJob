@@ -1,11 +1,14 @@
-import { BrowserContext } from 'playwright';
-import { writeFile } from 'node:fs/promises';
+import { BrowserContext, Page } from 'playwright';
+import { writeFile, mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import { detectFormFields } from './detector.js';
 import { mapFieldsToCandidateData } from './fields.js';
 import { fillForm, FillResult, submitForm } from './submitter.js';
 import { getBrowser } from '../utils/browser.js';
 import { stealthConfig } from '../utils/stealth.js';
 import { logger } from '../utils/logger.js';
+
+const log = logger.child({ component: 'FormFiller' });
 
 /**
  * Options for the form filler orchestrator.
@@ -17,6 +20,10 @@ export interface FormFillOptions {
   candidateData: Record<string, unknown>;
   /** Optional file path to a resume PDF for file upload fields. */
   resumePath?: string;
+  /** Optional file path to a cover letter PDF for file upload fields. */
+  coverLetterPath?: string;
+  /** Optional file path to a portfolio file for file upload fields. */
+  portfolioPath?: string;
   /** Optional CSS selector to wait for before detecting fields. */
   waitForSelector?: string;
   /** Navigation timeout in ms. @default 60000 */
@@ -25,6 +32,8 @@ export interface FormFillOptions {
   selectorTimeoutMs?: number;
   /** Optional AbortSignal for cancellation. */
   signal?: AbortSignal;
+  /** Whether LLM mapping was used (for monitoring). */
+  usedLLM?: boolean;
 }
 
 // ── SSRF protection ────────────────────────────────────────────────
@@ -36,10 +45,15 @@ const BLOCKED_SCHEMES = ['file:', 'data:', 'javascript:'];
 const BLOCKED_EXACT_HOSTS = new Set([
   'localhost', '127.0.0.1', '0.0.0.0', '::1',
   'metadata.google.internal', 'instance-data',
+  'metadata.azure.com', '169.254.169.254',
+  'metadata.digitalocean.com',
 ]);
 
 /** Private IPv4 ranges (10/8, 172.16/12, 192.168/16). */
 const PRIVATE_IP_REGEX = /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/;
+
+/** Private IPv6 ranges (ULA fc00::/7, link-local fe80::/10). */
+const PRIVATE_IPV6_REGEX = /^(fc|fd|fe8)/i;
 
 /** Detect encoded IP forms like decimal (2130706433 = 127.0.0.1) or hex. */
 const ENCODED_IP_REGEX = /^(0x[0-9a-f]+|\d{8,12})$/;
@@ -53,42 +67,23 @@ function isBlockedHost(hostname: string): boolean {
   if (BLOCKED_EXACT_HOSTS.has(h)) return true;
   if (h.startsWith('169.254.')) return true;
   if (PRIVATE_IP_REGEX.test(h)) return true;
+  if (PRIVATE_IPV6_REGEX.test(h)) return true;
   if (ENCODED_IP_REGEX.test(h)) return true;
   if (/^0\d{2,}\./.test(h)) return true; // octal IPv4 (e.g. 0177.0.0.1 = 127.0.0.1)
   if (h.endsWith('.localhost')) return true;
   return false;
 }
 
-// ── Stealth ────────────────────────────────────────────────────────
-
-/** Scripts injected into every page to reduce bot detection. */
-const STEALTH_SCRIPTS = `
-  // Hide webdriver
-  Object.defineProperty(navigator, 'webdriver', { get: () => false });
-
-  // Fake plugins array (realistic Chromium plugin list)
-  Object.defineProperty(navigator, 'plugins', {
-    get: () => {
-      const arr = [
-        { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer' },
-        { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai' },
-        { name: 'Native Client', filename: 'internal-nacl-plugin' },
-      ];
-      Object.setPrototypeOf(arr, PluginArray.prototype);
-      return arr;
-    },
-  });
-
-  // Fake languages
-  Object.defineProperty(navigator, 'languages', {
-    get: () => ['en-US', 'en'],
-  });
-
-  // Hide automation-related chrome property
-  if (!window.chrome) {
-    window.chrome = { runtime: {} };
+/**
+ * Validate URL against SSRF protections.
+ * Throws if URL is blocked.
+ */
+function validateUrl(url: string): void {
+  const parsed = new URL(url);
+  if (BLOCKED_SCHEMES.includes(parsed.protocol) || isBlockedHost(parsed.hostname)) {
+    throw new Error(`Blocked navigation to restricted URL: ${parsed.origin}`);
   }
-`;
+}
 
 // ── Orchestrator ───────────────────────────────────────────────────
 
@@ -112,32 +107,30 @@ export async function fillApplicationForm(options: FormFillOptions): Promise<Fil
   }
 
   // ── SSRF protection ─────────────────────────────────────────────
-  const parsed = new URL(options.url);
-  if (BLOCKED_SCHEMES.includes(parsed.protocol) || isBlockedHost(parsed.hostname)) {
-    throw new Error(`Blocked navigation to restricted URL: ${parsed.origin}`);
-  }
+  validateUrl(options.url);
 
   // ── Cancellation check ──────────────────────────────────────────
   options.signal?.throwIfAborted();
 
-  logger.info({ url: options.url }, 'Starting form fill');
+  log.info({ url: options.url }, 'Starting form fill');
 
   const browser = await getBrowser();
   let context: BrowserContext | undefined;
+  let page: Page | undefined;
   let screenshotOnFailure = true;
 
   try {
     context = await browser.newContext(stealthConfig);
-    const page = await context.newPage();
-
-    // Inject stealth scripts
-    await page.addInitScript(STEALTH_SCRIPTS);
+    page = await context.newPage();
 
     // Navigate — use domcontentloaded (faster, no WebSocket/SSE hangs)
     await page.goto(options.url, {
       waitUntil: 'domcontentloaded',
       timeout: options.navigationTimeoutMs ?? 60000,
     });
+
+    // Check for cancellation after navigation
+    options.signal?.throwIfAborted();
 
     // Wait for form if specified — log warning on timeout
     if (options.waitForSelector) {
@@ -146,12 +139,15 @@ export async function fillApplicationForm(options: FormFillOptions): Promise<Fil
           timeout: options.selectorTimeoutMs ?? 10000,
         });
       } catch {
-        logger.warn(
+        log.warn(
           { selector: options.waitForSelector },
           'waitForSelector timed out',
         );
       }
     }
+
+    // Check for cancellation before field detection
+    options.signal?.throwIfAborted();
 
     // Detect form fields
     const fields = await detectFormFields(page);
@@ -159,22 +155,28 @@ export async function fillApplicationForm(options: FormFillOptions): Promise<Fil
       // Capture screenshot before throwing
       try {
         const ss = await page.screenshot({ fullPage: true, type: 'png' });
-        const ssPath = `storage/screenshots/no-fields-${Date.now()}.png`;
-        await writeFile(ssPath, ss).catch(() => {});
-        logger.error({ url: options.url, screenshotPath: ssPath }, 'No form fields detected');
+        const ssPath = await saveScreenshot(ss, 'no-fields');
+        log.error({ url: options.url, screenshotPath: ssPath }, 'No form fields detected');
       } catch {
-        logger.error({ url: options.url }, 'No form fields detected (screenshot failed)');
+        log.error({ url: options.url }, 'No form fields detected (screenshot failed)');
       }
       throw new Error('No form fields detected on page');
     }
-    logger.info({ fieldCount: fields.length }, 'Detected form fields');
+    log.info({ fieldCount: fields.length }, 'Detected form fields');
+
+    // Check for cancellation before LLM mapping
+    options.signal?.throwIfAborted();
 
     // Map fields to candidate data using LLM
     const mappings = await mapFieldsToCandidateData(fields, options.candidateData);
-    logger.info({ mappingCount: mappings.length }, 'Mapped fields to candidate data');
+    log.info({ mappingCount: mappings.length }, 'Mapped fields to candidate data');
 
-    // Fill the form
-    const result = await fillForm(page, fields, mappings, options.resumePath);
+    // Fill the form with smart file upload
+    const result = await fillForm(page, fields, mappings, {
+      resumePath: options.resumePath,
+      coverLetterPath: options.coverLetterPath,
+      portfolioPath: options.portfolioPath,
+    });
 
     // Submit the form
     if (result.success) {
@@ -186,18 +188,17 @@ export async function fillApplicationForm(options: FormFillOptions): Promise<Fil
         // Capture screenshot for debugging
         try {
           const ss = await page.screenshot({ fullPage: true, type: 'png' });
-          const ssPath = `storage/screenshots/submit-not-found-${Date.now()}.png`;
-          await writeFile(ssPath, ss).catch(() => {});
-          logger.warn({ url: page.url(), screenshotPath: ssPath }, 'Submit button not found');
+          const ssPath = await saveScreenshot(ss, 'submit-not-found');
+          log.warn({ url: page.url(), screenshotPath: ssPath }, 'Submit button not found');
         } catch { /* best effort */ }
       } else {
-        // Post-submit verification: check if URL changed or page content updated
+        // Post-submit verification: check if URL changed
         try {
-          await page.waitForURL(() => page.url() !== urlBeforeSubmit, { timeout: 5000 });
-          logger.info({ url: page.url() }, 'Page navigated after submit');
+          await page.waitForURL(url => url.toString() !== urlBeforeSubmit, { timeout: 5000 });
+          log.info({ url: page.url() }, 'Page navigated after submit');
         } catch {
           // URL didn't change — might still be fine (AJAX submit, same-page validation)
-          logger.warn({ url: page.url() }, 'Page URL did not change after submit');
+          log.warn({ url: page.url() }, 'Page URL did not change after submit');
         }
       }
     }
@@ -206,20 +207,16 @@ export async function fillApplicationForm(options: FormFillOptions): Promise<Fil
     return result;
   } catch (error) {
     // Capture screenshot on failure for debugging
-    if (screenshotOnFailure && context) {
+    if (screenshotOnFailure && page) {
       try {
-        const pages = context.pages();
-        if (pages.length > 0) {
-          const ss = await pages[0].screenshot({ fullPage: true, type: 'png' });
-          const ssPath = `storage/screenshots/form-fill-failed-${Date.now()}.png`;
-          await writeFile(ssPath, ss).catch(() => {});
-          logger.error(
-            { url: options.url, durationMs: Date.now() - started, screenshotPath: ssPath },
-            'Form fill failed',
-          );
-        }
+        const ss = await page.screenshot({ fullPage: true, type: 'png' });
+        const ssPath = await saveScreenshot(ss, 'form-fill-failed');
+        log.error(
+          { url: options.url, durationMs: Date.now() - started, screenshotPath: ssPath },
+          'Form fill failed',
+        );
       } catch {
-        logger.error(
+        log.error(
           { url: options.url, durationMs: Date.now() - started },
           'Form fill failed (screenshot failed)',
         );
@@ -227,12 +224,28 @@ export async function fillApplicationForm(options: FormFillOptions): Promise<Fil
     }
     throw error;
   } finally {
+    // Explicitly close page first for clean teardown
+    await page?.close().catch(() => {});
     await context?.close().catch(() => {});
-    logger.info(
-      { url: options.url, durationMs: Date.now() - started },
+    log.info(
+      { url: options.url, durationMs: Date.now() - started, success: !screenshotOnFailure },
       'Form fill completed',
     );
   }
+}
+
+/**
+ * Save a screenshot to the configured storage directory.
+ * Returns the file path.
+ */
+async function saveScreenshot(buffer: Buffer, prefix: string): Promise<string> {
+  const storageDir = process.env.STORAGE_DIR ?? 'storage';
+  const screenshotsDir = join(storageDir, 'screenshots');
+  await mkdir(screenshotsDir, { recursive: true });
+  const filename = `${prefix}-${Date.now()}.png`;
+  const filepath = join(screenshotsDir, filename);
+  await writeFile(filepath, buffer);
+  return filepath;
 }
 
 // Re-export for external use

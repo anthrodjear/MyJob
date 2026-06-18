@@ -19,19 +19,46 @@ let browserPromise: Promise<Browser> | null = null;
  * Race-condition safe — concurrent callers get the same promise.
  */
 export async function getBrowser(): Promise<Browser> {
+  // Check if existing browser is still connected
   if (sharedBrowser?.isConnected()) return sharedBrowser;
+
+  // If browser was disconnected, reset and create new one
+  if (sharedBrowser) {
+    sharedBrowser = null;
+  }
+
   if (browserPromise) return browserPromise;
 
+  const headless = process.env.BROWSER_HEADLESS !== 'false'; // Default true, allow override
+  const noSandbox = process.env.BROWSER_NO_SANDBOX === 'true'; // Opt-in for Docker
+
+  const launchArgs = [
+    '--disable-blink-features=AutomationControlled',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--disable-extensions',
+    '--disable-background-networking',
+    '--disable-background-timer-throttling',
+    '--disable-renderer-backgrounding',
+    '--no-first-run',
+    '--no-default-browser-check',
+  ];
+
+  if (noSandbox) {
+    launchArgs.push('--no-sandbox');
+  }
+
   browserPromise = chromium.launch({
-    headless: true,
-    args: ['--disable-blink-features=AutomationControlled', '--disable-dev-shm-usage'],
+    headless,
+    args: launchArgs,
   }).then(browser => {
     sharedBrowser = browser;
     browserPromise = null;
-    logger.info({}, 'Chromium browser launched');
+    logger.info({ pid: process.pid, headless, noSandbox }, 'Chromium browser launched');
     return browser;
   }).catch(err => {
     browserPromise = null;
+    logger.error({ err }, 'Failed to launch Chromium browser');
     throw err;
   });
 
@@ -39,17 +66,31 @@ export async function getBrowser(): Promise<Browser> {
 }
 
 /**
- * Close the shared browser instance with a 5s timeout.
+ * Close the shared browser instance with a timeout.
  * Call on process shutdown.
  */
 export async function closeBrowser(): Promise<void> {
   if (sharedBrowser) {
     const browser = sharedBrowser;
     sharedBrowser = null;
-    await Promise.race([
-      browser.close(),
-      new Promise<void>(r => setTimeout(r, 5000)),
-    ]).catch(() => {});
-    logger.info({}, 'Chromium browser closed');
+
+    try {
+      await Promise.race([
+        browser.close(),
+        new Promise<void>((_, reject) => setTimeout(() => reject(new Error('Browser close timeout')), 10_000)),
+      ]);
+      logger.info({ pid: process.pid }, 'Chromium browser closed');
+    } catch (err) {
+      logger.error({ err }, 'Error closing Chromium browser');
+    }
   }
+}
+
+/**
+ * Reset browser state for testing.
+ * Only use in test environments.
+ */
+export function resetBrowserForTesting(): void {
+  sharedBrowser = null;
+  browserPromise = null;
 }
