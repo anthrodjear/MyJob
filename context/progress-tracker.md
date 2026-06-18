@@ -159,16 +159,17 @@
 
 | Layer | File(s) | Status | Notes |
 |-------|---------|--------|-------|
-| Types | `voice/types.ts` | Not started | STTProvider, TTSProvider, VoiceProvider, InterviewMode interfaces |
+| Types | `voice/types.ts` | **Complete** ✅ | STTProvider, TTSProvider, RealtimeProvider, InterviewBrain, InterviewMode, SessionState, LiveKitTransport, ProviderFactory — reviewed and fixed |
 | Transport | `voice/livekit.ts` | Stub | LiveKit room join/leave/publish/subscribe — audio transport only |
 | Brain | `voice/brain/planner.ts` | Not started | Decide response strategy (answer, clarify, defer) |
 | Brain | `voice/brain/responder.ts` | Not started | Generate answers via Ollama with resume/job/app context |
-| Brain | `voice/brain/memory.ts` | Not started | Conversation history + key facts extraction |
+| Brain | `voice/brain/memory.ts` | Not started | Conversation history + rolling summary + key facts |
 | Brain | `voice/brain/retrieval.ts` | Not started | Fetch resume, job, application context from backend API |
-| Provider | `voice/providers/openai-realtime.ts` | Not started | OpenAI Realtime API (STT+TTS combined) |
+| Provider | `voice/providers/factory.ts` | Not started | ProviderFactory — createSTT(), createTTS(), createRealtime() |
+| Provider | `voice/providers/openai-realtime.ts` | Not started | OpenAI Realtime API (STT+TTS combined via WebSocket) |
 | Provider | `voice/providers/elevenlabs.ts` | Not started | ElevenLabs TTS + Whisper STT |
 | Provider | `voice/providers/local.ts` | Not started | Local Whisper + Piper/Kokoro TTS |
-| Session | `voice/session.ts` | Not started | Interview session orchestration (both modes) |
+| Session | `voice/session.ts` | Not started | Interview session orchestration with SessionState machine |
 | API | `voice/index.ts` | Not started | Public API: startVoiceSession(), stopVoiceSession() |
 
 **Key decisions:**
@@ -177,6 +178,11 @@
 - Brain (planner/responder/memory/retrieval) is provider-agnostic.
 - No new service — stays inside `browser-agent/voice/`.
 - Ollama for reasoning (reuse existing `OllamaClient` from `llm/ollama.ts`).
+- TTS returns `AsyncIterable<AudioChunk>` (streaming, not buffered array).
+- Timestamps use ISO strings, not Date objects.
+- Event subscriptions use type-safe discriminated maps.
+- InterviewMemory uses `recentTranscript` (rolling window) + `summary` (not full history).
+- BrainResponse uses `metadata` object, not giant `reasoning` string.
 
 **Backend changes needed:**
 - Add `TypeVoiceSession` constant to `tasks/model.go`

@@ -518,6 +518,43 @@ try {
 - Use `page.waitForSelector` with `{ state: "attached" }` when querying dynamic content.
 - Isolate test data. Never scrape production sites without permission.
 
+### ⚠️ Bad Practices / Risks Found (And Why They Hurt You)
+
+**1. Inconsistent Lifecycle Management**
+Different interfaces should NOT have different lifecycle method sets. STTProvider/TTSProvider use `initialize()` + `destroy()`. RealtimeProvider uses `connect()` + `disconnect()` + `destroy()`. Mixing these leads to hanging WebSockets and resource leaks.
+
+**Rule:** STT/TTS providers use `initialize()` → `destroy()`. Realtime providers use `connect()` → `disconnect()` → `destroy()`. Never mix these patterns.
+
+**2. Synchronous TTS Array Bottleneck**
+`synthesize(text): Promise<AudioChunk[]>` forces waiting for the entire text to convert before returning. Real-time audio MUST stream chunk-by-chunk via `AsyncIterable<AudioChunk>`.
+
+**Rule:** TTS `synthesize()` returns `AsyncIterable<AudioChunk>`, not `Promise<AudioChunk[]>`. Caller publishes each chunk to LiveKit immediately.
+
+**3. Loose Type Safety on Event Subscriptions**
+`on(event: string, handler: (event: TransportEvent) => void)` is blind — listening to 'error' still lets you access `event.roomName`. Use discriminated event maps with type-safe handlers.
+
+**Rule:** Use `on<K extends keyof TransportEventMap>(event: K, handler: TransportEventMap[K])` for type-safe event subscriptions.
+
+**4. The JavaScript Date Trap**
+`Date` objects don't survive network boundaries — they become ISO strings. Frontend crashes expecting `.getTime()` on a string. Use ISO strings everywhere.
+
+**Rule:** Timestamps in interfaces use `string` (ISO 8601), not `Date`. Convert at the boundary if needed.
+
+**5. RealtimeProvider Lacks Text Intervention**
+Without `speak(text)` and `cancel()`, the system speaks over users. Multi-modal protocols (OpenAI Realtime) require text prompts to interrupt a speaker or cancel ongoing audio loops when a candidate cuts off the AI.
+
+**Rule:** RealtimeProvider must have `speak(text)` for text-based intervention and `cancel()` for interrupting ongoing audio.
+
+**6. Unbounded Arrays in Memory**
+Storing full conversation logs in flat arrays (`transcript: TranscriptSegment[]`) causes memory exhaustion and token explosion. A 90-minute interview = 2000+ segments = Ollama cost explosion.
+
+**Rule:** InterviewMemory uses `recentTranscript` (rolling window, max 50) + `summary` (pre-window summary). Never store full transcript in a flat array.
+
+**7. Missing Session Orchestration Types**
+SessionState alone is insufficient. Without an `InterviewSession` interface defining the orchestration contract (start/stop/setState/on/off), session implementations diverge and error recovery becomes inconsistent.
+
+**Rule:** Always define the orchestrator interface (`InterviewSession`) alongside the state machine. The interface owns the lifecycle: `start() → loop → stop()`.
+
 ---
 
 ## Next.js Frontend

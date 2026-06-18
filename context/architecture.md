@@ -159,17 +159,17 @@ Resume uploaded via Frontend
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                   Interview Session                      │
-│  (session.ts — orchestrates layers, mode switching)      │
+│  (session.ts — state machine, mode switching)            │
 ├─────────────────────────────────────────────────────────┤
 │                                                          │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
 │  │   Hearing     │  │   Reasoning   │  │   Speaking   │  │
 │  │   Layer       │  │   Layer       │  │   Layer      │  │
 │  │              │  │              │  │              │  │
-│  │  STTProvider │  │  Planner     │  │  TTSProvider │  │
-│  │  (whisper,   │  │  Responder   │  │  (elevenlabs,│  │
-│  │   deepgram)  │  │  Memory      │  │   openai,    │  │
-│  │              │  │  Retrieval   │  │   local)     │  │
+│  │  STTProvider │  │  InterviewBrain│ │  TTSProvider │  │
+│  │  (whisper,   │  │  (ollama,     │  │  (elevenlabs,│  │
+│  │   deepgram)  │  │   openai)     │  │   openai,    │  │
+│  │              │  │              │  │   local)     │  │
 │  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  │
 │         │                 │                 │            │
 │         ▼                 ▼                 ▼            │
@@ -178,7 +178,7 @@ Resume uploaded via Frontend
 │  │                                                    │   │
 │  │  planner.ts — decide what to say next              │   │
 │  │  responder.ts — generate answers (Ollama + context)│   │
-│  │  memory.ts — conversation history + key facts      │   │
+│  │  memory.ts — conversation history + rolling summary│  │
 │  │  retrieval.ts — fetch resume, job, app context     │   │
 │  └──────────────────────────────────────────────────┘   │
 │                                                          │
@@ -187,10 +187,10 @@ Resume uploaded via Frontend
 │  │  Transport    │  │  Providers   │                     │
 │  │  Layer        │  │  (pluggable) │                     │
 │  │              │  │              │                     │
-│  │  LiveKit     │  │  openai      │                     │
-│  │  (join/leave │  │  elevenlabs  │                     │
-│  │   publish/   │  │  local       │                     │
-│  │   subscribe) │  │              │                     │
+│  │  LiveKit     │  │  ProviderFactory                   │
+│  │  (join/leave │  │  createSTT() │                     │
+│  │   publish/   │  │  createTTS() │                     │
+│  │   subscribe) │  │  createRealtime()                  │
 │  └──────────────┘  └──────────────┘                     │
 └─────────────────────────────────────────────────────────┘
 ```

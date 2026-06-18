@@ -125,6 +125,8 @@ When reviewing code, check:
 | 1 | scoring | ✅ Complete | model, dto, repository, service, handler, llm, keywords |
 | 2 | Worker handlers | ⏳ Next | Asynq task processors |
 | 2 | Browser Agent | ⏳ Next | Scrapers with LLM extraction |
+| 2 | Voice module | DESIGNED | Interview Agent (types → livekit → brain → providers → session) |
+| 2 | Backend interviews domain | ⏳ Pending | Model, DTO, repo, service, handler (empty stubs exist) |
 | 3 | Frontend | ⏳ Pending | Dashboard, jobs, applications, resumes, settings |
 
 ---
@@ -139,5 +141,5 @@ When reviewing code, check:
 ---
 
 ## Last Updated
-- Date: 2026-06-16
-- Context: After completing cover letter LLM-first upgrade (StringSliceDB, traceability, 3 review rounds)
+- Date: 2026-06-18
+- Context: Voice module architecture designed (Interview Agent with pluggable providers, two modes)
