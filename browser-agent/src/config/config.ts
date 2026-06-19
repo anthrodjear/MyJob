@@ -95,6 +95,61 @@ const VoiceConfigSchema = z.object({
   }),
 });
 
+const MemoryConfigSchema = z.object({
+  max_recent_segments: z.number().int().min(1).default(50),
+  keep_after_summarize: z.number().int().min(1).default(10),
+  max_accumulated_items: z.number().int().min(1).default(100),
+  max_summary_length: z.number().int().min(100).default(3000),
+});
+
+const RetrieverConfigSchema = z.object({
+  timeout_ms: z.number().int().min(100).default(5000),
+  retries: z.number().int().min(0).default(2),
+  max_content_length: z.number().int().min(100).default(10000),
+});
+
+const PromptBudgetSchema = z.object({
+  system: z.number().int().min(100).default(3000),
+  retrieval: z.number().int().min(100).default(6000),
+  summary: z.number().int().min(100).default(2000),
+  transcript: z.number().int().min(100).default(4000),
+  question: z.number().int().min(100).default(1000),
+});
+
+const MemoryCeilingsSchema = z.object({
+  summary: z.number().int().min(100).default(1500),
+  recent_transcript: z.number().int().min(100).default(2500),
+  facts: z.number().int().min(100).default(800),
+  covered_topics: z.number().int().min(100).default(500),
+  questions_asked: z.number().int().min(100).default(500),
+});
+
+const LLMConfigRuntimeSchema = z.object({
+  timeout_ms: z.number().int().min(1000).default(30000),
+  retries: z.number().int().min(0).default(2),
+});
+
+const ResponderConfigSchema = z.object({
+  llm: LLMConfigRuntimeSchema.default({}),
+  prompt_budget: PromptBudgetSchema.default({}),
+  memory_ceilings: MemoryCeilingsSchema.default({}),
+  min_salvageable_length: z.number().int().min(1).default(10),
+});
+
+const PlannerConfigSchema = z.object({
+  min_substantive_length: z.number().int().min(1).default(5),
+  max_filler_ratio: z.number().min(0).max(1).default(0.6),
+  min_content_words: z.number().int().min(1).default(2),
+  duplicate_threshold: z.number().min(0).max(1).default(0.5),
+});
+
+const InterviewConfigSchema = z.object({
+  memory: MemoryConfigSchema.default({}),
+  retriever: RetrieverConfigSchema.default({}),
+  responder: ResponderConfigSchema.default({}),
+  planner: PlannerConfigSchema.default({}),
+});
+
 const EmailConfigSchema = z.object({
   provider: z.string().min(1),
   check_interval: z.string().min(1),
@@ -106,6 +161,7 @@ const ConfigSchema = z.object({
   queue: QueueConfigSchema,
   llm: LLMConfigSchema,
   voice: VoiceConfigSchema,
+  interview: InterviewConfigSchema,
   email: EmailConfigSchema,
   prompts: PromptsConfigSchema,
 });
@@ -118,6 +174,11 @@ export type PromptsConfig = z.infer<typeof PromptsConfigSchema>;
 export type ApplicationConfig = z.infer<typeof ApplicationConfigSchema>;
 export type QueueConfig = z.infer<typeof QueueConfigSchema>;
 export type VoiceConfig = z.infer<typeof VoiceConfigSchema>;
+export type InterviewConfig = z.infer<typeof InterviewConfigSchema>;
+export type MemoryConfig = z.infer<typeof MemoryConfigSchema>;
+export type RetrieverConfig = z.infer<typeof RetrieverConfigSchema>;
+export type ResponderConfig = z.infer<typeof ResponderConfigSchema>;
+export type PlannerConfig = z.infer<typeof PlannerConfigSchema>;
 export type EmailConfig = z.infer<typeof EmailConfigSchema>;
 export type Config = z.infer<typeof ConfigSchema>;
 

@@ -47,6 +47,52 @@ voice:
     api_key: "devkey"
     api_secret: "devsecret"
 
+# ============================================
+# INTERVIEW AGENT — Brain configuration
+# All runtime-tunable values for memory, retriever, responder, planner
+# ============================================
+interview:
+  # Memory: rolling transcript window, FIFO eviction, summary compaction
+  memory:
+    max_recent_segments: 50
+    keep_after_summarize: 10
+    max_accumulated_items: 100
+    max_summary_length: 3000
+
+  # Retriever: backend API fetch settings
+  retriever:
+    timeout_ms: 5000
+    retries: 2
+    max_content_length: 10000
+
+  # Responder: LLM runtime settings
+  responder:
+    llm:
+      timeout_ms: 30000
+      retries: 2
+    # Prompt budgets (chars) — sum = total prompt budget (~16k chars / 4k tokens)
+    prompt_budget:
+      system: 3000
+      retrieval: 6000
+      summary: 2000
+      transcript: 4000
+      question: 1000
+    # Memory ceilings for prompt budgeting (chars)
+    memory_ceilings:
+      summary: 1500
+      recent_transcript: 2500
+      facts: 800
+      covered_topics: 500
+      questions_asked: 500
+    min_salvageable_length: 10
+
+  # Planner: decision thresholds
+  planner:
+    min_substantive_length: 5
+    max_filler_ratio: 0.6
+    min_content_words: 2
+    duplicate_threshold: 0.5
+
 email:
   provider: "microsoft_graph"
   check_interval: "30m"
