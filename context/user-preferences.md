@@ -3,7 +3,7 @@
 ## Development Workflow
 
 ### Code Quality
-- **Build one file at a time** — never batch files; write one file, review, wait for approval
+- **Build one file at a time** — never batch files; write one file, review, wait for approval,never build a God file.
 - **Subagent-driven workflow mandatory** — write code, delegate to specialized(never use a general agent) subagents for review, fix, wait for user approval
 - **Never skip review** — even small files get reviewed
 - **Never proceed without user approval** — wait for explicit confirmation before next file

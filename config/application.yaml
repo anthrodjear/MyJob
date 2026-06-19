@@ -46,6 +46,24 @@ voice:
     url: "ws://localhost:7880"
     api_key: "devkey"
     api_secret: "devsecret"
+  openai_realtime:
+    voice: "alloy"
+    transcription_model: "whisper-1"
+    instructions: ""
+    vad:
+      threshold: 0.5
+      prefix_padding_ms: 300
+      silence_duration_ms: 500
+  elevenlabs:
+    voice_id: "21m00Tcm4TlvDq8ikWAM"
+    model_id: "eleven_multilingual_v2"
+    stability: 0.5
+    similarity_boost: 0.75
+    output_format: "pcm_24000"
+  whisper:
+    model_id: "whisper-1"
+    language: "en"
+    prompt: ""
 
 # ============================================
 # INTERVIEW AGENT — Brain configuration

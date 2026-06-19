@@ -11,6 +11,8 @@ build/
 *.so
 *.dylib
 .next/
+*.bin
+*.onnx
 
 # Environment
 .env
@@ -28,6 +30,7 @@ storage/screenshots/*
 storage/job_descriptions/*
 storage/interview_prep/*
 storage/voice_recordings/*
+storage/models
 
 # IDE
 .idea/

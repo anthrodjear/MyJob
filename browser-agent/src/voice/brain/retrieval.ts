@@ -93,7 +93,12 @@ export function createContextRetriever(
     return scored.slice(0, limit);
   }
 
-  return { initialize, retrieve };
+  function destroy(): void {
+    cachedChunks = [];
+    logger.debug({ message: 'ContextRetriever destroyed' });
+  }
+
+  return { initialize, retrieve, destroy };
 }
 
 // ----- Backend API calls -----

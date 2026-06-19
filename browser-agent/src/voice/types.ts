@@ -8,6 +8,57 @@
  * Providers are pure STT/TTS — they don't know about resumes, jobs, or interviews.
  */
 
+// ----- Brain (Interview Intelligence) -----
+
+/**
+ * Brain runtime — owns all interview intelligence components.
+ * Session sees ONE interface, not four (planner+responder+memory+retriever).
+ *
+ * The Brain:
+ *   1. Receives transcript segments
+ *   2. Plans response strategy (answer/clarify/defer/silent)
+ *   3. Retrieves relevant context
+ *   4. Generates response via LLM
+ *   5. Manages conversation memory
+ *
+ * Session doesn't know HOW the brain works — only that it responds.
+ */
+export interface Brain {
+  /** Initialize with interview context (resume, job, etc.) */
+  initialize(context: InterviewContext): Promise<void>;
+
+  /**
+   * Process a transcript segment and produce a response.
+   * Internally handles planning, retrieval, memory, and LLM generation.
+   */
+  respond(segment: TranscriptSegment): Promise<BrainResponse>;
+
+  /** Current conversation memory (for external inspection). */
+  readonly memory: InterviewMemoryManager;
+
+  /** Clean up all brain resources. */
+  destroy(): void;
+}
+
+/**
+ * Audio segment queue — processes audio segments sequentially.
+ * Fixes race condition: audio arriving while previous segment is being transcribed.
+ * Segments are queued and processed in FIFO order.
+ */
+export interface AudioSegmentQueue {
+  /** Enqueue an audio segment for processing. Returns a promise that resolves when processed. */
+  enqueue(audio: Buffer, sampleRate: number, channels: number): Promise<void>;
+
+  /** Clear all pending segments (e.g., on session stop). */
+  clear(): void;
+
+  /** Whether a segment is currently being processed. */
+  readonly processing: boolean;
+
+  /** Number of segments waiting in queue. */
+  readonly pending: number;
+}
+
 // ----- Interview Modes -----
 
 /** Assist Mode: user attends interview, agent provides real-time suggestions. */
@@ -97,6 +148,9 @@ export interface VoiceActivityDetector {
 
   /** Subscribe to speech boundary events (started/ended/silence). */
   on<K extends keyof AudioEventMap>(event: K, handler: AudioEventMap[K]): void;
+
+  /** Subscribe to a speech boundary event that auto-removes after first fire. */
+  once<K extends keyof AudioEventMap>(event: K, handler: AudioEventMap[K]): void;
 
   /** Remove event handler. */
   off<K extends keyof AudioEventMap>(event: K, handler: AudioEventMap[K]): void;
@@ -318,6 +372,31 @@ export interface LiveKitTransport {
   readonly connected: boolean;
 }
 
+/**
+ * Simplified transport interface for session — no LiveKitConfig knowledge.
+ * Factory creates LiveKitTransportImpl, calls connect() with full config,
+ * then wraps it with this interface for the session.
+ */
+export interface Transport {
+  /** Connect to room — config already applied by factory */
+  connect(roomName: string, token: string): Promise<void>;
+
+  /** Disconnect from the current room */
+  disconnect(): Promise<void>;
+
+  /** Publish audio to the room */
+  publishAudio(audio: AudioChunk): Promise<void>;
+
+  /** Subscribe to transport events */
+  on<K extends keyof TransportEventMap>(event: K, handler: TransportEventMap[K]): void;
+
+  /** Remove event handler */
+  off<K extends keyof TransportEventMap>(event: K, handler: TransportEventMap[K]): void;
+
+  /** Whether currently connected */
+  readonly connected: boolean;
+}
+
 // ----- Provider Factory -----
 
 /** Supported STT provider names. */
@@ -327,7 +406,7 @@ export type STTProviderName = 'whisper' | 'deepgram' | 'assemblyai';
 export type TTSProviderName = 'elevenlabs' | 'openai' | 'piper' | 'kokoro';
 
 /** Supported realtime provider names. */
-export type RealtimeProviderName = 'openai-realtime';
+export type RealtimeProviderName = 'openai_realtime';
 
 /**
  * Factory for creating speech providers based on config.
@@ -417,6 +496,9 @@ export interface ContextRetriever {
    * @param maxChunks - Maximum context chunks to return (default 5)
    */
   retrieve(query: string, maxChunks?: number): ContextChunk[];
+
+  /** Clean up cached data and any resources. */
+  destroy(): void;
 }
 
 /** A chunk of context retrieved for the brain. */

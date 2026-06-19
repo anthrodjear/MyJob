@@ -85,6 +85,66 @@ const QueueConfigSchema = z.object({
   retryAttempts: z.number().int().min(0),
 });
 
+const VoiceVADConfigSchema = z.object({
+  threshold: z.number().min(0).max(1).default(0.5),
+  prefix_padding_ms: z.number().int().min(0).default(300),
+  silence_duration_ms: z.number().int().min(0).default(500),
+});
+
+const OpenAIRealtimeConfigSchema = z.object({
+  voice: z.string().min(1).default('alloy'),
+  transcription_model: z.string().min(1).default('whisper-1'),
+  instructions: z.string().default(''),
+  vad: VoiceVADConfigSchema.default({}),
+});
+
+const ElevenLabsTTSConfigSchema = z.object({
+  voice_id: z.string().min(1).default('21m00Tcm4TlvDq8ikWAM'),
+  model_id: z.string().min(1).default('eleven_multilingual_v2'),
+  stability: z.number().min(0).max(1).default(0.5),
+  similarity_boost: z.number().min(0).max(1).default(0.75),
+  output_format: z.string().min(1).default('pcm_24000'),
+});
+
+const WhisperSTTConfigSchema = z.object({
+  model_id: z.string().min(1).default('whisper-1'),
+  language: z.string().min(2).default('en'),
+  prompt: z.string().default(''),
+});
+
+const LocalWhisperConfigSchema = z.object({
+  binary: z.string().min(1).default('whisper'),
+  model: z.string().min(1).default('base'),
+  language: z.string().min(2).default('en'),
+  backend: z.enum(['whisper', 'faster-whisper']).default('whisper'),
+  timeout_ms: z.number().int().min(1000).default(60_000),
+  output_dir: z.string().optional(),
+});
+
+const LocalPiperConfigSchema = z.object({
+  binary: z.string().min(1).default('piper'),
+  model: z.string().min(1).default(''),
+  sample_rate: z.number().int().min(8000).default(22_050),
+  length_scale: z.number().min(0.1).max(3.0).default(1.0),
+  noise_scale: z.number().min(0).max(1).default(0.667),
+  noise_w: z.number().min(0).max(1).default(0.8),
+  sentence_silence: z.number().min(0).max(5).default(0.2),
+  speaker_id: z.number().int().min(0).optional(),
+  args: z.array(z.string()).optional(),
+  timeout_ms: z.number().int().min(1000).default(30_000),
+});
+
+const LocalKokoroConfigSchema = z.object({
+  python: z.string().min(1).default('python3'),
+  model_path: z.string().min(1).default(''),
+  voices_path: z.string().min(1).default(''),
+  voice: z.string().min(1).default('af_nicole'),
+  language: z.string().min(2).default('en-us'),
+  speed: z.number().min(0.5).max(2.0).default(1.0),
+  sample_rate: z.number().int().min(8000).default(24_000),
+  timeout_ms: z.number().int().min(1000).default(30_000),
+});
+
 const VoiceConfigSchema = z.object({
   provider: z.string().min(1),
   model: z.string().min(1),
@@ -93,6 +153,13 @@ const VoiceConfigSchema = z.object({
     api_key: z.string().min(1),
     api_secret: z.string().min(1),
   }),
+  openai_realtime: OpenAIRealtimeConfigSchema.default({}),
+  elevenlabs: ElevenLabsTTSConfigSchema.default({}),
+  whisper: WhisperSTTConfigSchema.default({}),
+  local_whisper: LocalWhisperConfigSchema.default({}),
+  local_piper: LocalPiperConfigSchema.default({}),
+  local_kokoro: LocalKokoroConfigSchema.default({}),
+  local_tts: z.enum(['piper', 'kokoro']).default('piper'),
 });
 
 const MemoryConfigSchema = z.object({
