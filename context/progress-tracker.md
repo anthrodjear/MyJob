@@ -10,10 +10,10 @@
 |-------|-------|
 | **Project** | AI Job Search Agent |
 | **Active Phase** | Phase 1 — Foundation (implementation in progress) |
-| **Phase Progress** | Scaffolding 100% / Implementation ~90% (6/6 domains + 8/10 worker handlers + Ollama + Browser Agent + code review) |
-| **Overall Progress** | ~60% (structure built, services compile, 6 domains implemented + wired, Browser Agent fully implemented and reviewed) |
+| **Phase Progress** | Scaffolding 100% / Implementation ~90% (6/6 domains + 8/10 worker handlers + Ollama + Browser Agent + code review + Voice Brain) |
+| **Overall Progress** | ~65% (structure built, services compile, 6 domains implemented + wired, Browser Agent fully implemented and reviewed, Voice Brain 4/4 complete) |
 | **Blockers** | None |
-| **Next Up** | Voice module implementation (types → livekit → brain → providers → session) |
+| **Next Up** | Voice providers (OpenAI Realtime, ElevenLabs, Local) → Session orchestration → index.ts |
 
 ---
 
@@ -153,18 +153,18 @@
 | Safe template parsing | **Complete** ✅ | No `template.Must` — try-parse with fallback strings |
 | Code review (all components) | **Complete** ✅ | All BLOCKERs and WARNINGs addressed |
 
-#### 1.11 Browser Agent Voice Module — DESIGNED (Not Implemented)
+#### 1.11 Browser Agent Voice Module — BRAIN LAYER COMPLETE (4/4 files)
 
 **Architecture:** Autonomous Interview Agent with pluggable providers, two modes (Assist + Autonomous).
 
 | Layer | File(s) | Status | Notes |
 |-------|---------|--------|-------|
 | Types | `voice/types.ts` | **Complete** ✅ | STTProvider, TTSProvider, RealtimeProvider, InterviewBrain, InterviewMode, SessionState, LiveKitTransport, ProviderFactory — reviewed and fixed |
-| Transport | `voice/livekit.ts` | Stub | LiveKit room join/leave/publish/subscribe — audio transport only |
-| Brain | `voice/brain/planner.ts` | Not started | Decide response strategy (answer, clarify, defer) |
-| Brain | `voice/brain/responder.ts` | Not started | Generate answers via Ollama with resume/job/app context |
-| Brain | `voice/brain/memory.ts` | Not started | Conversation history + rolling summary + key facts |
-| Brain | `voice/brain/retrieval.ts` | Not started | Fetch resume, job, application context from backend API |
+| Transport | `voice/livekit.ts` | **Complete** ✅ | LiveKit room join/leave/publish/subscribe — audio transport only; @livekit/rtc-node |
+| Brain | `voice/brain/memory.ts` | **Complete** ✅ | Conversation history + rolling summary + key facts; snapshot-based race prevention, compaction, FIFO eviction |
+| Brain | `voice/brain/retrieval.ts` | **Complete** ✅ | Fetch resume, job, application context from backend API; fetch-once-at-init, in-memory scoring |
+| Brain | `voice/brain/responder.ts` | **Complete** ✅ | Generate answers via Ollama with context; Zod validation, prompt budgeting, intent detection, fallback salvage, prompt injection defense |
+| Brain | `voice/brain/planner.ts` | **Complete** ✅ | Decide response strategy (answer, clarify, defer, silent); keyword-overlap duplicate detection, config-driven thresholds |
 | Provider | `voice/providers/factory.ts` | Not started | ProviderFactory — createSTT(), createTTS(), createRealtime() |
 | Provider | `voice/providers/openai-realtime.ts` | Not started | OpenAI Realtime API (STT+TTS combined via WebSocket) |
 | Provider | `voice/providers/elevenlabs.ts` | Not started | ElevenLabs TTS + Whisper STT |
@@ -183,6 +183,8 @@
 - Event subscriptions use type-safe discriminated maps.
 - InterviewMemory uses `recentTranscript` (rolling window) + `summary` (not full history).
 - BrainResponse uses `metadata` object, not giant `reasoning` string.
+- All brain files accept config via factory params — no direct config imports.
+- Config-driven thresholds in `config/application.yaml` under `interview`.
 
 **Backend changes needed:**
 - Add `TypeVoiceSession` constant to `tasks/model.go`

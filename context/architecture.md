@@ -178,7 +178,7 @@ Resume uploaded via Frontend
 │  │                                                    │   │
 │  │  planner.ts — decide what to say next              │   │
 │  │  responder.ts — generate answers (Ollama + context)│   │
-│  │  memory.ts — conversation history + rolling summary│  │
+│  │  memory.ts — conversation history + rolling summary│   │
 │  │  retrieval.ts — fetch resume, job, app context     │   │
 │  └──────────────────────────────────────────────────┘   │
 │                                                          │
@@ -195,6 +195,15 @@ Resume uploaded via Frontend
 └─────────────────────────────────────────────────────────┘
 ```
 
+**Brain implementation status (4/4 complete):**
+
+| File | Status | Key Features |
+|------|--------|--------------|
+| `brain/memory.ts` | ✅ Complete | Snapshot-based summarization (race condition prevention), FIFO eviction, summary compaction, shallow-copy state getter |
+| `brain/retrieval.ts` | ✅ Complete | Fetch-once-at-init (4 sources), in-memory keyword-overlap scoring, 5s timeout, retry logic |
+| `brain/responder.ts` | ✅ Complete | Ollama + Zod validation, prompt budgeting (16k chars), intent detection, fallback salvage, **prompt injection defense** (delimiter escaping) |
+| `brain/planner.ts` | ✅ Complete | Strategy decision (answer/clarify/defer/silent), keyword-overlap duplicate detection, config-driven thresholds |
+
 **Fast path (low latency):**
 ```
 Audio → OpenAI Realtime API → Answer
@@ -210,28 +219,28 @@ Transcript → Memory → Resume + Job + App Context → Ollama → Answer
 Frontend POST /api/v1/interviews/:id/start
        │
        ▼
-  Backend enqueues voice_session task
+Backend enqueues voice_session task
        │
        ▼
-  Browser Agent picks up task
+Browser Agent picks up task
        │
        ▼
-  InterviewSession joins LiveKit room
+InterviewSession joins LiveKit room
        │
        ▼
-  User speaks → LiveKit transports audio → STTProvider transcribes
+User speaks → LiveKit transports audio → STTProvider transcribes
        │
        ▼
-  Brain retrieves context (resume, job, application, company research)
+Brain retrieves context (resume, job, application, company research)
        │
        ▼
-  Planner decides response strategy → Responder generates answer via Ollama
+Planner decides response strategy → Responder generates answer via Ollama
        │
        ▼
-  TTSProvider speaks answer back through LiveKit
+TTSProvider speaks answer back through LiveKit
        │
        ▼
-  Session transcript stored in PostgreSQL
+Session transcript stored in PostgreSQL
 ```
 
 **Key principle:** Interview intelligence lives in `brain/`, not inside voice providers. Providers are pure STT/TTS — they don't know about resumes, jobs, or interviews.
