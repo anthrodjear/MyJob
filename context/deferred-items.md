@@ -117,11 +117,52 @@ The following domains exist as scaffolds but have no implementation:
 
 | Domain | Purpose | DB Tables |
 |--------|---------|-----------|
-| **profile** | User profile CRUD (JSONB in profiles table) | profiles |
 | **approvals** | Human-in-the-loop approval before auto-apply | approval_requests |
 | **rag** | Embedding generation + semantic search | embeddings (pgvector) |
-| **emails** | Email classification (stub classifier exists) | emails |
 | **activity** | User activity logging | activity_log |
-| **coverletters** | Duplicated in `resumes` module — remove or consolidate | cover_letters |
 
-**Priority:** Medium — needed for full feature completeness (Profile → API access to profile, Approvals → auto-apply gate, RAG → embeddings, Emails → classifier, Activity → audit)
+**Priority:** Medium — needed for full feature completeness (Approvals → auto-apply gate, RAG → embeddings, Activity → audit)
+
+---
+
+## 7. Profile Domain — ✅ COMPLETE
+
+**What:** `backend/internal/profile/` implemented with all 5 files + wiring.
+
+**Completed:**
+- `profile/model.go` — Profile entity with JSONB `ProfileData` (Preferences, Skills, Education, Links), Skill proficiency constants, `Validate()`, `ApplyPatch()` for PATCH merge logic, `driver.Valuer`/`sql.Scanner` for JSONB serialization
+- `profile/dto.go` — `UpdateProfileRequest` (PUT), `PatchProfileRequest` with pointer fields for PATCH semantics, `ProfileResponse` with embedded stats, `ToResponse`/`ToStatsResponse` mappers
+- `profile/repository.go` — Singleton pattern (LIMIT 1), `Get`/`Create`/`Update` (OCC via version), `UpdatePartial` with `SELECT FOR UPDATE` + transaction, validation inside tx
+- `profile/service.go` — `RepositoryInterface` for DI, `GetOrCreate` (first-run default), `Update` (PUT with If-Match), `UpdatePartial` (PATCH with If-Match), client version from header
+- `profile/handler.go` — GET/PUT/PATCH `/profile`, ETag/If-Match headers (RFC 7232), `httpresp` helpers, structured error mapping
+
+**Backend wiring:**
+- `internal/api/router.go` — Added `ProfileHandler` to `RouterConfig`, registered in protected routes
+- `cmd/api/main.go` — Initialized profileRepo, profileService, profileHandler; added to router
+
+**Why:** User profile is the central data source for job matching, scoring, resume generation, and cover letter personalization. Single-profile (singleton) pattern for local-first single-user system.
+
+**Status:** ✅ **COMPLETE** (2026-06-20)
+
+---
+
+## 7. Emails Domain — ✅ COMPLETE
+
+**What:** `backend/internal/emails/` implemented with all 6 files + wiring.
+
+**Completed:**
+- `emails/model.go` — Email entity, Classification constants (interview_invite, rejection, offer, follow_up, spam, phishing, other), Domain Errors (ErrNotFound, ErrInvalidClassification), IsValidClassification
+- `emails/dto.go` — Request/Response DTOs (StoreEmailRequest, UpdateEmailRequest, ListFilterRequest with ToListFilter conversion, EmailResponse, EmailListResponse, ClassifyResponse), ToEmailResponse mapper
+- `emails/repository.go` — CRUD + Upsert by message_id, List with filters, execAndCheckRows helper, parameterized LIMIT/OFFSET
+- `emails/classifier.go` — LLMClient interface, OllamaClient implementing it, Classifier with pre-compiled template, System field used in Ollama request, fallback JSON parsing (direct → code-fence regex → error), truncation logging
+- `emails/service.go` — Business logic (Store with StoreEmailParams, GetByID, List, MarkRead, UpdateDraft, Reclassify), RepositoryInterface + ClassifierInterface for DI, getEmail helper for DRY error handling
+- `emails/handler.go` — 5 HTTP handlers (Store POST, List GET, GetByID GET, Update PATCH, Reclassify POST), logger injection, httpresp helpers (BadRequest, NotFound, InternalError, Created, OK), structured error logging
+
+**Backend wiring:**
+- `internal/api/router.go` — Added EmailsHandler to RouterConfig, registered in protected routes
+- `cmd/api/main.go` — Initialized emailsRepo, emailClassifier (NewClassifierFromConfig with dedicated LLM.EmailClassifier config), emailsService, emailsHandler; added to router
+- `config.go` — Added EmailClassifier to LLMConfig with separate provider/model/baseURL/timeout
+
+**Why:** Worker stores incoming emails from Browser Agent; API provides read access and manual re-classification; classification updates application status.
+
+**Status:** ✅ **COMPLETE** (2026-06-20)

@@ -49,8 +49,9 @@
 | `auth` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
 | `jobs` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
 | `applications` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
-| `resumes` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** (with cover letter LLM-first, StringSliceDB) |
+| `resumes` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete (with cover letter LLM-first, StringSliceDB)** |
 | `scoring` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete (handler + wiring done)** |
+| `profile` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
 
 #### 1.4 API Handlers — IN PROGRESS
 
@@ -324,15 +325,13 @@ All prompts use Go template syntax (`{{.Field}}`) and are loaded via `config.Loa
 
 ## Backend Completion Plan — Phase 1
 
-### Remaining Work (8 stub domains + 1 handler)
+### Remaining Work (6 stub domains)
 
 | Priority | Item | Files to Create/Modify | Est. Effort | Dependencies |
 |----------|------|------------------------|-------------|--------------|
-| **P0** | Embedding Generation Handler | `handlers_application.go` (implement `handleCreateEmbeddings`), Ollama embeddings client | 4h | Ollama `/api/embeddings`, pgvector table |
-| **P1** | Profile Domain | 5 files in `internal/profile/` (handler, service, repository, model, dto) + API routes in `cmd/api/main.go` | 8h | `profiles` table exists (JSONB) |
 | **P1** | Approvals Domain | 5 files in `internal/approvals/` + API routes | 8h | `approval_requests` table exists |
 | **P1** | RAG/Embeddings Domain | 5 files in `internal/rag/` + API routes | 12h | `embeddings` table + pgvector, Embedding handler |
-| **P2** | Emails Domain | 5 files in `internal/emails/` (classifier exists as stub) | 6h | `emails` table, classifier prompt in config |
+| **P2** | ~~Emails Domain~~ **COMPLETED** | 6 files in `internal/emails/` + API wiring | ~~6h~~ | ~~`emails` table, classifier prompt in config~~ |
 | **P2** | Activity Domain | 3 files in `internal/activity/` (no handler/dto needed) | 4h | `activity_log` table |
 | **P2** | Rate Limit Middleware | `internal/api/middleware/ratelimit.go` | 3h | Redis client, config exists |
 | **P2** | Logging Middleware | `internal/api/middleware/logging.go` | 2h | Zap logger |
@@ -344,11 +343,10 @@ All prompts use Go template syntax (`{{.Field}}`) and are loaded via `config.Loa
 ### Implementation Sequence (Dependency-Ordered)
 
 #### Sprint 1 (Week 1): Embeddings Foundation
-- [ ] Day 1: Ollama embeddings HTTP client (shared pattern like generators)
-- [ ] Day 2: `handleCreateEmbeddings` worker handler
-- [ ] Day 3: Profile domain (CRUD API for user profile)
-- [ ] Day 4: Profile domain — wire into API router
-- [ ] Day 5: Testing + code review
+- [x] Day 1: Ollama embeddings HTTP client (shared pattern like generators)
+- [x] Day 2: `handleCreateEmbeddings` worker handler
+- [x] Day 3-4: Profile domain (CRUD API for user profile) — **COMPLETE**
+- [x] Day 5: Testing + code review — **COMPLETE**
 
 #### Sprint 2 (Week 2): Approvals + RAG
 - [ ] Day 1-2: Approvals domain (human-in-the-loop gate for auto-apply)
@@ -356,7 +354,7 @@ All prompts use Go template syntax (`{{.Field}}`) and are loaded via `config.Loa
 - [ ] Day 5: Integration test: embedding generation → RAG search
 
 #### Sprint 3 (Week 3): Emails + Activity + Middleware
-- [ ] Day 1-2: Emails domain (implement classifier using existing classifier.go stub)
+- [x] Day 1-2: Emails domain (implement classifier using existing classifier.go stub) — **COMPLETE**
 - [ ] Day 3: Activity domain (simple audit logging)
 - [ ] Day 4: Rate limit + logging middleware
 - [ ] Day 5: Full worker + API regression test

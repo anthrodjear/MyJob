@@ -313,12 +313,12 @@ internal/
 │   ├── model.go
 │   └── dto.go
 ├── emails/
-│   ├── handler.go
-│   ├── service.go
-│   ├── repository.go
-│   ├── model.go
-│   ├── dto.go
-│   └── classifier.go   # EmailClassifier interface (stub)
+│   ├── handler.go      # HTTP handlers (Store, List, GetByID, Update, Reclassify)
+│   ├── service.go      # Business logic (Store, List, MarkRead, UpdateDraft, Reclassify)
+│   ├── repository.go   # CRUD + Upsert by message_id, List with filters
+│   ├── model.go        # Email entity, Classification constants, ErrNotFound, ErrInvalidClassification
+│   ├── dto.go          # Request/Response DTOs, ToListFilter conversion
+│   └── classifier.go   # LLMClient interface, OllamaClient, Classifier with pre-compiled template, regex code-fence parsing, fallback parsing
 ├── rag/
 │   ├── handler.go
 │   ├── service.go
@@ -365,6 +365,46 @@ cmd/
 ┌─────────┐
 │  Tasks  │  (async job tracking)
 └─────────┘
+```
+
+### Email Classification Flow
+
+```
+Incoming Email (via Browser Agent)
+        │
+        ▼
+Worker enqueues email_check task
+        │
+        ▼
+Browser Agent fetches from Outlook/IMAP
+        │
+        ▼
+Worker stores emails via emails.Service.Store()
+        │
+        ├── Classification provided? ──▶ Use it
+        │
+        └── No classification ──▶ Classify via LLM (Ollama)
+                │
+                ▼
+        Email stored with classification
+        │
+        ▼
+Application status updated based on classification
+```
+
+### Activity Logging Flow
+
+```
+Domain operation (any write)
+        │
+        ▼
+activity.Service.Log() called
+        │
+        ▼
+Structured event stored in activity_log
+        │
+        ▼
+Enables: audit trail, debugging, user-facing timeline
 ```
 
 **Key invariants:**
@@ -423,6 +463,12 @@ POST   /api/v1/interviews                       → create interview session
 POST   /api/v1/interviews/:id/start             → start interview (dispatch voice_session task)
 POST   /api/v1/interviews/:id/stop              → stop interview
 POST   /internal/interviews/:id/events          → internal callback (transcript, status, score, feedback)
+
+GET    /api/v1/emails                           → list emails (filters: application_id, classification)
+GET    /api/v1/emails/:id                       → get email
+POST   /api/v1/emails                           → store incoming email (worker)
+PATCH  /api/v1/emails/:id                       → update read status or reply draft
+POST   /api/v1/emails/:id/classify              → re-classify email via LLM
 ```
 
 ---
@@ -803,7 +849,7 @@ The scoring service supports three modes via `SCORING_MODE` config:
 | Fill Form | `TypeFillForm` | `fill_form` | 3 | 5 min | `handlers_application.go` | ✅ Complete |
 | Email Check | `TypeEmailCheck` | `email_check` | 5 | 1 min | `handlers_application.go` | ✅ Complete |
 | Interview Prep | `TypeInterviewPrep` | `interview_prep` | 3 | 5 min | `handlers_application.go` | ✅ Placeholder |
-| Embedding Generation | `TypeEmbeddingGenerate` | `embedding_generate` | 5 | 1 min | `handlers_application.go` | ❌ Stub |
+| Embedding Generation | `TypeEmbeddingGenerate` | `embedding_generate` | 5 | 1 min | `handlers_application.go` | ✅ Complete |
 | Voice Session | `TypeVoiceSession` | `voice_session` | 1 | 30 min | `handlers_application.go` | ✅ Complete |
 
 ---

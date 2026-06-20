@@ -84,14 +84,14 @@ Job seekers who want to dramatically scale their application volume without sacr
 
 ## Current Status
 
-**Phase:** Phase 1 Foundation — ~55% complete (core 6 domains implemented, Browser Agent + Voice Module 100% complete, 8 stub domains remaining)
+**Phase:** Phase 1 Foundation — ~60% complete (core 7 domains implemented, Browser Agent + Voice Module 100% complete, 7 stub domains remaining)
 
 - Project structure and directory layout established
 - Technology stack decisions finalized
 - Docker Compose orchestration configured (8 services: api, worker, frontend, browser-agent, postgres, redis, ollama, livekit)
-- **6 Core domains complete** — jobs, applications, resumes, scoring, auth, tasks (all handler/service/repository/model/dto + API + Worker wiring)
+- **7 Core domains complete** — jobs, applications, resumes, scoring, auth, tasks, emails (all handler/service/repository/model/dto + API + Worker wiring)
 - **4 Browser Agent scrapers** — Greenhouse, Lever, RemoteOK (API-native), Indeed (Playwright) + CustomScraper fallback
-- **Ollama integration** — 3 LLM generators working (scoring, resume, cover letter)
+- **Ollama integration** — 3 LLM generators working (scoring, resume, cover letter) + email classifier
 - **Voice Module** — Complete with 4 brain components, 4 providers (OpenAI Realtime, ElevenLabs, Local Whisper+Piper+Kokoro), session orchestration
 - **Worker handlers** — 9/10 complete (embedding generation is the only stub)
 - Database migrations (9 up/down) with pgvector for embeddings
@@ -105,10 +105,12 @@ Job seekers who want to dramatically scale their application volume without sacr
 - [x] Jobs domain — CRUD, scan trigger, tiered scrapers, scoring pipeline
 - [x] Applications domain — CRUD, status state machine, audit trail, stats
 - [x] Resumes domain — CRUD, LLM generation, cover letters, versioning, PDF keys
+- [x] Profile domain — CRUD API for user profile (JSONB in profiles table), ETag/If-Match optimistic locking, PATCH merge logic
 - [x] Scoring domain — Heuristic/LLM/Hybrid modes, factor scoring, tier logic
 - [x] Auth domain — Single-user JWT, bcrypt, session invalidation
 - [x] Tasks domain — Async task queue (Asynq), state machine, HTTP API
 - [x] Interviews domain — Session lifecycle, transcript handling, LiveKit, internal events
+- [x] Emails domain — Store/list/get/update/classify, LLM classification via Ollama, API + worker integration
 - [x] Browser Agent scrapers — 4 sources + fallback CustomScraper
 - [x] Browser Agent server — Express + scrape/fill/email endpoints
 - [x] Browser Agent form filler — LLM field mapping + heuristic fallback
@@ -121,9 +123,9 @@ Job seekers who want to dramatically scale their application volume without sacr
 - [ ] **Profile domain** — CRUD API for user profile (JSONB in profiles table)
 - [ ] **Approvals domain** — Human-in-the-loop approval before auto-apply (approval_requests table)
 - [ ] **RAG/Embeddings domain** — Embedding generation + semantic search (embeddings table + pgvector)
-- [ ] **Emails domain** — Email classifier implementation (emails table + classifier.go stub)
+- [x] **Emails domain** — Email classifier implementation (emails table + classifier.go, LLMClient/OllamaClient, HTTP handlers wired)
 - [ ] **Activity domain** — User activity logging (activity_log table)
-- [ ] **Embedding generation handler** — Complete the Ollama embeddings worker task
+- [x] **Embedding generation handler** — Complete the Ollama embeddings worker task (handlers_application.go, internal/embeddings/ollama.go, wired in cmd/worker/main.go)
 - [ ] **Rate limit middleware** — Implement `internal/api/middleware/ratelimit.go`
 - [ ] **Logging middleware** — Implement `internal/api/middleware/logging.go`
 
