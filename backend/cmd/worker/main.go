@@ -78,17 +78,18 @@ func main() {
 	mux.HandleFunc(tasks.TypeJobScoring, newHandleScoring(scoringService, logger))
 	mux.HandleFunc(tasks.TypeResumeGenerate, newHandleGenerateResume(resumesService, jobsService, logger))
 	mux.HandleFunc(tasks.TypeCoverLetterGen, newHandleGenerateCoverLetter(resumesService, jobsService, logger))
-	mux.HandleFunc("fill_form", newHandleFillForm(browserClient, logger))
+	mux.HandleFunc(tasks.TypeFillForm, newHandleFillForm(browserClient, logger))
 	mux.HandleFunc(tasks.TypeApplicationSubmit, newHandleSubmitApplication(applicationsService, jobsService, browserClient, logger))
 	mux.HandleFunc(tasks.TypeEmailCheck, newHandleSyncEmails(applicationsService, browserClient, cfg.Email, logger))
 	mux.HandleFunc(tasks.TypeInterviewPrep, newHandleGenerateInterviewPrep(applicationsService, jobsService, logger))
 	mux.HandleFunc(tasks.TypeEmbeddingGenerate, handleCreateEmbeddings)
-	mux.HandleFunc("voice_session", handleVoiceSession)
+	mux.HandleFunc(tasks.TypeVoiceSession, newHandleVoiceSession(browserClient, logger))
 
 	logger.Info("Worker started")
 
 	if err := srv.Run(mux); err != nil {
-		logger.Fatal("Worker failed", zap.Error(err))
+		logger.Error("Worker failed", zap.Error(err))
+		return // return instead of os.Exit — allows defers to close postgres/redis connections
 	}
 
 	logger.Info("Worker stopped")

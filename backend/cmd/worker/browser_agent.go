@@ -23,6 +23,26 @@ type BrowserAgentClient interface {
 
 	// CheckEmails calls the browser agent to check emails via Microsoft Graph.
 	CheckEmails(ctx context.Context, req CheckEmailsRequest) (*CheckEmailsResponse, error)
+
+	// StartVoiceSession calls the browser agent to start a voice interview session.
+	// This is a long-running call (up to 30 minutes) that blocks until the interview completes.
+	StartVoiceSession(ctx context.Context, req VoiceSessionRequest) (*VoiceSessionResponse, error)
+}
+
+// VoiceSessionRequest is the payload sent to the browser agent for starting a voice interview.
+type VoiceSessionRequest struct {
+	InterviewID     string `json:"interview_id"`
+	ApplicationID   string `json:"application_id"`
+	Mode            string `json:"mode"`
+	ExternalSession string `json:"external_session"`
+	Provider        string `json:"provider"`
+	Model           string `json:"model"`
+}
+
+// VoiceSessionResponse is the response from the browser agent after the voice interview completes.
+type VoiceSessionResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
 }
 
 // ScrapeJobsRequest is the payload sent to the browser agent for job scraping.
@@ -109,7 +129,7 @@ func NewHTTPBrowserAgentClient(baseURL string, logger *zap.Logger) *HTTPBrowserA
 	return &HTTPBrowserAgentClient{
 		baseURL: baseURL,
 		httpClient: &http.Client{
-			Timeout: 10 * time.Minute, // form filling can take a while
+			Timeout: 35 * time.Minute, // must exceed longest task (voice sessions: 30min)
 		},
 		logger: logger.Named("browser-agent-client"),
 	}
@@ -251,6 +271,62 @@ func (c *HTTPBrowserAgentClient) CheckEmails(ctx context.Context, req CheckEmail
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("browser-agent: unmarshal check emails response: %w", err)
 	}
+
+	return &result, nil
+}
+
+// StartVoiceSession calls the browser agent's voice interview endpoint.
+// This is a long-running call that blocks until the interview completes
+// (up to 30 minutes). The browser-agent joins a LiveKit room, runs the
+// interview, and returns when the session ends.
+func (c *HTTPBrowserAgentClient) StartVoiceSession(ctx context.Context, req VoiceSessionRequest) (*VoiceSessionResponse, error) {
+	data, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("browser-agent: marshal voice session request: %w", err)
+	}
+
+	url := c.baseURL + "/api/interviews/start"
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("browser-agent: create voice session request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	c.logger.Info("starting voice session",
+		zap.String("interview_id", req.InterviewID),
+		zap.String("mode", req.Mode),
+		zap.String("provider", req.Provider),
+	)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("browser-agent: start voice session: %w", err)
+	}
+	defer resp.Body.Close()
+
+	const maxResponseBody = 10 << 20
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBody))
+	if err != nil {
+		return nil, fmt.Errorf("browser-agent: read voice session response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		msg := string(body)
+		if len(msg) > 500 {
+			msg = msg[:500] + "... (truncated)"
+		}
+		return nil, fmt.Errorf("browser-agent: voice session returned %d: %s", resp.StatusCode, msg)
+	}
+
+	var result VoiceSessionResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("browser-agent: unmarshal voice session response: %w", err)
+	}
+
+	c.logger.Info("voice session completed",
+		zap.String("interview_id", req.InterviewID),
+		zap.Bool("success", result.Success),
+	)
 
 	return &result, nil
 }

@@ -17,6 +17,7 @@ import (
 	"backend/internal/auth"
 	"backend/internal/config"
 	"backend/internal/database"
+	"backend/internal/interviews"
 	"backend/internal/jobs"
 	"backend/internal/resumes"
 	"backend/internal/scoring"
@@ -86,6 +87,11 @@ func main() {
 	scoringService := scoring.NewService(scoringRepo, scoringLLM, logger, cfg.Scoring)
 	scoringHandler := scoring.NewHandler(scoringService, dispatcher, logger)
 
+	// Initialize interviews domain
+	interviewsRepo := interviews.NewRepository(postgres.DB)
+	interviewsService := interviews.NewService(interviewsRepo, dispatcher, logger)
+	interviewsHandler := interviews.NewHandler(interviewsService, logger)
+
 	// Setup router with all routes
 	router := api.SetupRouter(api.RouterConfig{
 		AuthHandler:         authHandler,
@@ -94,6 +100,7 @@ func main() {
 		ApplicationsHandler: appsHandler,
 		ResumesHandler:      resumesHandler,
 		ScoringHandler:      scoringHandler,
+		InterviewsHandler:   interviewsHandler,
 		Logger:              logger,
 	})
 

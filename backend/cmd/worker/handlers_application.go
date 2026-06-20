@@ -284,7 +284,51 @@ func handleCreateEmbeddings(ctx context.Context, t *asynq.Task) error {
 	return fmt.Errorf("handler %s: not implemented", t.Type())
 }
 
-// handleVoiceSession is a stub — pending LiveKit integration.
-func handleVoiceSession(ctx context.Context, t *asynq.Task) error {
-	return fmt.Errorf("handler %s: not implemented", t.Type())
+// handleVoiceSession processes voice_session tasks.
+// It calls the browser-agent to start a voice interview session, which
+// joins a LiveKit room and runs the interview (assist or autonomous mode).
+// This is a long-running task (up to 30 minutes).
+func newHandleVoiceSession(browserClient BrowserAgentClient, logger *zap.Logger) asynq.HandlerFunc {
+	return func(ctx context.Context, t *asynq.Task) error {
+		log := logger.Named("task.voice_session")
+
+		var payload tasks.VoiceSessionPayload
+		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+			log.Error("unmarshal payload", zap.String("task_type", t.Type()), zap.Error(err))
+			return fmt.Errorf("voice_session: unmarshal payload: %w", err)
+		}
+
+		ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
+		defer cancel()
+
+		log.Info("starting voice session",
+			zap.String("interview_id", payload.InterviewID.String()),
+			zap.String("application_id", payload.ApplicationID.String()),
+			zap.String("mode", payload.Mode),
+			zap.String("external_session", payload.ExternalSession),
+		)
+
+		resp, err := browserClient.StartVoiceSession(ctx, VoiceSessionRequest{
+			InterviewID:     payload.InterviewID.String(),
+			ApplicationID:   payload.ApplicationID.String(),
+			Mode:            payload.Mode,
+			ExternalSession: payload.ExternalSession,
+			Provider:        payload.Provider,
+			Model:           payload.Model,
+		})
+		if err != nil {
+			log.Error("voice session failed",
+				zap.String("interview_id", payload.InterviewID.String()),
+				zap.Error(err),
+			)
+			return fmt.Errorf("voice_session: %s: %w", payload.InterviewID, err)
+		}
+
+		log.Info("voice session completed",
+			zap.String("interview_id", payload.InterviewID.String()),
+			zap.Bool("success", resp.Success),
+			zap.String("message", resp.Message),
+		)
+		return nil
+	}
 }
