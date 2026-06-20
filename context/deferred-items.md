@@ -50,6 +50,7 @@ Alternative:
 userID := middleware.GetUserID(c)
 h.logger.Error("update job",
     zap.String("job_id", "job_id", id.String()),
+    String()),
     zap.String("user_id", userID),
     zap.Error(err),
 )
@@ -166,3 +167,26 @@ The following domains exist as scaffolds but have no implementation:
 **Why:** Worker stores incoming emails from Browser Agent; API provides read access and manual re-classification; classification updates application status.
 
 **Status:** ✅ **COMPLETE** (2026-06-20)
+
+---
+
+## 8. Resume Tailor Worker Handler — ✅ COMPLETE
+
+**What:** Missing handler for existing `resume_tailor` task type (task type, payload, dispatcher method all existed but no handler).
+
+**Completed:**
+- `resumes/llm.go` — `ResumeTailor` interface, `OllamaResumeTailor` implementation with pre-compiled template, System field in Ollama request, fallback JSON parsing, `ResumeTailorResult` with `content` + `summary`
+- `resumes/service.go` — Added `ResumeTailor` to Service struct, `NewService` accepts `ResumeTailor`, `TailorResume` method (fetches resume, calls tailor, saves version snapshot, updates content)
+- `cmd/worker/handlers_resume.go` — `newHandleTailorResume` handler (fetches job, calls `resumesSvc.TailorResume`, logs summary)
+- `cmd/worker/main.go` — Initialized `resumeTailor` via `NewResumeTailorFromConfig`, passed to `NewService`, registered `tasks.TypeResumeTailor` handler
+
+**Backend wiring:**
+- `tasks/model.go` — `TypeResumeTailor = "resume_tailor"` (already existed)
+- `tasks/dto.go` — `ResumeTailorPayload` with job_id, resume_id, correlation_id (already existed)
+- `tasks/dispatcher.go` — `DispatchResumeTailor` method (already existed)
+- `config/prompts.go` — `ResumeTailor` PromptPair loaded from YAML (already existed)
+- `cmd/api/main.go` — Initialized `resumeTailor`, passed to `resumes.NewService`
+
+**Why:** Resume tailoring adapts an existing resume for a specific job by reordering skills, adjusting experience descriptions to match job requirements, and using keywords from the job description — while preserving factual accuracy.
+
+**Status:** ✅ **COMPLETE** (2026-06-21)

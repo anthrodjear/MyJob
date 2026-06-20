@@ -56,7 +56,8 @@ func main() {
 	resumesRepo := resumes.NewRepository(postgres.DB)
 	resumesLLM := resumes.NewResumeGeneratorFromConfig(logger, cfg.LLM, cfg.Prompts)
 	coverLetterLLM := resumes.NewCoverLetterGeneratorFromConfig(logger, cfg.LLM, cfg.Prompts)
-	resumesService := resumes.NewService(resumesRepo, resumesLLM, coverLetterLLM, logger)
+	resumeTailor := resumes.NewResumeTailorFromConfig(logger, cfg.LLM, cfg.Prompts)
+	resumesService := resumes.NewService(resumesRepo, resumesLLM, coverLetterLLM, resumeTailor, logger)
 
 	applicationsRepo := applications.NewRepository(postgres.DB)
 	applicationsService := applications.NewService(applicationsRepo, logger)
@@ -81,6 +82,7 @@ func main() {
 	mux.HandleFunc(tasks.TypeJobScoring, newHandleScoring(scoringService, logger))
 	mux.HandleFunc(tasks.TypeResumeGenerate, newHandleGenerateResume(resumesService, jobsService, logger))
 	mux.HandleFunc(tasks.TypeCoverLetterGen, newHandleGenerateCoverLetter(resumesService, jobsService, logger))
+	mux.HandleFunc(tasks.TypeResumeTailor, newHandleTailorResume(resumesService, jobsService, logger))
 	mux.HandleFunc(tasks.TypeFillForm, newHandleFillForm(browserClient, logger))
 	mux.HandleFunc(tasks.TypeApplicationSubmit, newHandleSubmitApplication(applicationsService, jobsService, browserClient, logger))
 	mux.HandleFunc(tasks.TypeEmailCheck, newHandleSyncEmails(applicationsService, browserClient, cfg.Email, logger))

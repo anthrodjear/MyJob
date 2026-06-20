@@ -403,3 +403,222 @@ func NewCoverLetterGeneratorFromConfig(logger *zap.Logger, cfg config.LLMConfig,
 	}
 	return NewNoopCoverLetterGenerator(logger)
 }
+
+// ============================================================================
+// Resume Tailoring
+// ============================================================================
+
+// ResumeTailorResult holds the LLM output for resume tailoring.
+type ResumeTailorResult struct {
+	Content *ResumeContent `json:"content"`
+	Summary string         `json:"summary"` // Human-readable summary of changes
+}
+
+// ResumeTailor defines the interface for LLM-based resume tailoring.
+type ResumeTailor interface {
+	// TailorResume adapts an existing resume for a specific job.
+	// Returns the tailored ResumeContent and a summary of changes.
+	TailorResume(ctx context.Context, resume *Resume, jobTitle, jobRequirements, jobDescription string) (*ResumeTailorResult, error)
+	// ModelName returns the identifier of the LLM model used.
+	ModelName() string
+}
+
+// OllamaResumeTailor calls a local Ollama model for resume tailoring.
+type OllamaResumeTailor struct {
+	logger  *zap.Logger
+	baseURL string
+	model   string
+	prompt  config.PromptPair
+	client  *http.Client
+}
+
+// NewOllamaResumeTailor creates a new Ollama-based resume tailor.
+func NewOllamaResumeTailor(logger *zap.Logger, baseURL, model string, prompt config.PromptPair) *OllamaResumeTailor {
+	return &OllamaResumeTailor{
+		logger:  logger.Named("llm.resume_tailor"),
+		baseURL: baseURL,
+		model:   model,
+		prompt:  prompt,
+		client:  &http.Client{Timeout: 2 * time.Minute},
+	}
+}
+
+// ModelName returns the Ollama model identifier.
+func (o *OllamaResumeTailor) ModelName() string {
+	return o.model
+}
+
+// TailorResume sends existing resume + job context to Ollama for tailored resume generation.
+func (o *OllamaResumeTailor) TailorResume(ctx context.Context, resume *Resume, jobTitle, jobRequirements, jobDescription string) (*ResumeTailorResult, error) {
+	// Build profile from existing resume
+	profile := buildProfileFromResume(resume)
+
+	data := map[string]any{
+		"ResumeContent":  profile,
+		"JobTitle":       jobTitle,
+		"JobRequirements": jobRequirements,
+		"JobDescription":  jobDescription,
+	}
+
+	prompt := o.buildPrompt(data)
+
+	// Call Ollama API
+	rawJSON, err := o.callOllama(ctx, prompt)
+	if err != nil {
+		return nil, fmt.Errorf("ollama resume tailoring: %w", err)
+	}
+
+	// Parse the LLM's JSON response
+	var result ResumeTailorResult
+	if err := json.Unmarshal(rawJSON, &result); err != nil {
+		return nil, fmt.Errorf("parse resume tailor result: %w", err)
+	}
+
+	if result.Content == nil {
+		return nil, fmt.Errorf("tailor result content is nil")
+	}
+
+	// Validate generated content
+	if err := validateContent(result.Content); err != nil {
+		return nil, fmt.Errorf("invalid tailored content: %w", err)
+	}
+
+	return &result, nil
+}
+
+// callOllama calls the Ollama /api/generate endpoint and returns the raw JSON response.
+// Reuses the same request/response structs as OllamaResumeGenerator.
+func (o *OllamaResumeTailor) callOllama(ctx context.Context, prompt string) ([]byte, error) {
+	reqBody, err := json.Marshal(ollamaRequest{
+		Model:  o.model,
+		Prompt: prompt,
+		Stream: false,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	url := strings.TrimRight(o.baseURL, "/") + "/api/generate"
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := o.client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("call ollama: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		msg := string(body)
+		if len(msg) > 500 {
+			msg = msg[:500] + "... (truncated)"
+		}
+		return nil, fmt.Errorf("ollama returned %d: %s", resp.StatusCode, msg)
+	}
+
+	var ollamaResp ollamaResponse
+	if err := json.Unmarshal(body, &ollamaResp); err != nil {
+		return nil, fmt.Errorf("unmarshal ollama response: %w", err)
+	}
+
+	return []byte(ollamaResp.Response), nil
+}
+
+// buildPrompt constructs the tailoring prompt from config template using text/template.
+func (o *OllamaResumeTailor) buildPrompt(data map[string]any) string {
+	system := o.prompt.System
+	user := o.prompt.User
+
+	if system == "" {
+		system = `You are an expert resume tailoring specialist. Adapt an existing resume to perfectly match a specific job posting while preserving the candidate's authentic experience and achievements.`
+	}
+	if user == "" {
+		user = `Tailor this resume for the specific job posting.
+
+## Existing Resume Content
+{{.ResumeContent}}
+
+## Target Job
+Title: {{.JobTitle}}
+Requirements: {{.JobRequirements}}
+Description: {{.JobDescription}}
+
+## Instructions
+- Reorder skills to prioritize those mentioned in the job requirements
+- Adjust experience descriptions to highlight relevant achievements
+- Keep all factual information accurate — do not invent experience
+- Rephrase bullets to use keywords from the job description
+- Return ONLY valid JSON with "content" (ResumeContent) and "summary" (brief description of changes)
+
+## Output Format
+Return ONLY valid JSON:
+{
+  "content": { /* ResumeContent structure */ },
+  "summary": "<brief description of changes made>"
+}`
+	}
+
+	// systemBuf executes system template with profile data
+	systemBuf := new(strings.Builder)
+	systemTmpl, err := template.New("system").Parse(system)
+	if err != nil {
+		o.logger.Warn("system template parse error, using fallback", zap.Error(err))
+		systemBuf.WriteString(`You are an expert resume tailoring specialist. Adapt an existing resume to perfectly match a specific job posting.`)
+	} else if err := systemTmpl.Execute(systemBuf, data); err != nil {
+		o.logger.Warn("system template execute error", zap.Error(err))
+	}
+
+	// userBuf executes user template
+	userBuf := new(strings.Builder)
+	userTmpl, err := template.New("user").Parse(user)
+	if err != nil {
+		o.logger.Warn("user template parse error, using fallback", zap.Error(err))
+		userBuf.WriteString(`Tailor this resume for the specific job. Return ONLY valid JSON with "content" and "summary".`)
+	} else if err := userTmpl.Execute(userBuf, data); err != nil {
+		o.logger.Warn("user template execute error", zap.Error(err))
+	}
+
+	return systemBuf.String() + "\n\n" + userBuf.String()
+}
+
+// NoopResumeTailor is a fallback when LLM is disabled or unavailable.
+type NoopResumeTailor struct {
+	logger *zap.Logger
+}
+
+// NewNoopResumeTailor creates a no-op resume tailor.
+func NewNoopResumeTailor(logger *zap.Logger) *NoopResumeTailor {
+	return &NoopResumeTailor{logger: logger.Named("llm.resume_tailor.noop")}
+}
+
+// TailorResume returns empty content — used when LLM generation is disabled.
+func (n *NoopResumeTailor) TailorResume(_ context.Context, _ *Resume, _, _, _ string) (*ResumeTailorResult, error) {
+	return &ResumeTailorResult{
+		Content: &ResumeContent{
+			Summary: "LLM tailoring disabled — please tailor manually.",
+			Skills:  []string{},
+		},
+		Summary: "No changes made (LLM disabled)",
+	}, nil
+}
+
+// ModelName returns the model identifier.
+func (n *NoopResumeTailor) ModelName() string {
+	return "noop"
+}
+
+// NewResumeTailorFromConfig creates a ResumeTailor based on configuration.
+func NewResumeTailorFromConfig(logger *zap.Logger, cfg config.LLMConfig, prompts config.PromptsConfig) ResumeTailor {
+	if cfg.Local.Provider == "ollama" && cfg.Local.BaseURL != "" {
+		return NewOllamaResumeTailor(logger, cfg.Local.BaseURL, cfg.Local.Model, prompts.ResumeTailor)
+	}
+	return NewNoopResumeTailor(logger)
+}

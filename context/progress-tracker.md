@@ -89,9 +89,9 @@
 | Interview prep | `interview_prep` | **Complete** ✅ | Placeholder (LLM pending), reviewed |
 | Embedding generation | `embedding_generate` | **Complete** ✅ | Ollama embeddings + pgvector upsert, reviewed |
 | Voice session | `voice_session` | **Complete** ✅ | LiveKit + interview brain, reviewed |
-| Resume tailor | `resume_tailor` | **MISSING** | Task defined + dispatcher + payload, NO handler |
+| Resume tailor | `resume_tailor` | **Complete** ✅ | Implemented in `handlers_resume.go` + `resumes/llm` (ResumeTailor interface + Ollama implementation + Service method) |
 
-**Missing**: `resume_tailor` handler — task type exists in `tasks/model.go` + `tasks/dto.go` + `tasks/dispatcher.go`, but no implementation in `handlers_application.go` or `handlers_resume.go`.
+**All 11 worker handlers complete** — no missing handlers.
 
 #### 1.6 Browser Agent Scrapers — COMPLETE
 
@@ -368,7 +368,7 @@ All prompts use Go template syntax (`{{.Field}}`) and are loaded via `config.Loa
 
 #### Sprint 3 (Week 3): Emails + Activity + Middleware
 - [x] Day 1-2: Emails domain (implement classifier using existing classifier.go stub) — **COMPLETE**
-- [ ] Day 1: Resume Tailor worker handler (missing handler for existing task type)
+- [x] Day 1: Resume Tailor worker handler (missing handler for existing task type) — **COMPLETE**
 - [ ] Day 2: Activity domain (simple audit logging)
 - [ ] Day 3: Rate limit + logging middleware
 - [ ] Day 4: Full worker + API regression test

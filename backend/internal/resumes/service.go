@@ -13,19 +13,21 @@ import (
 
 // Service handles resume and cover letter business logic.
 type Service struct {
-	repo   Repository
-	llm    ResumeGenerator
-	clgen  CoverLetterGenerator
-	logger *zap.Logger
+	repo    Repository
+	llm     ResumeGenerator
+	clgen   CoverLetterGenerator
+	rtailor ResumeTailor
+	logger  *zap.Logger
 }
 
 // NewService creates a new resumes service.
-func NewService(repo Repository, llm ResumeGenerator, clgen CoverLetterGenerator, logger *zap.Logger) *Service {
+func NewService(repo Repository, llm ResumeGenerator, clgen CoverLetterGenerator, rtailor ResumeTailor, logger *zap.Logger) *Service {
 	return &Service{
-		repo:   repo,
-		llm:    llm,
-		clgen:  clgen,
-		logger: logger.Named("resumes"),
+		repo:    repo,
+		llm:     llm,
+		clgen:   clgen,
+		rtailor: rtailor,
+		logger:  logger.Named("resumes"),
 	}
 }
 
@@ -492,6 +494,43 @@ func (s *Service) DeleteCoverLetter(ctx context.Context, id uuid.UUID) error {
 	}
 	s.logger.Info("cover letter deleted", zap.String("id", id.String()))
 	return nil
+}
+
+// TailorResume adapts an existing resume for a specific job using the ResumeTailor interface.
+// Returns the tailored content and a summary of changes.
+func (s *Service) TailorResume(ctx context.Context, resumeID uuid.UUID, jobTitle, jobRequirements, jobDescription string) (*ResumeTailorResult, error) {
+	resume, err := s.getResume(ctx, resumeID)
+	if err != nil {
+		return nil, fmt.Errorf("tailor resume: %w", err)
+	}
+
+	result, err := s.rtailor.TailorResume(ctx, resume, jobTitle, jobRequirements, jobDescription)
+	if err != nil {
+		return nil, fmt.Errorf("tailor resume: %w", err)
+	}
+
+	// Save version snapshot before updating
+	if snapErr := s.saveVersionSnapshot(ctx, resume); snapErr != nil {
+		s.logger.Warn("version snapshot failed (non-fatal)", zap.Error(snapErr))
+	}
+
+	// Update resume content with tailored version
+	contentDB := ResumeContentDB(*result.Content)
+	newVersion, err := s.repo.UpdateContent(ctx, resumeID, contentDB, resume.Version)
+	if err != nil {
+		return nil, fmt.Errorf("update tailored content: %w", err)
+	}
+	resume.Version = newVersion
+	resume.Content = contentDB
+
+	s.logger.Info("resume tailored",
+		zap.String("id", resumeID.String()),
+		zap.Int32("version", newVersion),
+		zap.String("model", s.rtailor.ModelName()),
+		zap.String("summary", result.Summary),
+	)
+
+	return result, nil
 }
 
 // UnmarshalContent is a helper to unmarshal raw JSON bytes into ResumeContent.

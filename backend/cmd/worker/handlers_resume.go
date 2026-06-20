@@ -148,3 +148,62 @@ func newHandleGenerateCoverLetter(
 		return nil
 	}
 }
+
+// newHandleTailorResume processes resume_tailor tasks.
+func newHandleTailorResume(
+	resumesSvc *resumes.Service,
+	jobsSvc *jobs.Service,
+	logger *zap.Logger,
+) asynq.HandlerFunc {
+	return func(ctx context.Context, t *asynq.Task) error {
+		log := logger.Named("task.resume_tailor")
+
+		var payload tasks.ResumeTailorPayload
+		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+			log.Error("unmarshal payload", zap.String("task_type", t.Type()), zap.Error(err))
+			return fmt.Errorf("resume_tailor: unmarshal payload: %w", err)
+		}
+
+		ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+		defer cancel()
+
+		log.Info("tailoring resume",
+			zap.String("resume_id", payload.ResumeID.String()),
+			zap.String("job_id", payload.JobID.String()),
+			zap.String("correlation_id", payload.CorrelationID.String()),
+		)
+
+		// Fetch the job
+		job, err := jobsSvc.GetByID(ctx, payload.JobID)
+		if err != nil {
+			if errors.Is(err, jobs.ErrNotFound) {
+				log.Warn("job not found, skipping", zap.String("job_id", payload.JobID.String()))
+				return nil
+			}
+			log.Error("fetch job", zap.String("job_id", payload.JobID.String()), zap.Error(err))
+			return fmt.Errorf("resume_tailor: fetch job %s: %w", payload.JobID, err)
+		}
+
+		// Tailor the resume using the ResumeTailor interface
+		// The resumes.Service needs to have a TailorResume method that uses the ResumeTailor interface
+		// For now, we'll call a method on the service - need to add this to resumes.Service
+		tailoredContent, err := resumesSvc.TailorResume(ctx, payload.ResumeID, job.Title, job.Requirements, job.Description)
+		if err != nil {
+			log.Error("tailor resume",
+				zap.String("resume_id", payload.ResumeID.String()),
+				zap.String("job_id", payload.JobID.String()),
+				zap.Error(err),
+			)
+			return fmt.Errorf("resume_tailor: tailor for job %s: %w", payload.JobID, err)
+		}
+
+		log.Info("resume tailored",
+			zap.String("resume_id", payload.ResumeID.String()),
+			zap.String("job_id", payload.JobID.String()),
+			zap.String("correlation_id", payload.CorrelationID.String()),
+			zap.String("summary", tailoredContent.Summary),
+		)
+
+		return nil
+	}
+}

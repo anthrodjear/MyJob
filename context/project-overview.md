@@ -127,7 +127,7 @@ Job seekers who want to dramatically scale their application volume without sacr
 - [x] **RAG/Embeddings domain** — Embedding generation + semantic search (embeddings table + pgvector)
 - [x] **Emails domain** — Email classifier implementation (emails table + classifier.go, LLMClient/OllamaClient, HTTP handlers wired)
 - [ ] **Activity domain** — User activity logging (activity_log table)
-- [ ] **Resume Tailor worker handler** — Missing handler for existing `resume_tailor` task type (handlers_application.go or handlers_resume.go)
+- [x] **Resume Tailor worker handler** — Implemented in `handlers_resume.go` + `resumes/llm.go` (ResumeTailor interface + Ollama implementation + Service.TailorResume)
 - [ ] **Rate limit middleware** — Implement `internal/api/middleware/ratelimit.go`
 - [ ] **Logging middleware** — Implement `internal/api/middleware/logging.go`
 
