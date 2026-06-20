@@ -45,6 +45,7 @@ const (
 	TypeResumeTailor      = "resume_tailor"
 	TypeEmailCheck        = "email_check"
 	TypeInterviewPrep     = "interview_prep"
+	TypeVoiceSession      = "voice_session"
 )
 
 // TableName returns the table name for the Task model.

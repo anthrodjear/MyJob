@@ -105,6 +105,17 @@ type InterviewPrepPayload struct {
 	CorrelationID uuid.UUID `json:"correlation_id"`
 }
 
+// VoiceSessionPayload is the params for starting a voice interview session.
+// The browser-agent receives this and joins the LiveKit room.
+type VoiceSessionPayload struct {
+	InterviewID     uuid.UUID `json:"interview_id"`
+	ApplicationID   uuid.UUID `json:"application_id"`
+	Mode            string    `json:"mode"`
+	ExternalSession string    `json:"external_session"`
+	Provider        string    `json:"provider"`
+	Model           string    `json:"model"`
+}
+
 // ToResponse converts a Task model to a TaskResponse DTO.
 func ToResponse(t *Task) TaskResponse {
 	return TaskResponse{
