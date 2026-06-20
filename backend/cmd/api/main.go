@@ -19,9 +19,11 @@ import (
 	"backend/internal/auth"
 	"backend/internal/config"
 	"backend/internal/database"
+	"backend/internal/embeddings"
 	"backend/internal/interviews"
 	"backend/internal/jobs"
 	"backend/internal/profile"
+	"backend/internal/rag"
 	"backend/internal/resumes"
 	"backend/internal/scoring"
 	"backend/internal/tasks"
@@ -108,6 +110,12 @@ func main() {
 	approvalsWorkflow := approvals.NewWorkflow(approvalsService, approvalsDispatcher, logger)
 	approvalsHandler := approvals.NewHandler(approvalsWorkflow, approvalsService, logger)
 
+	// Initialize RAG domain
+	ragRepo := rag.NewRepository(postgres.DB)
+	embeddingClient := embeddings.NewEmbeddingClientFromConfig(logger, cfg.LLM)
+	ragService := rag.NewService(ragRepo, embeddingClient, logger)
+	ragHandler := rag.NewHandler(ragService, logger)
+
 	// Setup router with all routes
 	router := api.SetupRouter(api.RouterConfig{
 		AuthHandler:         authHandler,
@@ -119,6 +127,7 @@ func main() {
 		InterviewsHandler:   interviewsHandler,
 		ProfileHandler:      profileHandler,
 		ApprovalsHandler:    approvalsHandler,
+		RAGHandler:          ragHandler,
 		Logger:              logger,
 	})
 

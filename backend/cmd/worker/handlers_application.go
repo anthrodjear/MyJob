@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/hibiken/asynq"
@@ -16,6 +15,7 @@ import (
 	"backend/internal/config"
 	"backend/internal/embeddings"
 	"backend/internal/jobs"
+	"backend/internal/pgvector"
 	"backend/internal/tasks"
 )
 
@@ -319,7 +319,7 @@ func newHandleCreateEmbeddings(
 		}
 
 		// Convert []float32 → pgvector string format: "[1.0,2.0,3.0,...]"
-		vecStr := formatPGVector(vec)
+		vecStr := pgvector.FormatVector(vec)
 
 		query := `
 			INSERT INTO embeddings (id, source_type, source_id, content, embedding, created_at)
@@ -350,23 +350,6 @@ func newHandleCreateEmbeddings(
 		)
 		return nil
 	}
-}
-
-// formatPGVector converts a float32 slice to the pgvector literal "[1.0,2.0,...]".
-func formatPGVector(vec []float32) string {
-	if len(vec) == 0 {
-		return "[]"
-	}
-	var b strings.Builder
-	b.WriteByte('[')
-	for i, v := range vec {
-		if i > 0 {
-			b.WriteByte(',')
-		}
-		fmt.Fprintf(&b, "%f", v)
-	}
-	b.WriteByte(']')
-	return b.String()
 }
 
 // handleVoiceSession processes voice_session tasks.
