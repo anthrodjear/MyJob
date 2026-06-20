@@ -277,11 +277,13 @@ internal/
 │   ├── service.go
 │   ├── repository.go
 │   ├── model.go
-│   ├── dto.go
-│   └── llm.go          # LLMScorer interface
+│   │   ├── dto.go
+   ├── llm.go          # LLMScorer interface
+   └── keywords.go     # Keyword-based heuristic scoring
 ├── tasks/
 │   ├── handler.go
 │   ├── service.go
+│   ├── dispatcher.go   # Asynq dispatch with typed methods
 │   ├── repository.go
 │   ├── model.go
 │   └── dto.go
@@ -292,32 +294,59 @@ internal/
 │   ├── model.go
 │   ├── dto.go
 │   └── middleware/
-├── jobs/
+├── interviews/
 │   ├── handler.go
 │   ├── service.go
 │   ├── repository.go
 │   ├── model.go
 │   └── dto.go
-├── applications/
+├── profile/
 │   ├── handler.go
 │   ├── service.go
 │   ├── repository.go
 │   ├── model.go
 │   └── dto.go
+├── approvals/
+│   ├── handler.go
+│   ├── service.go
+│   ├── repository.go
+│   ├── model.go
+│   └── dto.go
+├── emails/
+│   ├── handler.go
+│   ├── service.go
+│   ├── repository.go
+│   ├── model.go
+│   ├── dto.go
+│   └── classifier.go   # EmailClassifier interface (stub)
+├── rag/
+│   ├── handler.go
+│   ├── service.go
+│   ├── repository.go
+│   ├── model.go
+│   └── dto.go
+├── activity/
+│   ├── service.go
+│   ├── repository.go
+│   └── model.go
 ├── httpresp/
 │   └── response.go     # Shared HTTP response helpers
-└── logger/
-    └── logger.go       # Zap logger initialization
+└── config/
+    ├── config.go       # Config loading from env + YAML prompts
+    └── prompts.go      # Prompt parsing
+```
+
+**Note:** `coverletters` domain exists but is a stub — cover letter logic lives in `resumes` module.
 
 cmd/
 ├── api/
 │   └── main.go         # REST API entrypoint
 └── worker/
     ├── main.go                  # Worker entrypoint — init + wiring only
-    ├── browser_agent.go         # BrowserAgentClient interface + HTTP client
+    ├── browser_agent.go         # BrowserAgentClient interface + HTTP client (35min timeout)
     ├── handlers_job.go          # Discovery + scoring handlers
     ├── handlers_resume.go       # Resume + cover letter generation handlers
-    └── handlers_application.go  # Submit, fill form, email check, interview prep, stubs
+    └── handlers_application.go  # Submit, fill form, email check, interview prep, voice session, embedding stub
 ```
 
 ### Domain Relationships
@@ -387,6 +416,13 @@ POST   /api/v1/cover-letters                    → create cover letter placehol
 POST   /api/v1/cover-letters/:id/generate       → generate cover letter via LLM
 PUT    /api/v1/cover-letters/:id/content        → update cover letter content
 DELETE /api/v1/cover-letters/:id                → delete cover letter
+
+GET    /api/v1/interviews                       → list interviews (filters: status, application_id)
+GET    /api/v1/interviews/:id                   → get interview
+POST   /api/v1/interviews                       → create interview session
+POST   /api/v1/interviews/:id/start             → start interview (dispatch voice_session task)
+POST   /api/v1/interviews/:id/stop              → stop interview
+POST   /internal/interviews/:id/events          → internal callback (transcript, status, score, feedback)
 ```
 
 ---
@@ -752,6 +788,23 @@ The scoring service supports three modes via `SCORING_MODE` config:
 | `hybrid` | Heuristic pre-filter → LLM for final | ~$0.01/borderline | ~1-2s |
 
 **Default: `hybrid`** — Heuristics fast-filter obvious mismatches (score < 60), LLM scores borderline and good candidates for accuracy.
+
+---
+
+## Worker Task Types
+
+| Task Type | Constant | Queue | Retries | Timeout | Handler | Status |
+|-----------|----------|-------|---------|---------|---------|--------|
+| Job Discovery | `TypeJobDiscovery` | `jobs:discover` | 3 | 5 min | `handlers_job.go` | ✅ Complete |
+| Job Scoring | `TypeJobScoring` | `job_scoring` | 3 | 2 min | `handlers_job.go` | ✅ Complete |
+| Resume Generation | `TypeResumeGenerate` | `resume_generate` | 3 | 3 min | `handlers_resume.go` | ✅ Complete |
+| Cover Letter Generation | `TypeCoverLetterGen` | `cover_letter_gen` | 3 | 3 min | `handlers_resume.go` | ✅ Complete |
+| Application Submit | `TypeApplicationSubmit` | `application_submit` | 3 | 10 min | `handlers_application.go` | ✅ Complete |
+| Fill Form | `TypeFillForm` | `fill_form` | 3 | 5 min | `handlers_application.go` | ✅ Complete |
+| Email Check | `TypeEmailCheck` | `email_check` | 5 | 1 min | `handlers_application.go` | ✅ Complete |
+| Interview Prep | `TypeInterviewPrep` | `interview_prep` | 3 | 5 min | `handlers_application.go` | ✅ Placeholder |
+| Embedding Generation | `TypeEmbeddingGenerate` | `embedding_generate` | 5 | 1 min | `handlers_application.go` | ❌ Stub |
+| Voice Session | `TypeVoiceSession` | `voice_session` | 1 | 30 min | `handlers_application.go` | ✅ Complete |
 
 ---
 

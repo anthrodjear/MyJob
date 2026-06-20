@@ -49,7 +49,7 @@ Alternative:
 ```go
 userID := middleware.GetUserID(c)
 h.logger.Error("update job",
-    zap.String("job_id", id.String()),
+    zap.String("job_id", "job_id", id.String()),
     zap.String("user_id", userID),
     zap.Error(err),
 )
@@ -86,25 +86,42 @@ Full details only on `GET /jobs/:id`.
 
 ---
 
-## 5. Backend Interview Domain — Empty Stubs
+## 5. Backend Interview Domain — ✅ COMPLETE
 
-**What:** `backend/internal/interviews/` exists with 5 empty files (model.go, dto.go, service.go, repository.go, handler.go). Needs implementation to support voice sessions.
+**What:** `backend/internal/interviews/` implemented with all 5 files + wiring.
 
-**Files needed:**
-- `interviews/model.go` — `Interview` entity (id, application_id, mode, status, livekit_room, transcript, created_at)
-- `interviews/dto.go` — Request/response types
-- `interviews/repository.go` — CRUD + status queries
-- `interviews/service.go` — Business logic (start session, end session, get transcript)
-- `interviews/handler.go` — HTTP handlers
+**Completed:**
+- `interviews/model.go` — `InterviewSession` entity (id, application_id, mode, status, provider, model, external_session_id, transcript, score, feedback, created_at)
+- `interviews/dto.go` — Request/response types + internal event types (union type pattern)
+- `interviews/repository.go` — CRUD + StartSession (transactional), UpdateStatus, UpdateExternalSessionID, UpdateProvider, AppendTranscript (COALESCE), UpdateScore, UpdateFeedback
+- `interviews/service.go` — Business logic (Create, Start, Stop, HandleEvent), TaskDispatcher interface for DI, VoiceSessionPayload defined locally
+- `interviews/handler.go` — 5 public + 1 internal endpoints, domain error→HTTP code mapping, structured logging
 
-**Also needed:**
-- `tasks/model.go` — Add `TypeVoiceSession = "voice_session"` constant
-- `tasks/dto.go` — Add `VoiceSessionPayload` struct
-- `tasks/dispatcher.go` — Add `DispatchVoiceSession()` method
-- `handlers_application.go` — Implement `handleVoiceSession` (currently a stub)
+**Backend wiring:**
+- `tasks/model.go` — Added `TypeVoiceSession = "voice_session"`
+- `tasks/dto.go` — Added `VoiceSessionPayload` struct
+- `tasks/dispatcher.go` — Added `DispatchVoiceSession()` method (1 retry, 30min timeout)
+- `handlers_application.go` — Implemented `newHandleVoiceSession` factory function (calls browser-agent)
+- `cmd/api/main.go` — Wired interviews domain (repo, service, handler, routes)
+- `cmd/worker/main.go` — Registered voice_session handler with graceful shutdown
 
 **Why:** Voice session task needs to be dispatched from the API and processed by the browser-agent.
 
-**Depends on:** Voice module implementation in `browser-agent/voice/`.
+**Status:** ✅ **COMPLETE** (2026-06-17)
 
-**Priority:** High — blocks voice session functionality.
+---
+
+## 6. Stub Domains — Need Implementation
+
+The following domains exist as scaffolds but have no implementation:
+
+| Domain | Purpose | DB Tables |
+|--------|---------|-----------|
+| **profile** | User profile CRUD (JSONB in profiles table) | profiles |
+| **approvals** | Human-in-the-loop approval before auto-apply | approval_requests |
+| **rag** | Embedding generation + semantic search | embeddings (pgvector) |
+| **emails** | Email classification (stub classifier exists) | emails |
+| **activity** | User activity logging | activity_log |
+| **coverletters** | Duplicated in `resumes` module — remove or consolidate | cover_letters |
+
+**Priority:** Medium — needed for full feature completeness (Profile → API access to profile, Approvals → auto-apply gate, RAG → embeddings, Emails → classifier, Activity → audit)

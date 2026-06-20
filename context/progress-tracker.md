@@ -10,10 +10,10 @@
 |-------|-------|
 | **Project** | AI Job Search Agent |
 | **Active Phase** | Phase 1 — Foundation (implementation in progress) |
-| **Phase Progress** | Scaffolding 100% / Implementation ~90% (6/6 domains + 8/10 worker handlers + Ollama + Browser Agent + code review + Voice Brain) |
-| **Overall Progress** | ~65% (structure built, services compile, 6 domains implemented + wired, Browser Agent fully implemented and reviewed, Voice Brain 4/4 complete) |
+| **Phase Progress** | Scaffolding 100% / Implementation ~75% (6/14 domains complete, 8/10 worker handlers, Ollama + Browser Agent + Voice Module) |
+| **Overall Progress** | ~55% (structure built, core 6 domains implemented + wired, Browser Agent fully reviewed, Voice Module 100% complete, 8 stub domains) |
 | **Blockers** | None |
-| **Next Up** | Voice providers (OpenAI Realtime, ElevenLabs, Local) → Session orchestration → index.ts |
+| **Next Up** | Backend stub domains (Profile, Approvals, RAG, Emails, Activity, Embeddings) → Frontend pages |
 
 ---
 
@@ -153,7 +153,7 @@
 | Safe template parsing | **Complete** ✅ | No `template.Must` — try-parse with fallback strings |
 | Code review (all components) | **Complete** ✅ | All BLOCKERs and WARNINGs addressed |
 
-#### 1.11 Browser Agent Voice Module — BRAIN LAYER COMPLETE (4/4 files)
+#### 1.11 Browser Agent Voice Module — COMPLETE
 
 **Architecture:** Autonomous Interview Agent with pluggable providers, two modes (Assist + Autonomous).
 
@@ -165,12 +165,15 @@
 | Brain | `voice/brain/retrieval.ts` | **Complete** ✅ | Fetch resume, job, application context from backend API; fetch-once-at-init, in-memory scoring |
 | Brain | `voice/brain/responder.ts` | **Complete** ✅ | Generate answers via Ollama with context; Zod validation, prompt budgeting, intent detection, fallback salvage, prompt injection defense |
 | Brain | `voice/brain/planner.ts` | **Complete** ✅ | Decide response strategy (answer, clarify, defer, silent); keyword-overlap duplicate detection, config-driven thresholds |
-| Provider | `voice/providers/factory.ts` | Not started | ProviderFactory — createSTT(), createTTS(), createRealtime() |
-| Provider | `voice/providers/openai-realtime.ts` | Not started | OpenAI Realtime API (STT+TTS combined via WebSocket) |
-| Provider | `voice/providers/elevenlabs.ts` | Not started | ElevenLabs TTS + Whisper STT |
-| Provider | `voice/providers/local.ts` | Not started | Local Whisper + Piper/Kokoro TTS |
-| Session | `voice/session.ts` | Not started | Interview session orchestration with SessionState machine |
-| API | `voice/index.ts` | Not started | Public API: startVoiceSession(), stopVoiceSession() |
+| Provider | `voice/providers/factory.ts` | **Complete** ✅ | createSTTProvider(), createTTSProvider(), createRealtimeProvider() |
+| Provider | `voice/providers/openai-realtime.ts` | **Complete** ✅ | OpenAI Realtime API (WebSocket STT+TTS) |
+| Provider | `voice/providers/elevenlabs.ts` | **Complete** ✅ | ElevenLabs TTS + Whisper STT |
+| Provider | `voice/providers/local-kokoro.ts` | **Complete** ✅ | Local Kokoro TTS via Python script |
+| Provider | `voice/providers/local-piper.ts` | **Complete** ✅ | Local Piper TTS via binary |
+| Provider | `voice/providers/local-whisper.ts` | **Complete** ✅ | Local Whisper STT via binary |
+| Session | `voice/session.ts` | **Complete** ✅ | Interview session orchestration with SessionState machine |
+| Factory | `voice/factory.ts` | **Complete** ✅ | Session factory — config loading, DI wiring, provider creation |
+| API | `voice/index.ts` | **Complete** ✅ | Public API (exported via factory.ts) |
 
 **Key decisions:**
 - Voice is an input channel, not a feature. The asset is Interview Intelligence.
@@ -186,11 +189,15 @@
 - All brain files accept config via factory params — no direct config imports.
 - Config-driven thresholds in `config/application.yaml` under `interview`.
 
-**Backend changes needed:**
-- Add `TypeVoiceSession` constant to `tasks/model.go`
-- Add `VoiceSessionPayload` to `tasks/dto.go`
-- Add `DispatchVoiceSession()` to `tasks/dispatcher.go`
-- Implement `handleVoiceSession` in `handlers_application.go`
+**Backend changes needed (ALL COMPLETE):**
+- ✅ Add `TypeVoiceSession` constant to `tasks/model.go`
+- ✅ Add `VoiceSessionPayload` to `tasks/dto.go`
+- ✅ Add `DispatchVoiceSession()` to `tasks/dispatcher.go`
+- ✅ Implement `handleVoiceSession` in `handlers_application.go`
+- ✅ Add `TypeFillForm` constant to `tasks/model.go`
+- ✅ Wire interviews domain into `cmd/api/main.go`
+- ✅ Fix graceful shutdown (`logger.Fatal` → `logger.Error` + `return`)
+- ✅ HTTP client timeout 10min → 35min for voice sessions
 
 #### 1.7 Frontend Pages — NOT STARTED
 
@@ -310,6 +317,78 @@ All prompts use Go template syntax (`{{.Field}}`) and are loaded via `config.Loa
 | 2026-06-16 | **Browser Agent form filler** | LLM-based field mapping via `form_understanding` prompt; Playwright for DOM interaction; heuristic fallback for LLM parsing failures |
 | 2026-06-16 | **Browser Agent code review (all files)** | 11 BLOCKERs + 9 WARNINGs + 4 NITs fixed across 7 files. Key: CSS.escape for XSS, BrowserContext leak fix, exponential backoff, `any` → proper types, structured logging everywhere, JSON.parse try/catch on API responses |
 | 2026-06-17 | **Browser Agent tiered scraper architecture** | Tier 1 (API-native, no LLM): Greenhouse, Lever, RemoteOK — standalone classes, no BaseScraper inheritance. Tier 2/3 (CustomScraper): JSON-LD → link discovery → LLM fallback. Config-driven via YAML. Adding new sites = add URL to config, no code changes. |
+| 2026-06-17 | **Voice Module COMPLETE** | All providers (OpenAI Realtime, ElevenLabs, Local Whisper+Piper+Kokoro), session orchestration, factory, brain layer (memory/retrieval/responder/planner) implemented. TypeScript compiles clean. Backend wiring complete (tasks, interviews domain, worker handlers, graceful shutdown, 35min HTTP timeout). |
+| 2026-06-17 | **Backend Full Map Complete** | Comprehensive exploration done — 14 domains mapped, 6 complete, 8 stubs identified. Worker handlers: 9/10 done. Context files updated. |
+
+---
+
+## Backend Completion Plan — Phase 1
+
+### Remaining Work (8 stub domains + 1 handler)
+
+| Priority | Item | Files to Create/Modify | Est. Effort | Dependencies |
+|----------|------|------------------------|-------------|--------------|
+| **P0** | Embedding Generation Handler | `handlers_application.go` (implement `handleCreateEmbeddings`), Ollama embeddings client | 4h | Ollama `/api/embeddings`, pgvector table |
+| **P1** | Profile Domain | 5 files in `internal/profile/` (handler, service, repository, model, dto) + API routes in `cmd/api/main.go` | 8h | `profiles` table exists (JSONB) |
+| **P1** | Approvals Domain | 5 files in `internal/approvals/` + API routes | 8h | `approval_requests` table exists |
+| **P1** | RAG/Embeddings Domain | 5 files in `internal/rag/` + API routes | 12h | `embeddings` table + pgvector, Embedding handler |
+| **P2** | Emails Domain | 5 files in `internal/emails/` (classifier exists as stub) | 6h | `emails` table, classifier prompt in config |
+| **P2** | Activity Domain | 3 files in `internal/activity/` (no handler/dto needed) | 4h | `activity_log` table |
+| **P2** | Rate Limit Middleware | `internal/api/middleware/ratelimit.go` | 3h | Redis client, config exists |
+| **P2** | Logging Middleware | `internal/api/middleware/logging.go` | 2h | Zap logger |
+
+**Total estimated backend effort: ~47 hours**
+
+---
+
+### Implementation Sequence (Dependency-Ordered)
+
+#### Sprint 1 (Week 1): Embeddings Foundation
+- [ ] Day 1: Ollama embeddings HTTP client (shared pattern like generators)
+- [ ] Day 2: `handleCreateEmbeddings` worker handler
+- [ ] Day 3: Profile domain (CRUD API for user profile)
+- [ ] Day 4: Profile domain — wire into API router
+- [ ] Day 5: Testing + code review
+
+#### Sprint 2 (Week 2): Approvals + RAG
+- [ ] Day 1-2: Approvals domain (human-in-the-loop gate for auto-apply)
+- [ ] Day 3-4: RAG domain (embedding storage + semantic search)
+- [ ] Day 5: Integration test: embedding generation → RAG search
+
+#### Sprint 3 (Week 3): Emails + Activity + Middleware
+- [ ] Day 1-2: Emails domain (implement classifier using existing classifier.go stub)
+- [ ] Day 3: Activity domain (simple audit logging)
+- [ ] Day 4: Rate limit + logging middleware
+- [ ] Day 5: Full worker + API regression test
+
+---
+
+### Timeline
+
+| Milestone | Target | Status |
+|-----------|--------|--------|
+| Embedding handler + Profile domain | Week 1 (Jun 23-27) | Pending |
+| Approvals + RAG domains | Week 2 (Jun 30-Jul 4) | Pending |
+| Emails + Activity + Middleware | Week 3 (Jul 7-11) | Pending |
+| **Backend Phase 1 Complete** | **Jul 11, 2026** | Target |
+| Frontend pages | Week 4-5 (Jul 14-25) | Pending |
+| Integration testing | Week 6 (Jul 28-Aug 1) | Pending |
+| **Phase 1 Complete** | **Aug 1, 2026** | Target |
+
+---
+
+### Success Criteria for Backend Completion
+
+1. **All 14 domains** have handler/service/repository/model/dto implemented
+2. **All 10 worker handlers** complete (no stubs)
+3. **All API routes** registered in router (no missing endpoints)
+4. **All middleware** implemented (auth, rate limit, logging)
+5. **Code compiles clean** (`go vet ./...` passes)
+6. **No empty package declarations** in `internal/*`
+
+---
+
+## Risk Log
 
 ---
 

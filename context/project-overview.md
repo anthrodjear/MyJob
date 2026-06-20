@@ -40,29 +40,102 @@ Job seekers who want to dramatically scale their application volume without sacr
 - **Configurable** — scraping sources, matching criteria, generation templates, and automation behavior are all user-configurable
 - **Composable** — each feature works independently (use just scraping, or just resume generation, or the full pipeline)
 
+# Project Overview: AI Job Search Agent
+
+## What It Is
+
+An AI-powered job search automation platform that handles 80-95% of the job application workflow end-to-end — from discovering relevant positions to submitting tailored applications with customized resumes, cover letters, and completed forms.
+
+## Who It's For
+
+Job seekers who want to dramatically scale their application volume without sacrificing quality — particularly career changers, those targeting multiple companies simultaneously, or anyone who wants to spend time on interviews rather than repetitive form-filling.
+
+## Key Features
+
+| Capability | Description |
+|---|---|
+| **Job Scraping** | Configurable multi-source scraping (Indeed, RemoteOK, Greenhouse, Lever, etc.) with skill-based matching and scoring |
+| **Resume Generation** | AI-tailored resumes per application, compiled from LaTeX to PDF for consistent professional formatting |
+| **Cover Letter Generation** | Context-aware cover letters that align candidate experience with specific job requirements |
+| **Application Automation** | Playwright browser agent that navigates and fills application forms across company ATS platforms |
+| **Application Tracking** | Status dashboard tracking each application through the pipeline (discovered → applied → responded → interview) |
+| **Recruiter Email Monitoring** | Microsoft Graph API integration to detect recruiter responses, schedule updates, and flag action items |
+| **Voice Interview Coaching** | Real-time interview practice via OpenAI Realtime API + LiveKit, with feedback on answers and delivery |
+
+## Architecture
+
+| Layer | Technology | Role |
+|---|---|---|
+| API + Worker | Go | Backend services, job orchestration, scraping, email monitoring |
+| Browser Agent | TypeScript + Playwright | Form filling, ATS navigation, application submission |
+| Frontend | Next.js 16 | Dashboard, settings, application management UI |
+| Database | PostgreSQL + pgvector | Application data, job listings, semantic search for skill matching |
+| Cache/Queue | Redis | Job queue, rate limiting, session state |
+| LLM Runtime | Ollama (local) | Resume/cover letter generation, skill matching, interview analysis |
+| Voice/Realtime | OpenAI Realtime API + LiveKit | Live interview coaching sessions |
+| Deployment | Docker Compose | Local-first, single-command startup |
+
+## Design Principles
+
+- **Local-first** — all data stays on user's machine by default, no cloud dependency for core features
+- **Privacy-focused** — no third-party analytics, no data leaves the machine except explicitly configured integrations (Microsoft Graph for email)
+- **Configurable** — scraping sources, matching criteria, generation templates, and automation behavior are all user-configurable
+- **Composable** — each feature works independently (use just scraping, or just resume generation, or the full pipeline)
+
 ## Current Status
 
-**Phase:** Scaffolding complete, implementation starting.
+**Phase:** Phase 1 Foundation — ~55% complete (core 6 domains implemented, Browser Agent + Voice Module 100% complete, 8 stub domains remaining)
 
 - Project structure and directory layout established
 - Technology stack decisions finalized
-- Docker Compose orchestration configured
-- Core modules scaffolded with interface definitions
-- **Next:** Begin building core services — starting with job scraping engine and PostgreSQL schema
+- Docker Compose orchestration configured (8 services: api, worker, frontend, browser-agent, postgres, redis, ollama, livekit)
+- **6 Core domains complete** — jobs, applications, resumes, scoring, auth, tasks (all handler/service/repository/model/dto + API + Worker wiring)
+- **4 Browser Agent scrapers** — Greenhouse, Lever, RemoteOK (API-native), Indeed (Playwright) + CustomScraper fallback
+- **Ollama integration** — 3 LLM generators working (scoring, resume, cover letter)
+- **Voice Module** — Complete with 4 brain components, 4 providers (OpenAI Realtime, ElevenLabs, Local Whisper+Piper+Kokoro), session orchestration
+- **Worker handlers** — 9/10 complete (embedding generation is the only stub)
+- Database migrations (9 up/down) with pgvector for embeddings
 
 ## What's Built
 
 - [x] Project structure and scaffolding
-- [x] Docker Compose configuration (Go API, Browser Agent, Next.js frontend, PostgreSQL, Redis)
+- [x] Docker Compose configuration (8 services)
 - [x] Module interface definitions
-- [x] Database schema design (draft)
+- [x] Database schema + pgvector (9 migrations)
+- [x] Jobs domain — CRUD, scan trigger, tiered scrapers, scoring pipeline
+- [x] Applications domain — CRUD, status state machine, audit trail, stats
+- [x] Resumes domain — CRUD, LLM generation, cover letters, versioning, PDF keys
+- [x] Scoring domain — Heuristic/LLM/Hybrid modes, factor scoring, tier logic
+- [x] Auth domain — Single-user JWT, bcrypt, session invalidation
+- [x] Tasks domain — Async task queue (Asynq), state machine, HTTP API
+- [x] Interviews domain — Session lifecycle, transcript handling, LiveKit, internal events
+- [x] Browser Agent scrapers — 4 sources + fallback CustomScraper
+- [x] Browser Agent server — Express + scrape/fill/email endpoints
+- [x] Browser Agent form filler — LLM field mapping + heuristic fallback
+- [x] Browser Agent Voice Module — Complete brain + providers + session + factory
+- [x] Ollama HTTP integration — Raw `/api/generate` + `/api/embeddings`, shared client
 
 ## What's Next
 
-- [ ] Job scraping engine (Indeed, RemoteOK, Greenhouse, Lever adapters)
-- [ ] PostgreSQL schema + pgvector for semantic skill matching
-- [ ] Resume generation pipeline (LaTeX → PDF)
-- [ ] Playwright browser agent for form filling
-- [ ] Application tracker UI
-- [ ] Recruiter email monitoring (Microsoft Graph API)
-- [ ] Voice interview coaching (OpenAI Realtime + LiveKit)
+### Backend (Phase 1 completion)
+- [ ] **Profile domain** — CRUD API for user profile (JSONB in profiles table)
+- [ ] **Approvals domain** — Human-in-the-loop approval before auto-apply (approval_requests table)
+- [ ] **RAG/Embeddings domain** — Embedding generation + semantic search (embeddings table + pgvector)
+- [ ] **Emails domain** — Email classifier implementation (emails table + classifier.go stub)
+- [ ] **Activity domain** — User activity logging (activity_log table)
+- [ ] **Embedding generation handler** — Complete the Ollama embeddings worker task
+- [ ] **Rate limit middleware** — Implement `internal/api/middleware/ratelimit.go`
+- [ ] **Logging middleware** — Implement `internal/api/middleware/logging.go`
+
+### Frontend (Wave 3)
+- [ ] Dashboard — Overview + recent activity
+- [ ] Jobs — Job listings + scan trigger
+- [ ] Applications — Application pipeline view
+- [ ] Resumes — Resume upload + management
+- [ ] Settings — Config, sources, preferences
+- [ ] Task Monitor — Live task progress
+
+### Integration & Polish
+- [ ] Docker Compose validation — Full stack boot, health checks, service connectivity
+- [ ] End-to-end flow testing — Scan → Score → Apply → Track
+- [ ] Error handling hardening — Retry policies, dead letter queues, observability
