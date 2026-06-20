@@ -20,6 +20,7 @@ import (
 	"backend/internal/config"
 	"backend/internal/database"
 	"backend/internal/embeddings"
+	"backend/internal/emails"
 	"backend/internal/interviews"
 	"backend/internal/jobs"
 	"backend/internal/profile"
@@ -28,6 +29,24 @@ import (
 	"backend/internal/scoring"
 	"backend/internal/tasks"
 )
+
+// getEnvDuration parses a duration from environment variable with a fallback.
+func getEnvDuration(key string, fallback time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if d, err := time.ParseDuration(value); err == nil {
+			return d
+		}
+	}
+	return fallback
+}
+
+// toEmailPromptPair converts config.PromptPair to emails.PromptPair.
+func toEmailPromptPair(cfg config.PromptPair) emails.PromptPair {
+	return emails.PromptPair{
+		System: cfg.System,
+		User:   cfg.User,
+	}
+}
 
 func main() {
 	// Load configuration
@@ -116,6 +135,22 @@ func main() {
 	ragService := rag.NewService(ragRepo, embeddingClient, logger)
 	ragHandler := rag.NewHandler(ragService, logger)
 
+	// Initialize emails domain
+	emailsRepo := emails.NewRepository(postgres.DB)
+	// Classifier uses dedicated email classifier LLM config
+	emailClassifier, err := emails.NewClassifierFromConfig(
+		logger,
+		cfg.LLM.EmailClassifier.BaseURL,
+		cfg.LLM.EmailClassifier.Model,
+		cfg.LLM.EmailClassifier.Timeout,
+		toEmailPromptPair(cfg.Prompts.EmailClassifier),
+	)
+	if err != nil {
+		logger.Fatal("Failed to create email classifier", zap.Error(err))
+	}
+	emailsService := emails.NewService(emailsRepo, emailClassifier)
+	emailsHandler := emails.NewHandler(emailsService, logger)
+
 	// Setup router with all routes
 	router := api.SetupRouter(api.RouterConfig{
 		AuthHandler:         authHandler,
@@ -128,6 +163,7 @@ func main() {
 		ProfileHandler:      profileHandler,
 		ApprovalsHandler:    approvalsHandler,
 		RAGHandler:          ragHandler,
+		EmailsHandler:       emailsHandler,
 		Logger:              logger,
 	})
 

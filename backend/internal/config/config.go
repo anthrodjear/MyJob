@@ -48,10 +48,11 @@ type RateLimitConfig struct {
 }
 
 type LLMConfig struct {
-	Primary    LLMProvider
-	Local      LLMProvider
-	Embeddings LLMProvider
-	Fallback   LLMProvider
+	Primary         LLMProvider
+	Local           LLMProvider
+	Embeddings      LLMProvider
+	Fallback        LLMProvider
+	EmailClassifier LLMProvider
 }
 
 type LLMProvider struct {
@@ -59,6 +60,7 @@ type LLMProvider struct {
 	Model    string
 	APIKey   string
 	BaseURL  string
+	Timeout  time.Duration
 }
 
 type VoiceConfig struct {
@@ -182,11 +184,18 @@ func Load() *Config {
 				Provider: "ollama",
 				Model:    getEnv("OLLAMA_EMBED_MODEL", "mxbai-embed-large"),
 				BaseURL:  getEnv("OLLAMA_BASE_URL", "http://localhost:11434"),
+				Timeout:  getEnvDuration("OLLAMA_TIMEOUT", 60*time.Second),
 			},
 			Fallback: LLMProvider{
 				Provider: getEnv("LLM_FALLBACK_PROVIDER", "anthropic"),
 				Model:    getEnv("ANTHROPIC_MODEL", "claude-sonnet-4"),
 				APIKey:   getEnv("ANTHROPIC_API_KEY", ""),
+			},
+			EmailClassifier: LLMProvider{
+				Provider: getEnv("LLM_EMAIL_CLASSIFIER_PROVIDER", "ollama"),
+				Model:    getEnv("OLLAMA_MODEL", "qwen2.5:latest"),
+				BaseURL:  getEnv("OLLAMA_BASE_URL", "http://localhost:11434"),
+				Timeout:  getEnvDuration("OLLAMA_TIMEOUT", 60*time.Second),
 			},
 		},
 		Voice: VoiceConfig{

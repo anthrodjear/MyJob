@@ -8,6 +8,7 @@ import (
 	"backend/internal/applications"
 	"backend/internal/approvals"
 	"backend/internal/auth"
+	"backend/internal/emails"
 	"backend/internal/interviews"
 	"backend/internal/jobs"
 	"backend/internal/profile"
@@ -28,6 +29,7 @@ type RouterConfig struct {
 	ProfileHandler      *profile.Handler
 	ApprovalsHandler    *approvals.Handler
 	RAGHandler          *rag.Handler
+	EmailsHandler       *emails.Handler
 	Logger              *zap.Logger
 }
 
@@ -67,6 +69,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			cfg.ProfileHandler.RegisterRoutes(protected)
 			cfg.ApprovalsHandler.RegisterRoutes(protected)
 			cfg.RAGHandler.RegisterRoutes(protected)
+			cfg.EmailsHandler.RegisterRoutes(protected)
 		}
 	}
 
