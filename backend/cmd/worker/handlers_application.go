@@ -5,13 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hibiken/asynq"
+	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 
 	"backend/internal/applications"
 	"backend/internal/config"
+	"backend/internal/embeddings"
 	"backend/internal/jobs"
 	"backend/internal/tasks"
 )
@@ -279,9 +282,91 @@ func newHandleGenerateInterviewPrep(
 	}
 }
 
-// handleCreateEmbeddings is a stub — pending Ollama embedding integration.
-func handleCreateEmbeddings(ctx context.Context, t *asynq.Task) error {
-	return fmt.Errorf("handler %s: not implemented", t.Type())
+// newHandleCreateEmbeddings processes embedding_generate tasks.
+// It calls the configured embeddings provider, then stores the resulting
+// vector in the embeddings table for semantic search (RAG).
+func newHandleCreateEmbeddings(
+	embeddingClient embeddings.EmbeddingClient,
+	db *sqlx.DB,
+	logger *zap.Logger,
+) asynq.HandlerFunc {
+	return func(ctx context.Context, t *asynq.Task) error {
+		log := logger.Named("task.embedding_generate")
+
+		var payload tasks.EmbeddingPayload
+		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+			log.Error("unmarshal payload", zap.String("task_type", t.Type()), zap.Error(err))
+			return fmt.Errorf("embedding_generate: unmarshal payload: %w", err)
+		}
+
+		ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		defer cancel()
+
+		log.Info("generating embedding",
+			zap.String("source_type", payload.SourceType),
+			zap.String("source_id", payload.SourceID.String()),
+			zap.Int("content_length", len(payload.Content)),
+		)
+
+		vec, err := embeddingClient.Embed(ctx, payload.Content)
+		if err != nil {
+			log.Error("generate embedding",
+				zap.String("source_type", payload.SourceType),
+				zap.String("source_id", payload.SourceID.String()),
+				zap.Error(err),
+			)
+			return fmt.Errorf("embedding_generate: embed %s/%s: %w", payload.SourceType, payload.SourceID, err)
+		}
+
+		// Convert []float32 → pgvector string format: "[1.0,2.0,3.0,...]"
+		vecStr := formatPGVector(vec)
+
+		query := `
+			INSERT INTO embeddings (id, source_type, source_id, content, embedding, created_at)
+			VALUES (uuid_generate_v4(), $1, $2, $3, $4::vector, NOW())
+			ON CONFLICT (source_type, source_id) DO UPDATE
+				SET content   = EXCLUDED.content,
+					embedding = EXCLUDED.embedding,
+					created_at = NOW()
+		`
+		if _, err := db.ExecContext(ctx, query,
+			payload.SourceType,
+			payload.SourceID,
+			payload.Content,
+			vecStr,
+		); err != nil {
+			log.Error("upsert embedding",
+				zap.String("source_type", payload.SourceType),
+				zap.String("source_id", payload.SourceID.String()),
+				zap.Error(err),
+			)
+			return fmt.Errorf("embedding_generate: upsert %s/%s: %w", payload.SourceType, payload.SourceID, err)
+		}
+
+		log.Info("embedding stored",
+			zap.String("source_type", payload.SourceType),
+			zap.String("source_id", payload.SourceID.String()),
+			zap.Int("dimensions", len(vec)),
+		)
+		return nil
+	}
+}
+
+// formatPGVector converts a float32 slice to the pgvector literal "[1.0,2.0,...]".
+func formatPGVector(vec []float32) string {
+	if len(vec) == 0 {
+		return "[]"
+	}
+	var b strings.Builder
+	b.WriteByte('[')
+	for i, v := range vec {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		fmt.Fprintf(&b, "%f", v)
+	}
+	b.WriteByte(']')
+	return b.String()
 }
 
 // handleVoiceSession processes voice_session tasks.

@@ -12,6 +12,7 @@ import (
 	"backend/internal/applications"
 	"backend/internal/config"
 	"backend/internal/database"
+	"backend/internal/embeddings"
 	"backend/internal/jobs"
 	"backend/internal/resumes"
 	"backend/internal/scoring"
@@ -63,6 +64,8 @@ func main() {
 	browserAgentURL := getEnv("BROWSER_AGENT_URL", "http://localhost:3000")
 	browserClient := NewHTTPBrowserAgentClient(browserAgentURL, logger)
 
+	embeddingClient := embeddings.NewEmbeddingClientFromConfig(logger, cfg.LLM)
+
 	// --- Asynq server ---
 	redisAddr := parseRedisAddr(cfg.Redis.URL, logger)
 
@@ -82,7 +85,7 @@ func main() {
 	mux.HandleFunc(tasks.TypeApplicationSubmit, newHandleSubmitApplication(applicationsService, jobsService, browserClient, logger))
 	mux.HandleFunc(tasks.TypeEmailCheck, newHandleSyncEmails(applicationsService, browserClient, cfg.Email, logger))
 	mux.HandleFunc(tasks.TypeInterviewPrep, newHandleGenerateInterviewPrep(applicationsService, jobsService, logger))
-	mux.HandleFunc(tasks.TypeEmbeddingGenerate, handleCreateEmbeddings)
+	mux.HandleFunc(tasks.TypeEmbeddingGenerate, newHandleCreateEmbeddings(embeddingClient, postgres.DB, logger))
 	mux.HandleFunc(tasks.TypeVoiceSession, newHandleVoiceSession(browserClient, logger))
 
 	logger.Info("Worker started")

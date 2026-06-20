@@ -9,6 +9,7 @@ import (
 	"backend/internal/auth"
 	"backend/internal/interviews"
 	"backend/internal/jobs"
+	"backend/internal/profile"
 	"backend/internal/resumes"
 	"backend/internal/scoring"
 )
@@ -22,6 +23,7 @@ type RouterConfig struct {
 	ResumesHandler      *resumes.Handler
 	ScoringHandler      *scoring.Handler
 	InterviewsHandler   *interviews.Handler
+	ProfileHandler      *profile.Handler
 	Logger              *zap.Logger
 }
 
@@ -58,6 +60,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			cfg.ResumesHandler.RegisterRoutes(protected)
 			cfg.ScoringHandler.RegisterRoutes(protected)
 			cfg.InterviewsHandler.RegisterRoutes(protected)
+			cfg.ProfileHandler.RegisterRoutes(protected)
 		}
 	}
 
