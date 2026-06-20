@@ -9,11 +9,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"go.uber.org/zap"
 
 	"backend/internal/api"
 	"backend/internal/applications"
+	"backend/internal/approvals"
 	"backend/internal/auth"
 	"backend/internal/config"
 	"backend/internal/database"
@@ -98,6 +100,14 @@ func main() {
 	profileService := profile.NewService(profileRepo, logger)
 	profileHandler := profile.NewHandler(profileService, logger)
 
+	// Initialize approvals domain
+	approvalsRepo := approvals.NewRepository(postgres.DB)
+	approvalsService := approvals.NewService(approvalsRepo, logger)
+	// Adapter: approvals.SubmitDispatcher interface → *tasks.Dispatcher
+	approvalsDispatcher := approvalsDispatcherAdapter{dispatcher: dispatcher}
+	approvalsWorkflow := approvals.NewWorkflow(approvalsService, approvalsDispatcher, logger)
+	approvalsHandler := approvals.NewHandler(approvalsWorkflow, approvalsService, logger)
+
 	// Setup router with all routes
 	router := api.SetupRouter(api.RouterConfig{
 		AuthHandler:         authHandler,
@@ -108,6 +118,7 @@ func main() {
 		ScoringHandler:      scoringHandler,
 		InterviewsHandler:   interviewsHandler,
 		ProfileHandler:      profileHandler,
+		ApprovalsHandler:    approvalsHandler,
 		Logger:              logger,
 	})
 
@@ -142,4 +153,23 @@ func main() {
 	}
 
 	logger.Info("Server exited")
+}
+
+// ---------------------------------------------------------------------------
+// Adapters
+// ---------------------------------------------------------------------------
+
+// approvalsDispatcherAdapter adapts *tasks.Dispatcher to approvals.SubmitDispatcher.
+// The workflow interface uses (ctx, applicationID, correlationID) signature.
+// The concrete dispatcher uses (ctx, tasks.ApplicationSubmitPayload) signature.
+type approvalsDispatcherAdapter struct {
+	dispatcher *tasks.Dispatcher
+}
+
+func (a approvalsDispatcherAdapter) DispatchApplicationSubmit(ctx context.Context, applicationID uuid.UUID, correlationID uuid.UUID) error {
+	_, err := a.dispatcher.DispatchApplicationSubmit(ctx, tasks.ApplicationSubmitPayload{
+		ApplicationID: applicationID,
+		CorrelationID: correlationID,
+	})
+	return err
 }
