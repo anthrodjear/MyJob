@@ -24,6 +24,7 @@ var taskConfig = map[string]struct {
 	TypeResumeTailor:      {Retries: 3, Timeout: 3 * time.Minute},
 	TypeEmailCheck:        {Retries: 5, Timeout: 1 * time.Minute},
 	TypeInterviewPrep:     {Retries: 3, Timeout: 5 * time.Minute},
+	TypeVoiceSession:      {Retries: 1, Timeout: 30 * time.Minute},
 }
 
 // Dispatcher enqueues tasks to the asynq queue.
@@ -105,4 +106,8 @@ func (d *Dispatcher) DispatchEmailCheck(ctx context.Context, payload EmailCheckP
 
 func (d *Dispatcher) DispatchInterviewPrep(ctx context.Context, payload InterviewPrepPayload) (string, error) {
 	return d.dispatch(ctx, TypeInterviewPrep, payload)
+}
+
+func (d *Dispatcher) DispatchVoiceSession(ctx context.Context, payload VoiceSessionPayload) (string, error) {
+	return d.dispatch(ctx, TypeVoiceSession, payload)
 }
