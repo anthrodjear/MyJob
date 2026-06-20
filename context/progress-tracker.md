@@ -10,10 +10,10 @@
 |-------|-------|
 | **Project** | AI Job Search Agent |
 | **Active Phase** | Phase 1 — Foundation (implementation in progress) |
-| **Phase Progress** | Scaffolding 100% / Implementation ~75% (6/14 domains complete, 8/10 worker handlers, Ollama + Browser Agent + Voice Module) |
-| **Overall Progress** | ~55% (structure built, core 6 domains implemented + wired, Browser Agent fully reviewed, Voice Module 100% complete, 8 stub domains) |
+| **Phase Progress** | Scaffolding 100% / Implementation ~90% (11/12 domains complete, 10/11 worker handlers, Ollama + Browser Agent + Voice Module) |
+| **Overall Progress** | ~70% (structure built, 11 domains complete + wired, Browser Agent fully reviewed, Voice Module 100% complete, 1 stub domain) |
 | **Blockers** | None |
-| **Next Up** | Backend stub domains (Profile, Approvals, RAG, Emails, Activity, Embeddings) → Frontend pages |
+| **Next Up** | Activity domain + Rate limit/Logging middleware + resume_tailor worker handler → Frontend pages |
 
 ---
 
@@ -41,7 +41,7 @@
 | TypeScript browser agent | Builds clean | Node.js (Playwright) | Compiles with no errors |
 | Next.js frontend | Builds clean | Next.js 16 + Tailwind | Compiles with no errors |
 
-#### 1.3 Domain Implementation — IN PROGRESS
+#### 1.3 Domain Implementation — NEARLY COMPLETE
 
 | Domain | Handler | Service | Repository | Model | DTO | Status |
 |--------|---------|---------|------------|-------|-----|--------|
@@ -51,9 +51,14 @@
 | `applications` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
 | `resumes` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete (with cover letter LLM-first, StringSliceDB)** |
 | `scoring` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete (handler + wiring done)** |
+| `interviews` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
 | `profile` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
+| `emails` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
+| `rag` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
+| `approvals` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
+| `activity` | ❌ | ❌ | ❌ | ❌ | ❌ | **Stub (empty package)** |
 
-#### 1.4 API Handlers — IN PROGRESS
+#### 1.4 API Handlers — NEARLY COMPLETE
 
 | Endpoint Group | Routes | Status | Notes |
 |----------------|--------|--------|-------|
@@ -64,8 +69,13 @@
 | `/api/v1/resumes/*` | list, get, create, update, delete | **Complete** | Resume CRUD with optimistic locking |
 | `/api/v1/cover-letters/*` | list, get, create, generate, update-content, delete | **Complete** | Cover letter with LLM generation + traceability |
 | `/api/v1/scoring/*` | score, get, batch | **Complete** | Scoring pipeline |
+| `/api/v1/interviews/*` | list, get, create, start, stop, events | **Complete** | Interview session + voice |
+| `/api/v1/profile/*` | get, put, patch | **Complete** | Profile with ETag optimistic locking |
+| `/api/v1/emails/*` | list, get, create, update, classify | **Complete** | Email storage + LLM classification |
+| `/api/v1/approvals/*` | list, get, approve, reject | **Complete** | Human-in-the-loop approval gate |
+| `/api/v1/rag/*` | search, embeddings CRUD | **Complete** | Semantic search + embedding storage |
 
-#### 1.5 Worker Task Handlers — COMPLETE
+#### 1.5 Worker Task Handlers — NEARLY COMPLETE
 
 | Task Type | Queue Name | Status | Notes |
 |-----------|------------|--------|-------|
@@ -77,8 +87,11 @@
 | Fill form | `fill_form` | **Complete** ✅ | Direct browser agent form fill, reviewed |
 | Email check | `email_check` | **Complete** ✅ | Microsoft Graph via browser agent, reviewed |
 | Interview prep | `interview_prep` | **Complete** ✅ | Placeholder (LLM pending), reviewed |
-| Embedding generation | `embedding_generate` | Stub | Pending Ollama integration |
-| Voice session | `voice_session` | Stub | Pending LiveKit integration |
+| Embedding generation | `embedding_generate` | **Complete** ✅ | Ollama embeddings + pgvector upsert, reviewed |
+| Voice session | `voice_session` | **Complete** ✅ | LiveKit + interview brain, reviewed |
+| Resume tailor | `resume_tailor` | **MISSING** | Task defined + dispatcher + payload, NO handler |
+
+**Missing**: `resume_tailor` handler — task type exists in `tasks/model.go` + `tasks/dto.go` + `tasks/dispatcher.go`, but no implementation in `handlers_application.go` or `handlers_resume.go`.
 
 #### 1.6 Browser Agent Scrapers — COMPLETE
 
@@ -325,18 +338,18 @@ All prompts use Go template syntax (`{{.Field}}`) and are loaded via `config.Loa
 
 ## Backend Completion Plan — Phase 1
 
-### Remaining Work (6 stub domains)
+### Remaining Work (1 stub domain + 1 missing handler + middleware)
 
 | Priority | Item | Files to Create/Modify | Est. Effort | Dependencies |
 |----------|------|------------------------|-------------|--------------|
-| **P1** | Approvals Domain | 5 files in `internal/approvals/` + API routes | 8h | `approval_requests` table exists |
-| **P1** | RAG/Embeddings Domain | 5 files in `internal/rag/` + API routes | 12h | `embeddings` table + pgvector, Embedding handler |
-| **P2** | ~~Emails Domain~~ **COMPLETED** | 6 files in `internal/emails/` + API wiring | ~~6h~~ | ~~`emails` table, classifier prompt in config~~ |
-| **P2** | Activity Domain | 3 files in `internal/activity/` (no handler/dto needed) | 4h | `activity_log` table |
+| **P1** | Resume Tailor Worker Handler | `handlers_application.go` or `handlers_resume.go` + wire in `cmd/worker/main.go` | 4h | `ResumeTailorPayload` in tasks/dto.go, dispatcher method exists |
+| **P2** | Activity Domain | 3 files in `internal/activity/` (service, repository, model — no handler/dto needed) | 4h | `activity_log` table |
 | **P2** | Rate Limit Middleware | `internal/api/middleware/ratelimit.go` | 3h | Redis client, config exists |
 | **P2** | Logging Middleware | `internal/api/middleware/logging.go` | 2h | Zap logger |
 
-**Total estimated backend effort: ~47 hours**
+**Total estimated backend effort: ~13 hours**
+
+**All 12 core domains complete** — only activity is a stub. Approvals, RAG, Emails, Profile, Embeddings all done.
 
 ---
 
@@ -349,15 +362,16 @@ All prompts use Go template syntax (`{{.Field}}`) and are loaded via `config.Loa
 - [x] Day 5: Testing + code review — **COMPLETE**
 
 #### Sprint 2 (Week 2): Approvals + RAG
-- [ ] Day 1-2: Approvals domain (human-in-the-loop gate for auto-apply)
-- [ ] Day 3-4: RAG domain (embedding storage + semantic search)
-- [ ] Day 5: Integration test: embedding generation → RAG search
+- [x] Day 1-2: Approvals domain (human-in-the-loop gate for auto-apply) — **COMPLETE**
+- [x] Day 3-4: RAG domain (embedding storage + semantic search) — **COMPLETE**
+- [x] Day 5: Integration test: embedding generation → RAG search — **COMPLETE**
 
 #### Sprint 3 (Week 3): Emails + Activity + Middleware
 - [x] Day 1-2: Emails domain (implement classifier using existing classifier.go stub) — **COMPLETE**
-- [ ] Day 3: Activity domain (simple audit logging)
-- [ ] Day 4: Rate limit + logging middleware
-- [ ] Day 5: Full worker + API regression test
+- [ ] Day 1: Resume Tailor worker handler (missing handler for existing task type)
+- [ ] Day 2: Activity domain (simple audit logging)
+- [ ] Day 3: Rate limit + logging middleware
+- [ ] Day 4: Full worker + API regression test
 
 ---
 
@@ -365,9 +379,10 @@ All prompts use Go template syntax (`{{.Field}}`) and are loaded via `config.Loa
 
 | Milestone | Target | Status |
 |-----------|--------|--------|
-| Embedding handler + Profile domain | Week 1 (Jun 23-27) | Pending |
-| Approvals + RAG domains | Week 2 (Jun 30-Jul 4) | Pending |
-| Emails + Activity + Middleware | Week 3 (Jul 7-11) | Pending |
+| Embedding handler + Profile domain | Week 1 (Jun 23-27) | **Complete** |
+| Approvals + RAG domains | Week 2 (Jun 30-Jul 4) | **Complete** |
+| Emails domain | Week 2 (Jun 30-Jul 4) | **Complete** |
+| Resume Tailor + Activity + Middleware | Week 3 (Jul 7-11) | In Progress |
 | **Backend Phase 1 Complete** | **Jul 11, 2026** | Target |
 | Frontend pages | Week 4-5 (Jul 14-25) | Pending |
 | Integration testing | Week 6 (Jul 28-Aug 1) | Pending |
