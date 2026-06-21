@@ -125,6 +125,13 @@
   --color-text-tertiary: var(--color-text-tertiary);
   --color-text-inverse: var(--color-text-inverse);
 
+  --color-source-indeed: var(--color-source-indeed);
+  --color-source-greenhouse: var(--color-source-greenhouse);
+  --color-source-lever: var(--color-source-lever);
+  --color-source-remoteok: var(--color-source-remoteok);
+  --color-source-linkedin: var(--color-source-linkedin);
+  --color-source-custom: var(--color-source-custom);
+
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
 }
