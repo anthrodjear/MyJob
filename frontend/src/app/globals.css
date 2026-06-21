@@ -96,15 +96,19 @@
   --color-primary-dark: var(--color-primary-dark);
 
   --color-success: var(--color-success);
+  --color-success-hover: var(--color-success-hover);
   --color-success-light: var(--color-success-light);
   --color-success-dark: var(--color-success-dark);
   --color-warning: var(--color-warning);
+  --color-warning-hover: var(--color-warning-hover);
   --color-warning-light: var(--color-warning-light);
   --color-warning-dark: var(--color-warning-dark);
   --color-danger: var(--color-danger);
+  --color-danger-hover: var(--color-danger-hover);
   --color-danger-light: var(--color-danger-light);
   --color-danger-dark: var(--color-danger-dark);
   --color-info: var(--color-info);
+  --color-info-hover: var(--color-info-hover);
   --color-info-light: var(--color-info-light);
   --color-info-dark: var(--color-info-dark);
 
