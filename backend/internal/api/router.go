@@ -5,6 +5,7 @@ import (
 	"go.uber.org/zap"
 
 	"backend/internal/api/middleware"
+	"backend/internal/activity"
 	"backend/internal/applications"
 	"backend/internal/approvals"
 	"backend/internal/auth"
@@ -30,6 +31,7 @@ type RouterConfig struct {
 	ApprovalsHandler    *approvals.Handler
 	RAGHandler          *rag.Handler
 	EmailsHandler       *emails.Handler
+	ActivityHandler     *activity.Handler
 	Logger              *zap.Logger
 }
 
@@ -70,6 +72,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			cfg.ApprovalsHandler.RegisterRoutes(protected)
 			cfg.RAGHandler.RegisterRoutes(protected)
 			cfg.EmailsHandler.RegisterRoutes(protected)
+			cfg.ActivityHandler.RegisterRoutes(protected)
 		}
 	}
 

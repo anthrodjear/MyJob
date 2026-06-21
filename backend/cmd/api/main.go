@@ -13,6 +13,7 @@ import (
 	"github.com/hibiken/asynq"
 	"go.uber.org/zap"
 
+	"backend/internal/activity"
 	"backend/internal/api"
 	"backend/internal/applications"
 	"backend/internal/approvals"
@@ -136,6 +137,11 @@ func main() {
 	ragService := rag.NewService(ragRepo, embeddingClient, logger)
 	ragHandler := rag.NewHandler(ragService, logger)
 
+	// Initialize activity domain
+	activityRepo := activity.NewRepository(postgres.DB)
+	activityService := activity.NewService(activityRepo, logger)
+	activityHandler := activity.NewHandler(activityService, logger)
+
 	// Initialize emails domain
 	emailsRepo := emails.NewRepository(postgres.DB)
 	// Classifier uses dedicated email classifier LLM config
@@ -165,6 +171,7 @@ func main() {
 		ApprovalsHandler:    approvalsHandler,
 		RAGHandler:          ragHandler,
 		EmailsHandler:       emailsHandler,
+		ActivityHandler:     activityHandler,
 		Logger:              logger,
 	})
 
