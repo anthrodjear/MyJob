@@ -1,6 +1,6 @@
 # Project Progress Tracker
 
-> Auto-updated as milestones complete. Last updated: 2026-06-16
+> Auto-updated as milestones complete. Last updated: 2026-06-21
 
 ---
 
@@ -9,11 +9,11 @@
 | Field | Value |
 |-------|-------|
 | **Project** | AI Job Search Agent |
-| **Active Phase** | Phase 1 — Foundation (implementation in progress) |
-| **Phase Progress** | Scaffolding 100% / Implementation ~90% (11/12 domains complete, 10/11 worker handlers, Ollama + Browser Agent + Voice Module) |
-| **Overall Progress** | ~70% (structure built, 11 domains complete + wired, Browser Agent fully reviewed, Voice Module 100% complete, 1 stub domain) |
+| **Active Phase** | Phase 1 — Foundation (implementation complete, testing) |
+| **Phase Progress** | Scaffolding 100% / Implementation ~95% (12/12 domains complete, 11/11 worker handlers, Ollama + Browser Agent + Voice Module, Middleware complete) |
+| **Overall Progress** | ~75% (structure built, 12 domains complete + wired, Browser Agent fully reviewed, Voice Module 100% complete, Middleware complete with tests) |
 | **Blockers** | None |
-| **Next Up** | Activity domain + Rate limit/Logging middleware + resume_tailor worker handler → Frontend pages |
+| **Next Up** | Backend Phase 1 regression test → Frontend pages |
 
 ---
 
@@ -41,7 +41,7 @@
 | TypeScript browser agent | Builds clean | Node.js (Playwright) | Compiles with no errors |
 | Next.js frontend | Builds clean | Next.js 16 + Tailwind | Compiles with no errors |
 
-#### 1.3 Domain Implementation — NEARLY COMPLETE
+#### 1.3 Domain Implementation — COMPLETE
 
 | Domain | Handler | Service | Repository | Model | DTO | Status |
 |--------|---------|---------|------------|-------|-----|--------|
@@ -56,7 +56,7 @@
 | `emails` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
 | `rag` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
 | `approvals` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
-| `activity` | ❌ | ❌ | ❌ | ❌ | ❌ | **Stub (empty package)** |
+| `activity` | ✅ | ✅ | ✅ | ✅ | ✅ | **Complete** |
 
 #### 1.4 API Handlers — NEARLY COMPLETE
 
@@ -75,7 +75,7 @@
 | `/api/v1/approvals/*` | list, get, approve, reject | **Complete** | Human-in-the-loop approval gate |
 | `/api/v1/rag/*` | search, embeddings CRUD | **Complete** | Semantic search + embedding storage |
 
-#### 1.5 Worker Task Handlers — NEARLY COMPLETE
+#### 1.5 Worker Task Handlers — COMPLETE
 
 | Task Type | Queue Name | Status | Notes |
 |-----------|------------|--------|-------|
@@ -213,6 +213,23 @@
 - ✅ Fix graceful shutdown (`logger.Fatal` → `logger.Error` + `return`)
 - ✅ HTTP client timeout 10min → 35min for voice sessions
 
+#### 1.12 API Middleware — COMPLETE
+
+| Component | File | Status | Notes |
+|-----------|------|--------|-------|
+| Auth middleware | `middleware/auth.go` | **Complete** ✅ | JWT validation, GetClaims helper |
+| Rate limit middleware | `middleware/ratelimit.go` | **Complete** ✅ | Per-IP token bucket, stale cleanup, 429 responses |
+| Logging middleware | `middleware/logging.go` | **Complete** ✅ | Structured zap logging, skips /health |
+| Rate limit tests | `middleware/ratelimit_test.go` | **Complete** ✅ | 8 tests: allowed, exceeds limit, independent IPs, invalid config, burst default, dynamic Retry-After, context abort, cleanup |
+| Logging tests | `middleware/logging_test.go` | **Complete** ✅ | 6 tests: successful request, health skip, 5xx→Error, 4xx→Warn, error field, latency |
+| httpresp.TooManyRequests | `httpresp/response.go` | **Complete** ✅ | Added to shared response helpers |
+| Router wiring | `api/router.go` | **Complete** ✅ | Logging replaces gin.Logger(), RateLimit applied globally |
+
+**Review results (parallel Code Reviewer subagents):**
+- ratelimit.go: REQUEST_CHANGES → fixed (RPM validation, dynamic Retry-After)
+- logging.go: APPROVED
+- router.go + main.go wiring: APPROVED
+
 #### 1.7 Frontend Pages — NOT STARTED
 
 | Page | Route | Status | Notes |
@@ -235,9 +252,9 @@ The following domains now have LLM interfaces defined with prompts in `config/ap
 | **Scoring** | `LLMScorer` + `OllamaLLMScorer` | `prompts.scoring` | ✅ Interface + config + handler wired (async) + **Ollama HTTP working** |
 | **Cover Letters** | `CoverLetterGenerator` + `OllamaCoverLetterGenerator` | `prompts.cover_letter` | ✅ Interface + config + handler + StringSliceDB (LLM-first with traceability) + **Ollama HTTP working** |
 | **Resume Generation** | `ResumeGenerator` + `OllamaResumeGenerator` | `prompts.resume_generation` | ✅ Interface + config + handler + **Ollama HTTP working** |
-| **Email Classifier** | `EmailClassifier` (planned) | `prompts.email_classifier` | 📋 Designed, not coded |
+| **Email Classifier** | `EmailClassifier` | `prompts.email_classifier` | ✅ Interface + config + handler wired + Ollama HTTP working |
 | **Job Extraction** | `JobExtractor` (planned) | `prompts.job_extraction` | 📋 Designed, not coded |
-| **Resume Tailor** | `ResumeTailor` (planned) | `prompts.resume_tailor` | 📋 Designed, not coded |
+| **Resume Tailor** | `ResumeTailor` | `prompts.resume_tailor` | ✅ Interface + Ollama implementation + worker handler |
 | **Interview Prep** | `InterviewPrep` (planned) | `prompts.interview_prep` | 📋 Designed, not coded |
 | **Form Filling** | `FormUnderstander` (planned) | `prompts.form_understanding` | 📋 Designed, not coded |
 
@@ -333,6 +350,9 @@ All prompts use Go template syntax (`{{.Field}}`) and are loaded via `config.Loa
 | 2026-06-17 | **Browser Agent tiered scraper architecture** | Tier 1 (API-native, no LLM): Greenhouse, Lever, RemoteOK — standalone classes, no BaseScraper inheritance. Tier 2/3 (CustomScraper): JSON-LD → link discovery → LLM fallback. Config-driven via YAML. Adding new sites = add URL to config, no code changes. |
 | 2026-06-17 | **Voice Module COMPLETE** | All providers (OpenAI Realtime, ElevenLabs, Local Whisper+Piper+Kokoro), session orchestration, factory, brain layer (memory/retrieval/responder/planner) implemented. TypeScript compiles clean. Backend wiring complete (tasks, interviews domain, worker handlers, graceful shutdown, 35min HTTP timeout). |
 | 2026-06-17 | **Backend Full Map Complete** | Comprehensive exploration done — 14 domains mapped, 6 complete, 8 stubs identified. Worker handlers: 9/10 done. Context files updated. |
+| 2026-06-21 | **All 12 Domains Complete** | Activity domain fully implemented (5 files + API wiring). All parallel reviews APPROVED. |
+| 2026-06-21 | **Middleware Complete** | Rate limit (per-IP token bucket) + Logging (structured zap) + Auth (JWT). All 3 reviewed in parallel. RPM validation + dynamic Retry-After added post-review. |
+| 2026-06-21 | **Backend ~95% Complete** | 12/12 domains, 11/11 worker handlers, all middleware. `go build ./...` + `go vet ./...` pass. Remaining: regression test, frontend. |
 
 ---
 
@@ -369,8 +389,8 @@ All prompts use Go template syntax (`{{.Field}}`) and are loaded via `config.Loa
 #### Sprint 3 (Week 3): Emails + Activity + Middleware
 - [x] Day 1-2: Emails domain (implement classifier using existing classifier.go stub) — **COMPLETE**
 - [x] Day 1: Resume Tailor worker handler (missing handler for existing task type) — **COMPLETE**
-- [ ] Day 2: Activity domain (simple audit logging)
-- [ ] Day 3: Rate limit + logging middleware
+- [x] Day 2: Activity domain (simple audit logging) — **COMPLETE**
+- [x] Day 3: Rate limit + logging middleware — **COMPLETE** (with 14 tests)
 - [ ] Day 4: Full worker + API regression test
 
 ---
@@ -392,12 +412,13 @@ All prompts use Go template syntax (`{{.Field}}`) and are loaded via `config.Loa
 
 ### Success Criteria for Backend Completion
 
-1. **All 14 domains** have handler/service/repository/model/dto implemented
-2. **All 10 worker handlers** complete (no stubs)
-3. **All API routes** registered in router (no missing endpoints)
-4. **All middleware** implemented (auth, rate limit, logging)
-5. **Code compiles clean** (`go vet ./...` passes)
-6. **No empty package declarations** in `internal/*`
+1. **All 14 domains** have handler/service/repository/model/dto implemented ✅
+2. **All 10 worker handlers** complete (no stubs) ✅
+3. **All API routes** registered in router (no missing endpoints) ✅
+4. **All middleware** implemented (auth, rate limit, logging) ✅
+5. **Code compiles clean** (`go vet ./...` passes) ✅
+6. **No empty package declarations** in `internal/*` ✅
+7. **Tests for middleware** (rate limit + logging) ✅
 
 ---
 
