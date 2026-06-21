@@ -60,6 +60,13 @@ func Accepted(c *gin.Context, data interface{}) {
 	c.JSON(http.StatusAccepted, data)
 }
 
+// TooManyRequests sends a 429 JSON response for rate limiting.
+func TooManyRequests(c *gin.Context, code string, msg string) {
+	c.JSON(http.StatusTooManyRequests, ErrorResponse{
+		Error: ErrorBody{Code: code, Message: msg},
+	})
+}
+
 // Conflict sends a 409 JSON response for optimistic locking or concurrent modification.
 func Conflict(c *gin.Context, code string, msg string) {
 	c.JSON(http.StatusConflict, ErrorResponse{

@@ -160,9 +160,10 @@ func main() {
 
 	// Setup router with all routes
 	router := api.SetupRouter(api.RouterConfig{
-		AuthHandler:         authHandler,
-		AuthService:         authService,
-		JobsHandler:         jobsHandler,
+		AuthHandler:     authHandler,
+		AuthService:     authService,
+		RateLimitConfig: cfg.RateLimit,
+		JobsHandler:     jobsHandler,
 		ApplicationsHandler: appsHandler,
 		ResumesHandler:      resumesHandler,
 		ScoringHandler:      scoringHandler,
