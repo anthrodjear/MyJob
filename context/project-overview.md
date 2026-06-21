@@ -84,7 +84,7 @@ Job seekers who want to dramatically scale their application volume without sacr
 
 ## Current Status
 
-**Phase:** Phase 1 Foundation — ~85% complete (11/12 Browser Agent + Voice Module 100% complete, 1 stub domain remaining)
+**Phase:** Phase 1 Foundation — ~95% complete (12/12 domains, 11/11 worker handlers, middleware + 61 tests)
 
 - Project structure and directory layout established
 - Technology stack decisions finalized
@@ -126,10 +126,11 @@ Job seekers who want to dramatically scale their application volume without sacr
 - [x] **Approvals domain** — Human-in-the-loop approval before auto-apply (approval_requests table)
 - [x] **RAG/Embeddings domain** — Embedding generation + semantic search (embeddings table + pgvector)
 - [x] **Emails domain** — Email classifier implementation (emails table + classifier.go, LLMClient/OllamaClient, HTTP handlers wired)
-- [ ] **Activity domain** — User activity logging (activity_log table)
+- [x] **Activity domain** — User activity logging (activity_log table)
 - [x] **Resume Tailor worker handler** — Implemented in `handlers_resume.go` + `resumes/llm.go` (ResumeTailor interface + Ollama implementation + Service.TailorResume)
-- [ ] **Rate limit middleware** — Implement `internal/api/middleware/ratelimit.go`
-- [ ] **Logging middleware** — Implement `internal/api/middleware/logging.go`
+- [x] **Rate limit middleware** — Per-IP token bucket, 429 responses, dynamic Retry-After
+- [x] **Logging middleware** — Structured zap logging, skips /health
+- [x] **Middleware tests** — 61 tests across 5 packages (middleware, httpresp, pgvector, emails, resumes)
 
 ### Frontend (Wave 3)
 - [ ] Dashboard — Overview + recent activity

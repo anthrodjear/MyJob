@@ -11,7 +11,7 @@
 | **Project** | AI Job Search Agent |
 | **Active Phase** | Phase 1 — Foundation (implementation complete, testing) |
 | **Phase Progress** | Scaffolding 100% / Implementation ~95% (12/12 domains complete, 11/11 worker handlers, Ollama + Browser Agent + Voice Module, Middleware complete) |
-| **Overall Progress** | ~75% (structure built, 12 domains complete + wired, Browser Agent fully reviewed, Voice Module 100% complete, Middleware complete with tests) |
+| **Overall Progress** | ~78% (structure built, 12 domains complete + wired, Browser Agent fully reviewed, Voice Module 100% complete, Middleware complete with 61 tests) |
 | **Blockers** | None |
 | **Next Up** | Backend Phase 1 regression test → Frontend pages |
 
