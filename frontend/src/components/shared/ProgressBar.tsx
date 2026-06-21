@@ -19,7 +19,7 @@ interface ProgressBarProps {
   /** Optional label displayed above the bar. */
   label?: string;
   /** Bar color variant. Default: "primary". */
-  color?: "primary" | "success" | "warning" | "danger";
+  color?: "primary" | "success" | "warning" | "danger" | "info";
   /** Additional CSS classes. */
   className?: string;
 }
@@ -27,11 +27,12 @@ interface ProgressBarProps {
 /**
  * Color-to-Tailwind class mapping.
  */
-const colorStyles: Record<"primary" | "success" | "warning" | "danger", string> = {
+const colorStyles: Record<"primary" | "success" | "warning" | "danger" | "info", string> = {
   primary: "bg-primary",
   success: "bg-success",
   warning: "bg-warning",
   danger: "bg-danger",
+  info: "bg-info",
 };
 
 /**

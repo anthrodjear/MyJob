@@ -29,3 +29,32 @@ export interface Task {
   created_at: string;
   updated_at: string;
 }
+
+/**
+ * TaskResponse — matches backend TaskResponse DTO
+ * Includes optional fields for params, result, error
+ */
+export interface TaskResponse {
+  id: string;
+  type: TaskType;
+  status: TaskStatus;
+  params: Record<string, unknown> | null;
+  result: Record<string, unknown> | null;
+  error: string | null;
+  attempts: number;
+  max_attempts: number;
+  priority: number;
+  scheduled_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * TaskListResponse — matches backend TaskListResponse DTO
+ */
+export interface TaskListResponse {
+  tasks: TaskResponse[];
+  total: number;
+}

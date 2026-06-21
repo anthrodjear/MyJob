@@ -45,3 +45,13 @@ export interface JobListParams {
   sort_by?: string;
   sort_dir?: SortDirection;
 }
+
+/**
+ * JobListResponse — paginated job list response from GET /jobs.
+ */
+export interface JobListResponse {
+  items: Job[];
+  total: number;
+  page: number;
+  limit: number;
+}

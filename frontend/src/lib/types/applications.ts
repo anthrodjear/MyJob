@@ -45,6 +45,16 @@ export interface ApplicationStats {
   by_status: Partial<Record<ApplicationStatus, number>>;
 }
 
+/**
+ * Backend ApplicationStatsResponse from GET /applications/stats
+ * Includes by_tier for approval tier breakdown.
+ */
+export interface ApplicationStatsResponse {
+  total: number;
+  by_status: Partial<Record<ApplicationStatus, number>>;
+  by_tier: Partial<Record<ApprovalTier, number>>;
+}
+
 export interface ApplicationListParams {
   page?: number;
   limit?: number;
