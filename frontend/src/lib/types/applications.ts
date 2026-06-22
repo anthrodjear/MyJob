@@ -1,5 +1,3 @@
-import type { SortDirection } from "./common";
-
 export type ApplicationStatus =
   | "draft"
   | "queued"
@@ -55,11 +53,14 @@ export interface ApplicationStatsResponse {
   by_tier: Partial<Record<ApprovalTier, number>>;
 }
 
+/**
+ * Query parameters for GET /applications.
+ * Backend handler: listApplicationsQuery in applications/handler.go
+ */
 export interface ApplicationListParams {
-  page?: number;
-  limit?: number;
   status?: ApplicationStatus;
-  min_score?: number;
-  sort_by?: string;
-  sort_dir?: SortDirection;
+  job_id?: string;
+  portal_type?: string;
+  limit?: number;
+  offset?: number;
 }

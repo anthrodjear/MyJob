@@ -1,5 +1,5 @@
 export type { ApiError, ApiResponse, PaginatedResponse, PaginationParams, SortDirection } from "./common";
-export type { Job, JobStatus, JobSource, JobListParams, JobListResponse } from "./jobs";
+export type { Job, JobStatus, JobSource, JobListParams, JobListResponse, JobApplicationHistory } from "./jobs";
 export type { Application, ApplicationStatus, ApprovalTier, ApplicationEvent, ApplicationStats, ApplicationStatsResponse, ApplicationListParams } from "./applications";
 export type { Resume, ResumeContent, ExperienceEntry, ProjectEntry, EducationEntry, LanguageEntry, LinkEntry, CoverLetter } from "./resumes";
 export type { Email, EmailClassification, EmailListParams } from "./emails";

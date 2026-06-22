@@ -3,31 +3,37 @@
  */
 
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api/client";
-import type { Job, JobListParams, JobListResponse, JobStatus } from "@/lib/types/jobs";
+import type {
+  Job,
+  JobListParams,
+  JobListResponse,
+  JobStatus,
+  JobApplicationHistory,
+} from "@/lib/types/jobs";
 
 /**
  * Fetch paginated job list with filters.
  *
- * @param params - Query parameters (search, source, status, min_score, page, limit)
+ * Backend params: status, source_id, min_score, limit, offset.
+ *
+ * @param params - Query parameters
  * @returns Paginated job list
  */
 export async function fetchJobs(params?: JobListParams): Promise<JobListResponse> {
   const searchParams = new URLSearchParams();
-  if (params?.search) searchParams.set("search", params.search);
-  if (params?.source) searchParams.set("source", params.source);
   if (params?.status) searchParams.set("status", params.status);
+  if (params?.source_id) searchParams.set("source_id", params.source_id);
   if (params?.min_score != null)
     searchParams.set("min_score", String(params.min_score));
-  if (params?.page) searchParams.set("page", String(params.page));
-  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.limit != null) searchParams.set("limit", String(params.limit));
+  if (params?.offset != null) searchParams.set("offset", String(params.offset));
 
   const queryString = searchParams.toString();
   const path = queryString ? `jobs?${queryString}` : "jobs";
 
   const result = await apiGet<JobListResponse>(path);
-
   if (result === undefined) {
-    throw new Error("Unexpected empty response from jobs");
+    throw new Error("Failed to fetch jobs");
   }
   return result;
 }
@@ -124,11 +130,11 @@ export async function deleteJob(jobId: string): Promise<void> {
  * @returns List of similar jobs
  */
 export async function fetchSimilarJobs(jobId: string): Promise<Job[]> {
-  const result = await apiGet<{ items: Job[] }>(`jobs/${jobId}/similar`);
+  const result = await apiGet<{ jobs: Job[] }>(`jobs/${jobId}/similar`);
   if (result === undefined) {
     throw new Error("Failed to fetch similar jobs");
   }
-  return result.items;
+  return result.jobs ?? [];
 }
 
 /**
@@ -137,18 +143,12 @@ export async function fetchSimilarJobs(jobId: string): Promise<Job[]> {
  * @param jobId - Job UUID
  * @returns Application history
  */
-export async function fetchJobApplications(jobId: string): Promise<{
-  application_id: string;
-  status: string;
-  applied_at: string | null;
-  created_at: string;
-}[]> {
-  const result = await apiGet<{
-    application_id: string;
-    status: string;
-    applied_at: string | null;
-    created_at: string;
-  }[]>(`jobs/${jobId}/applications`);
+export async function fetchJobApplications(
+  jobId: string,
+): Promise<JobApplicationHistory[]> {
+  const result = await apiGet<JobApplicationHistory[]>(
+    `jobs/${jobId}/applications`,
+  );
   if (result === undefined) {
     throw new Error("Failed to fetch job applications");
   }

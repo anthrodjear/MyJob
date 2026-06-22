@@ -223,6 +223,26 @@ export function apiPost<T>(
 }
 
 /**
+ * PUT request helper.
+ *
+ * @param path - API path (e.g., "applications/123/status")
+ * @param data - Request body (auto-serialized to JSON). Pass undefined to skip body.
+ * @param options - Optional RequestInit overrides (headers, signal, etc.)
+ * @returns Parsed JSON response, or undefined for 204/non-JSON responses
+ */
+export function apiPut<T>(
+  path: string,
+  data?: unknown,
+  options?: RequestInit,
+): Promise<T | undefined> {
+  return apiFetch<T>(path, {
+    ...options,
+    method: "PUT",
+    body: data != null ? JSON.stringify(data) : undefined,
+  });
+}
+
+/**
  * PATCH request helper.
  *
  * @param path - API path (e.g., "profile", "jobs/123")

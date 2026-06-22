@@ -5,16 +5,18 @@
  * Provides action buttons for apply, score, save, and archive operations.
  * Mobile-responsive with proper ARIA labels and keyboard navigation.
  *
- * No `"use client"` — pure presentational, works in Server Components.
  * Action callbacks are optional; buttons only render when callbacks are provided.
  *
  * @example
  *   <JobCard job={job} onApply={handleApply} onSave={handleSave} />
  */
 
+"use client";
+
 import { cn } from "@/lib/utils";
 import { formatDate, scoreLevel } from "@/lib/utils";
 import { Badge } from "@/components/shared/Badge";
+import { Button } from "@/components/shared/Button";
 import { ProgressBar } from "@/components/shared/ProgressBar";
 import { SOURCE_COLORS } from "@/lib/constants";
 import type { Job, JobStatus } from "@/lib/types/jobs";
@@ -44,10 +46,6 @@ const SCORE_COLOR: Record<"high" | "medium" | "low", "success" | "warning" | "da
   medium: "warning",
   low: "danger",
 };
-
-/** Shared button styles for secondary actions. */
-const secondaryBtn =
-  "rounded-md border border-border bg-bg-secondary px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2";
 
 /**
  * Format salary range for display.
@@ -159,44 +157,44 @@ export function JobCard({
       {/* Actions */}
       <div className="flex flex-wrap gap-2">
         {onApply && job.status !== "applied" && (
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() => onApply(job.id)}
-            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
             aria-label={`Apply to ${job.title} at ${job.company}`}
           >
             Apply
-          </button>
+          </Button>
         )}
         {onScore && (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => onScore(job.id)}
-            className={secondaryBtn}
             aria-label={`Re-score ${job.title}`}
           >
             Re-score
-          </button>
+          </Button>
         )}
         {onSave && (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => onSave(job.id, !job.match_details?.saved)}
-            className={secondaryBtn}
             aria-label={job.match_details?.saved ? `Unsave ${job.title}` : `Save ${job.title}`}
           >
             {job.match_details?.saved ? "Unsave" : "Save"}
-          </button>
+          </Button>
         )}
         {onArchive && job.status !== "archived" && (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => onArchive(job.id)}
-            className={secondaryBtn}
             aria-label={`Archive ${job.title}`}
           >
             Archive
-          </button>
+          </Button>
         )}
       </div>
     </div>

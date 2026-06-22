@@ -14,6 +14,7 @@
 import { Briefcase, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { JobCard } from "./JobCard";
+import { Button } from "@/components/shared/Button";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Skeleton } from "@/components/shared/LoadingSkeleton";
 import type { Job } from "@/lib/types/jobs";
@@ -107,13 +108,14 @@ export function JobList({
         <AlertTriangle className="mx-auto mb-2 h-6 w-6 text-danger-dark" />
         <p className="text-sm text-danger-dark">{error}</p>
         {onRetry && (
-          <button
-            type="button"
+          <Button
+            variant="danger"
+            size="sm"
             onClick={onRetry}
-            className="mt-3 rounded-md bg-danger px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-danger-hover focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-2"
+            className="mt-3"
           >
             Try Again
-          </button>
+          </Button>
         )}
       </div>
     );

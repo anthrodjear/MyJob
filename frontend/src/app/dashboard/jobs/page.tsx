@@ -6,9 +6,10 @@
  * JobList for the results grid.
  *
  * URL search params are read on mount to initialize filters.
+ * Pagination uses offset-based computation (page → offset).
  *
  * @example
- *   /dashboard/jobs?search=react&status=matched
+ *   /dashboard/jobs?status=matched&offset=20
  */
 
 "use client";
@@ -24,7 +25,7 @@ import type { JobListParams } from "@/lib/types/jobs";
 
 /** Default filter values. */
 const DEFAULT_FILTERS: JobListParams = {
-  page: 1,
+  offset: 0,
   limit: DEFAULT_PAGE_SIZE,
 };
 
@@ -41,44 +42,48 @@ export default function JobsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  /** Derive page number from offset for display. */
+  const getPageFromOffset = (offset: number) => Math.floor(offset / DEFAULT_PAGE_SIZE) + 1;
+  const getOffsetFromPage = (page: number) => (page - 1) * DEFAULT_PAGE_SIZE;
+
   /** Initialize filters from URL search params. */
   const [filters, setFilters] = useState<JobListParams>(() => {
     const initial: JobListParams = { ...DEFAULT_FILTERS };
-    const search = searchParams.get("search");
-    const source = searchParams.get("source");
     const status = searchParams.get("status");
+    const sourceId = searchParams.get("source_id");
     const minScore = searchParams.get("min_score");
-    const page = searchParams.get("page");
-    const sortBy = searchParams.get("sort_by");
-    const sortDir = searchParams.get("sort_dir");
+    const offset = searchParams.get("offset");
+    const limit = searchParams.get("limit");
 
-    if (search) initial.search = search;
-    if (source) initial.source = source;
     if (status) initial.status = status;
+    if (sourceId) initial.source_id = sourceId;
     if (minScore) {
       const parsed = Number(minScore);
       if (!Number.isNaN(parsed)) initial.min_score = parsed;
     }
-    if (page) {
-      const parsed = Number(page);
-      if (!Number.isNaN(parsed) && parsed > 0) initial.page = parsed;
+    if (offset) {
+      const parsed = Number(offset);
+      if (!Number.isNaN(parsed) && parsed >= 0) initial.offset = parsed;
     }
-    if (sortBy) initial.sort_by = sortBy;
-    if (sortDir === "asc" || sortDir === "desc") initial.sort_dir = sortDir;
+    if (limit) {
+      const parsed = Number(limit);
+      if (!Number.isNaN(parsed) && parsed > 0) initial.limit = parsed;
+    }
 
     return initial;
   });
 
+  /** Current page for display (derived from offset). */
+  const currentPage = getPageFromOffset(filters.offset ?? 0);
+
   /** Sync URL when filters change. */
   useEffect(() => {
     const params = new URLSearchParams();
-    if (filters.search) params.set("search", filters.search);
-    if (filters.source) params.set("source", filters.source);
     if (filters.status) params.set("status", filters.status);
+    if (filters.source_id) params.set("source_id", filters.source_id);
     if (filters.min_score) params.set("min_score", String(filters.min_score));
-    if (filters.page && filters.page > 1) params.set("page", String(filters.page));
-    if (filters.sort_by) params.set("sort_by", filters.sort_by);
-    if (filters.sort_dir) params.set("sort_dir", filters.sort_dir);
+    if (filters.offset && filters.offset > 0) params.set("offset", String(filters.offset));
+    if (filters.limit && filters.limit !== DEFAULT_PAGE_SIZE) params.set("limit", String(filters.limit));
 
     const qs = params.toString();
     const url = qs ? `/dashboard/jobs?${qs}` : "/dashboard/jobs";
@@ -94,15 +99,17 @@ export default function JobsPage() {
   const saveMutation = useSaveJob();
   const statusMutation = useUpdateJobStatus();
 
-  /** Handle filter changes from JobFilters — always reset to page 1. */
+  /** Handle filter changes from JobFilters — always reset to offset 0. */
   const handleFilterChange = useCallback((newFilters: JobListParams) => {
-    setFilters({ ...newFilters, page: 1 });
+    setFilters({ ...newFilters, offset: 0 });
   }, []);
 
-  /** Handle page changes from JobList pagination. */
+  /** Handle page changes — convert page number to offset. */
   const handlePageChange = useCallback((page: number) => {
-    setFilters((prev) => ({ ...prev, page }));
+    setFilters((prev) => ({ ...prev, offset: getOffsetFromPage(page) }));
   }, []);
+
+  const totalPages = data ? Math.ceil(data.total / DEFAULT_PAGE_SIZE) : 0;
 
   return (
     <div className="space-y-6">
@@ -133,7 +140,7 @@ export default function JobsPage() {
 
       {/* Results */}
       <JobList
-        jobs={data?.items ?? []}
+        jobs={data?.jobs ?? []}
         isLoading={isLoading}
         error={error?.message}
         onApply={(jobId) => applyMutation.mutate({ jobId })}
@@ -143,12 +150,12 @@ export default function JobsPage() {
       />
 
       {/* Pagination */}
-      {data && data.total > DEFAULT_PAGE_SIZE && (
+      {data && totalPages > 1 && (
         <nav aria-label="Job list pagination" className="flex justify-center gap-2">
           <button
             type="button"
-            onClick={() => handlePageChange((filters.page ?? 1) - 1)}
-            disabled={(filters.page ?? 1) <= 1}
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage <= 1}
             className={cn(
               "rounded-md border border-border bg-bg-secondary px-3 py-1.5",
               "text-sm font-medium text-text-primary transition-colors",
@@ -160,12 +167,12 @@ export default function JobsPage() {
             Previous
           </button>
           <span className="flex items-center px-3 text-sm text-text-secondary">
-            Page {filters.page ?? 1} of {Math.ceil(data.total / DEFAULT_PAGE_SIZE)}
+            Page {currentPage} of {totalPages}
           </span>
           <button
             type="button"
-            onClick={() => handlePageChange((filters.page ?? 1) + 1)}
-            disabled={(filters.page ?? 1) >= Math.ceil(data.total / DEFAULT_PAGE_SIZE)}
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage >= totalPages}
             className={cn(
               "rounded-md border border-border bg-bg-secondary px-3 py-1.5",
               "text-sm font-medium text-text-primary transition-colors",

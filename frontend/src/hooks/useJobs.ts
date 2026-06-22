@@ -172,13 +172,11 @@ export function useSaveJob() {
       await queryClient.cancelQueries({ queryKey: jobsKeys.detail(jobId) });
 
       // Snapshot previous value
-      const previousJob = queryClient.getQueryData<{ id: string; saved: boolean }>(jobsKeys.detail(jobId));
+      const previousJob = queryClient.getQueryData<Job>(jobsKeys.detail(jobId));
 
-      // Optimistically update
-      queryClient.setQueryData(jobsKeys.detail(jobId), (old: any) => ({
-        ...old,
-        saved: save,
-      }));
+      queryClient.setQueryData<Job>(jobsKeys.detail(jobId), (old) =>
+        old ? { ...old, match_details: { ...old.match_details, saved: save } } : old,
+      );
 
       return { previousJob };
     },
@@ -209,12 +207,11 @@ export function useUpdateJobStatus() {
     onMutate: async ({ jobId, status }) => {
       await queryClient.cancelQueries({ queryKey: jobsKeys.detail(jobId) });
 
-      const previousJob = queryClient.getQueryData<{ id: string; status: JobStatus }>(jobsKeys.detail(jobId));
+      const previousJob = queryClient.getQueryData<Job>(jobsKeys.detail(jobId));
 
-      queryClient.setQueryData(jobsKeys.detail(jobId), (old: any) => ({
-        ...old,
-        status,
-      }));
+      queryClient.setQueryData<Job>(jobsKeys.detail(jobId), (old) =>
+        old ? { ...old, status } : old,
+      );
 
       return { previousJob };
     },
