@@ -1,65 +1,87 @@
 /**
- * Zod schemas for job-related API request/response validation.
+ * Zod v4 schemas for Jobs domain.
  *
- * These schemas validate data at runtime when it crosses the API boundary.
- * TypeScript types are inferred from schemas using z.input (what goes in)
- * and z.output (what comes out after validation).
- *
- * Usage:
- *   import { jobFilterSchema, type JobFilter } from "@/lib/schemas/jobs";
- *   const filter = jobFilterSchema.parse(rawQuery); // throws on invalid
+ * Provides runtime validation for API requests/responses.
+ * Aligns with types in @/lib/types/jobs.
  */
+
 import { z } from "zod";
+import type { Job, JobStatus, JobSource, JobListParams, JobListResponse } from "@/lib/types/jobs";
+import type { SortDirection } from "@/lib/types/common";
 
-/**
- * Schema for job list filter/query parameters.
- *
- * Validates incoming query params from the Jobs page search/filter form.
- * Defaults: page=1, limit=20 (matching backend defaults).
- *
- * @example
- *   const filter = jobFilterSchema.parse({ search: "react", min_score: 70 });
- *   // => { search: "react", min_score: 70, page: 1, limit: 20 }
- */
-export const jobFilterSchema = z.object({
-  /** Free-text search query (matches title, company, description). */
-  search: z.string().optional(),
-  /** Filter by job source name (e.g., "linkedin", "indeed"). */
-  source: z.string().optional(),
-  /** Filter by job status (e.g., "discovered", "matched"). */
-  status: z.string().optional(),
-  /** Minimum match score threshold (0–100). Jobs below this are excluded. */
-  min_score: z.number().min(0).max(100).optional(),
-  /** Page number (1-indexed). Defaults to 1. */
-  page: z.number().int().positive().default(1),
-  /** Items per page. Clamped to 1–100. Defaults to 20. */
-  limit: z.number().int().min(1).max(100).default(20),
-});
+/** Valid job status values — matches backend ApplicationStatus. */
+export const jobStatusSchema = z.enum([
+  "discovered",
+  "matched",
+  "applied",
+  "archived",
+]);
 
-/**
- * Input type for job filter — what the form/API consumer provides.
- * May have partial data (optional fields not yet filled in).
- */
-export type JobFilterInput = z.input<typeof jobFilterSchema>;
+/** Valid job source tier values. */
+export const jobSourceTierSchema = z.number().int().min(1).max(5);
 
-/**
- * Output type for job filter — fully resolved after parsing.
- * All defaults applied, all optional fields resolved.
- */
-export type JobFilter = z.output<typeof jobFilterSchema>;
-
-/**
- * Schema for validating a job source object from the API.
- * Used when parsing the list of configured job sources.
- */
+/** Job source schema — minimal source info for job listings. */
 export const jobSourceSchema = z.object({
-  /** Source identifier (e.g., "linkedin", "indeed"). */
   name: z.string(),
-  /** Priority tier (1=highest). Lower tier sources are checked first. */
-  tier: z.number().int().min(1).max(5),
-  /** Whether this source is enabled for scraping. */
+  tier: jobSourceTierSchema,
   enabled: z.boolean(),
 });
 
-/** Type inferred from jobSourceSchema — the validated output shape. */
+/** Job schema — matches backend Job response. */
+export const jobSchema = z.object({
+  id: z.string().uuid(),
+  source_id: z.string().uuid(),
+  external_id: z.string(),
+  title: z.string(),
+  company: z.string(),
+  location: z.string(),
+  remote_type: z.string(),
+  salary_min: z.number().int().nonnegative(),
+  salary_max: z.number().int().nonnegative(),
+  salary_currency: z.string().length(3),
+  description: z.string(),
+  requirements: z.string(),
+  url: z.string().url(),
+  application_url: z.string().url(),
+  company_url: z.string().url(),
+  source: z.string(),
+  posted_at: z.string().datetime().nullable(),
+  scraped_at: z.string().datetime(),
+  match_score: z.number().int().min(0).max(100),
+  match_details: z.record(z.string(), z.unknown()).nullable(),
+  status: jobStatusSchema,
+  created_at: z.string().datetime(),
+  updated_at: z.string().datetime(),
+  source_name: z.string().optional(),
+});
+
+/** Job list query parameters. */
+export const jobListParamsSchema = z.object({
+  page: z.number().int().positive().default(1),
+  limit: z.number().int().min(1).max(100).default(20),
+  source: z.string().optional(),
+  status: z.string().optional(),
+  min_score: z.number().int().min(0).max(100).optional(),
+  search: z.string().optional(),
+  sort_by: z.string().optional(),
+  sort_dir: z.enum(["asc", "desc"]).optional(),
+});
+
+/** Job list response schema. */
+export const jobListResponseSchema = z.object({
+  items: z.array(jobSchema),
+  total: z.number().int().nonnegative(),
+  page: z.number().int().positive(),
+  limit: z.number().int().min(1).max(100),
+});
+
+/** Type exports using Zod v4 inference. */
+export type JobStatusValidated = z.output<typeof jobStatusSchema>;
 export type JobSourceValidated = z.output<typeof jobSourceSchema>;
+export type JobValidated = z.output<typeof jobSchema>;
+export type JobListParamsValidated = z.output<typeof jobListParamsSchema>;
+export type JobListResponseValidated = z.output<typeof jobListResponseSchema>;
+
+// Re-export types that align with existing type definitions
+export type { Job, JobStatus, JobSource, JobListParams, JobListResponse } from "@/lib/types/jobs";
+export type { SortDirection } from "@/lib/types/common";
