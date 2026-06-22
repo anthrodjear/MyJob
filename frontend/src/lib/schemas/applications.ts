@@ -44,21 +44,23 @@ export const approvalTierSchema = z.enum(["auto", "review", "reject"]);
  * Schema for application list filter/query parameters.
  *
  * Validates incoming query params from the Applications page.
- * Narrower than jobFilter — only application-specific fields.
+ * Matches backend handler: listApplicationsQuery in applications/handler.go.
  *
  * @example
- *   const filter = applicationFilterSchema.parse({ status: "applied", min_score: 80 });
- *   // => { status: "applied", min_score: 80, page: 1, limit: 20 }
+ *   const filter = applicationFilterSchema.parse({ status: "applied", limit: 20 });
+ *   // => { status: "applied", limit: 20, offset: 0 }
  */
 export const applicationFilterSchema = z.object({
   /** Filter by application status. Only one status at a time. */
   status: applicationStatusSchema.optional(),
-  /** Minimum match score threshold (0–100). */
-  min_score: z.number().min(0).max(100).optional(),
-  /** Page number (1-indexed). Defaults to 1. */
-  page: z.number().int().positive().default(1),
+  /** Filter by job UUID. */
+  job_id: z.string().uuid().optional(),
+  /** Filter by portal type (e.g. "greenhouse", "lever"). */
+  portal_type: z.string().optional(),
   /** Items per page. Clamped to 1–100. Defaults to 20. */
   limit: z.number().int().min(1).max(100).default(20),
+  /** Offset from start. Defaults to 0. */
+  offset: z.number().int().min(0).default(0),
 });
 
 /**

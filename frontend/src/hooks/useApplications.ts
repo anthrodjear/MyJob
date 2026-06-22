@@ -140,7 +140,9 @@ export function useCreateApplication() {
 
 /**
  * Hook to transition application status.
- * Optimistically updates the application in cache.
+ * Optimistically updates the status in cache, rolls back on error.
+ * Backend returns { message }, not the full Application — so we invalidate
+ * to ensure the list and detail views refetch the authoritative state.
  *
  * @returns TanStack Mutation result
  */
@@ -164,6 +166,7 @@ export function useUpdateApplicationStatus() {
         applicationsKeys.detail(id),
       );
 
+      // Optimistically set status — onSettled will refetch authoritative data
       queryClient.setQueryData<Application>(applicationsKeys.detail(id), (old) =>
         old ? { ...old, status } : old,
       );
@@ -171,6 +174,7 @@ export function useUpdateApplicationStatus() {
       return { previousApp };
     },
     onError: (_err, variables, context) => {
+      // Roll back optimistic update on failure
       if (context?.previousApp) {
         queryClient.setQueryData(
           applicationsKeys.detail(variables.id),
@@ -179,12 +183,12 @@ export function useUpdateApplicationStatus() {
       }
     },
     onSettled: (_data, _error, variables) => {
+      // Always refetch to get authoritative state from server
       queryClient.invalidateQueries({
         queryKey: applicationsKeys.detail(variables.id),
       });
       queryClient.invalidateQueries({ queryKey: applicationsKeys.lists() });
       queryClient.invalidateQueries({ queryKey: applicationsKeys.stats() });
-      // Timeline changed too
       queryClient.invalidateQueries({
         queryKey: applicationsKeys.timeline(variables.id),
       });
@@ -194,7 +198,8 @@ export function useUpdateApplicationStatus() {
 
 /**
  * Hook to update application notes.
- * Optimistically updates the application in cache.
+ * Optimistically updates notes in cache, rolls back on error.
+ * Backend returns { message }, not the full Application.
  *
  * @returns TanStack Mutation result
  */
@@ -211,6 +216,7 @@ export function useUpdateApplicationNotes() {
         applicationsKeys.detail(id),
       );
 
+      // Optimistically set notes — onSettled will refetch authoritative data
       queryClient.setQueryData<Application>(applicationsKeys.detail(id), (old) =>
         old ? { ...old, notes } : old,
       );
@@ -218,6 +224,7 @@ export function useUpdateApplicationNotes() {
       return { previousApp };
     },
     onError: (_err, variables, context) => {
+      // Roll back optimistic update on failure
       if (context?.previousApp) {
         queryClient.setQueryData(
           applicationsKeys.detail(variables.id),
@@ -226,6 +233,7 @@ export function useUpdateApplicationNotes() {
       }
     },
     onSettled: (_data, _error, variables) => {
+      // Always refetch to get authoritative state from server
       queryClient.invalidateQueries({
         queryKey: applicationsKeys.detail(variables.id),
       });

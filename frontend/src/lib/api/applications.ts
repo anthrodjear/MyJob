@@ -15,8 +15,9 @@ import { apiGet, apiPost, apiPut, apiPatch } from "@/lib/api/client";
 import type {
   Application,
   ApplicationEvent,
-  ApplicationStatsResponse,
   ApplicationListParams,
+  ApplicationStatsResponse,
+  ApplicationStatus,
 } from "@/lib/types/applications";
 
 /**
@@ -117,6 +118,9 @@ export async function createApplication(payload: {
 /**
  * Transition application status.
  *
+ * Backend returns { message: "status updated" } — NOT the full Application.
+ * Caller should invalidate or refetch the application after this succeeds.
+ *
  * Valid transitions (from backend model.go):
  *   draft → queued, rejected
  *   queued → applied, rejected
@@ -129,16 +133,16 @@ export async function createApplication(payload: {
  *   rejected → (terminal)
  *
  * @param id - Application UUID
- * @param status - Target status
+ * @param status - Target status (must be valid ApplicationStatus)
  * @param notes - Optional notes for the transition
- * @returns Updated application
+ * @returns Confirmation message
  */
 export async function updateApplicationStatus(
   id: string,
-  status: string,
+  status: ApplicationStatus,
   notes?: string,
-): Promise<Application> {
-  const result = await apiPut<Application>(`applications/${id}/status`, {
+): Promise<{ message: string }> {
+  const result = await apiPut<{ message: string }>(`applications/${id}/status`, {
     status,
     notes: notes ?? "",
   });
@@ -151,15 +155,18 @@ export async function updateApplicationStatus(
 /**
  * Update application notes (non-destructive, does not change status).
  *
+ * Backend returns { message: "notes updated" } — NOT the full Application.
+ * Caller should invalidate or refetch the application after this succeeds.
+ *
  * @param id - Application UUID
  * @param notes - New notes content (replaces existing)
- * @returns Updated application
+ * @returns Confirmation message
  */
 export async function updateApplicationNotes(
   id: string,
   notes: string,
-): Promise<Application> {
-  const result = await apiPatch<Application>(`applications/${id}/notes`, {
+): Promise<{ message: string }> {
+  const result = await apiPatch<{ message: string }>(`applications/${id}/notes`, {
     notes,
   });
   if (result === undefined) {

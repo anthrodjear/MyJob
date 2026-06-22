@@ -24,7 +24,6 @@ export interface Application {
   notes: string | null;
   portal_type: string | null;
   portal_url: string | null;
-  form_data: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
@@ -32,15 +31,10 @@ export interface Application {
 export interface ApplicationEvent {
   id: string;
   application_id: string;
-  old_status: string;
-  new_status: string;
+  old_status: ApplicationStatus | null;
+  new_status: ApplicationStatus;
   notes: string;
   created_at: string;
-}
-
-export interface ApplicationStats {
-  total: number;
-  by_status: Partial<Record<ApplicationStatus, number>>;
 }
 
 /**
