@@ -23,8 +23,22 @@ export interface Email {
 }
 
 export interface EmailListParams {
-  page?: number;
-  limit?: number;
+  application_id?: string;
   classification?: EmailClassification;
-  is_read?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export interface EmailListResponse {
+  emails: Email[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface ClassifyResponse {
+  email_id: string;
+  classification: EmailClassification;
+  confidence: number;
+  reasoning: string;
 }

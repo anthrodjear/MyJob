@@ -20,6 +20,7 @@ import {
   FileText,
   CheckCircle,
   Mail,
+  Mic,
   Settings,
 } from "lucide-react";
 
@@ -29,7 +30,8 @@ export const navItems = [
   { href: "/dashboard/jobs", label: "Jobs", icon: Briefcase },
   { href: "/dashboard/applications", label: "Applications", icon: FileText },
   { href: "/dashboard/approvals", label: "Approvals", icon: CheckCircle },
-  { href: "/dashboard/email", label: "Email", icon: Mail },
+  { href: "/dashboard/emails", label: "Emails", icon: Mail },
+  { href: "/dashboard/interviews", label: "Interviews", icon: Mic },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ] as const;
 

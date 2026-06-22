@@ -2,9 +2,9 @@ export type { ApiError, ApiResponse, PaginatedResponse, PaginationParams, SortDi
 export type { Job, JobStatus, JobSource, JobListParams, JobListResponse, JobApplicationHistory } from "./jobs";
 export type { Application, ApplicationStatus, ApprovalTier, ApplicationEvent, ApplicationStatsResponse, ApplicationListParams } from "./applications";
 export type { Resume, ResumeContent, ExperienceEntry, ProjectEntry, EducationEntry, LanguageEntry, LinkEntry, CoverLetter } from "./resumes";
-export type { Email, EmailClassification, EmailListParams } from "./emails";
+export type { Email, EmailClassification, EmailListParams, EmailListResponse, ClassifyResponse } from "./emails";
 export type { ActivityResponse, ActivityListResponse, ActivityListParams, ActivityEntityType, ActivityEventType } from "./activity";
-export type { ApprovalRequest, ApprovalStatus, JobSnapshot, ApprovalListParams } from "./approvals";
-export type { InterviewSession, InterviewStatus, InterviewMode, TranscriptEntry, TranscriptSpeaker } from "./interviews";
+export type { Approval, ApprovalStatus, JobSnapshot, ApprovalListParams, ApprovalListResponse, ApprovePartialResponse } from "./approvals";
+export type { InterviewSession, InterviewStatus, InterviewMode, TranscriptEntry, TranscriptSpeaker, InterviewListParams, InterviewListResponse } from "./interviews";
 export type { Task, TaskStatus, TaskType, TaskResponse, TaskListResponse } from "./tasks";
 export type { Profile, ProfileData, ProfilePreferences, ProfileLinks, Skill, SkillProficiency, Education } from "./user";
