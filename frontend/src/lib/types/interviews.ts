@@ -10,6 +10,13 @@ export type InterviewMode = "assist" | "autonomous";
 
 export type TranscriptSpeaker = "candidate" | "ai" | "system";
 
+export interface TranscriptEntry {
+  id: string;
+  speaker: TranscriptSpeaker;
+  content: string;
+  timestamp: string;
+}
+
 export interface InterviewSession {
   id: string;
   application_id: string;
@@ -27,9 +34,16 @@ export interface InterviewSession {
   updated_at: string;
 }
 
-export interface TranscriptEntry {
-  id: string;
-  speaker: TranscriptSpeaker;
-  content: string;
-  timestamp: string;
+export interface InterviewListParams {
+  application_id?: string;
+  status?: InterviewStatus;
+  limit?: number;
+  offset?: number;
+}
+
+export interface InterviewListResponse {
+  interviews: InterviewSession[];
+  total: number;
+  limit: number;
+  offset: number;
 }
