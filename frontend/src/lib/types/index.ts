@@ -7,4 +7,4 @@ export type { ActivityResponse, ActivityListResponse, ActivityListParams, Activi
 export type { Approval, ApprovalStatus, JobSnapshot, ApprovalListParams, ApprovalListResponse, ApprovePartialResponse } from "./approvals";
 export type { InterviewSession, InterviewStatus, InterviewMode, TranscriptEntry, TranscriptSpeaker, InterviewListParams, InterviewListResponse } from "./interviews";
 export type { Task, TaskStatus, TaskType, TaskResponse, TaskListResponse } from "./tasks";
-export type { Profile, ProfileData, ProfilePreferences, ProfileLinks, Skill, SkillProficiency, Education } from "./user";
+export type { Profile, ProfileData, ProfilePreferences, ProfileLinks, Skill, SkillProficiency, Education, PatchProfileRequest, UpdateProfileRequest, ProfileStats } from "./profile";
