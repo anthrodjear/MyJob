@@ -10,10 +10,10 @@
 |-------|-------|
 | **Project** | AI Job Search Agent |
 | **Active Phase** | Phase 1 — Foundation (backend complete, frontend pages complete) |
-| **Phase Progress** | Scaffolding 100% / Backend 100% / Frontend ~90% (Phases 0–6 + Auth + Resumes + Tasks complete; tests pending) |
-| **Overall Progress** | ~85% (backend 12/12 domains, frontend all pages built, Docker Compose complete, auth flow complete) |
+| **Phase Progress** | Scaffolding 100% / Backend 100% / Frontend 100% (Phases 0–6 + Auth + Resumes + Tasks + Tests complete) |
+| **Overall Progress** | ~90% (backend 12/12 domains, frontend all pages built + 75 tests, browser-agent 41 tests, Docker Compose complete, auth flow complete) |
 | **Blockers** | None |
-| **Next Up** | Frontend tests → Browser-agent tests → Integration testing → Docker Compose validation |
+| **Next Up** | Integration testing → Docker Compose validation → Email check placeholder |
 
 ---
 
@@ -310,6 +310,17 @@ All prompts use Go template syntax (`{{.Field}}`) and are loaded via `config.Loa
 | Frontend pages | Week 4-5 | — | **Done** (all 11 pages + auth + resumes + tasks) |
 | Docker Compose | Week 5 | — | **Done** (8 services, health checks, reviewed 10/10) |
 | Integration testing | Week 5-6 | — | Pending |
+
+---
+
+## Test Summary
+
+| Component | Framework | Tests | Status |
+|-----------|-----------|-------|--------|
+| Go backend | `go test` | 61 | ✅ All passing |
+| Frontend | Vitest + RTL | 75 | ✅ All passing |
+| Browser agent | Jest + ts-jest | 41 | ✅ All passing |
+| **Total** | | **177** | **✅ All green** |
 | Phase 1 complete | Week 6 | — | Pending |
 
 ---
@@ -430,6 +441,36 @@ All prompts use Go template syntax (`{{.Field}}`) and are loaded via `config.Loa
 5. **Code compiles clean** (`go vet ./...` passes) ✅
 6. **No empty package declarations** in `internal/*` ✅
 7. **Tests for middleware** (rate limit + logging) ✅
+
+### Test Status — COMPLETE
+
+#### Frontend Tests (Vitest + React Testing Library)
+
+| File | Tests | Status |
+|------|-------|--------|
+| `src/lib/__tests__/utils.test.ts` | 26 | ✅ All passing |
+| `src/lib/api/__tests__/client.test.ts` | 18 | ✅ All passing |
+| `src/components/shared/__tests__/Button.test.tsx` | 14 | ✅ All passing |
+| `src/components/shared/__tests__/Badge.test.tsx` | 9 | ✅ All passing |
+| `src/components/shared/__tests__/EmptyState.test.tsx` | 8 | ✅ All passing |
+| **Total** | **75** | **✅ All passing** |
+
+#### Browser-Agent Tests (Jest + ts-jest)
+
+| File | Tests | Status |
+|------|-------|--------|
+| `src/utils/__tests__/retry.test.ts` | 10 | ✅ All passing |
+| `src/scrapers/custom/__tests__/helpers.test.ts` | 21 | ✅ All passing |
+| `src/config/__tests__/config.test.ts` | 10 | ✅ All passing |
+| **Total** | **41** | **✅ All passing** |
+
+#### Combined: 116 tests across both codebases, all green.
+
+#### Bugs Fixed During Testing
+
+- `config.ts`: `FAILSAFE_SCHEMA` → `JSON_SCHEMA` (FAILSAFE had zero implicit types in js-yaml 4.x, all scalars parsed as strings)
+- `config.ts`: `.min(1).default('')` contradiction on LocalPiper/LocalKokoro fields (min rejected empty default)
+- `retry.test.ts`: Fake timer tests needed `advanceTimersByTimeAsync` to advance setTimeout, and rejection handlers attached before advancing to avoid unhandled rejection warnings
 
 ---
 

@@ -118,7 +118,7 @@ export async function apiFetch<T>(
   options?: RequestInit,
 ): Promise<T | undefined> {
   // new URL() prevents double slashes from misconfigured env vars
-  const url = new URL(`${API_PREFIX}${path}`, BACKEND_URL);
+  const url = new URL(`${API_PREFIX}/${path}`, BACKEND_URL);
 
   // Build headers — only set Content-Type if not already provided
   const headers = new Headers(options?.headers);

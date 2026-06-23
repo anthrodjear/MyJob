@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { load, YAMLException, FAILSAFE_SCHEMA } from 'js-yaml';
+import { load, YAMLException, JSON_SCHEMA } from 'js-yaml';
 import { z } from 'zod';
 
 /**
@@ -123,7 +123,7 @@ const LocalWhisperConfigSchema = z.object({
 
 const LocalPiperConfigSchema = z.object({
   binary: z.string().min(1).default('piper'),
-  model: z.string().min(1).default(''),
+  model: z.string().default(''),
   sample_rate: z.number().int().min(8000).default(22_050),
   length_scale: z.number().min(0.1).max(3.0).default(1.0),
   noise_scale: z.number().min(0).max(1).default(0.667),
@@ -136,8 +136,8 @@ const LocalPiperConfigSchema = z.object({
 
 const LocalKokoroConfigSchema = z.object({
   python: z.string().min(1).default('python3'),
-  model_path: z.string().min(1).default(''),
-  voices_path: z.string().min(1).default(''),
+  model_path: z.string().default(''),
+  voices_path: z.string().default(''),
   voice: z.string().min(1).default('af_nicole'),
   language: z.string().min(2).default('en-us'),
   speed: z.number().min(0.5).max(2.0).default(1.0),
@@ -308,12 +308,12 @@ export function loadConfig(configPath?: string): Config {
     throw new ConfigError(`Failed to read config file: ${filePath}`, e);
   }
 
-  // 2. Parse YAML (with filename for better error messages, FAILSAFE_SCHEMA to prevent type coercion)
+  // 2. Parse YAML (with filename for better error messages, JSON_SCHEMA for safe type resolution)
   let parsed: unknown;
   try {
     parsed = load(fileContents, {
       filename: path.basename(filePath),
-      schema: FAILSAFE_SCHEMA,
+      schema: JSON_SCHEMA,
     });
   } catch (e) {
     if (e instanceof YAMLException) {
