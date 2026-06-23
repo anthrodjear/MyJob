@@ -6,5 +6,5 @@ export type { Email, EmailClassification, EmailListParams, EmailListResponse, Cl
 export type { ActivityResponse, ActivityListResponse, ActivityListParams, ActivityEntityType, ActivityEventType } from "./activity";
 export type { Approval, ApprovalStatus, JobSnapshot, ApprovalListParams, ApprovalListResponse, ApprovePartialResponse } from "./approvals";
 export type { InterviewSession, InterviewStatus, InterviewMode, TranscriptEntry, TranscriptSpeaker, InterviewListParams, InterviewListResponse } from "./interviews";
-export type { Task, TaskStatus, TaskType, TaskResponse, TaskListResponse } from "./tasks";
+export type { TaskStatus, TaskType, TaskResponse, TaskListResponse } from "./tasks";
 export type { Profile, ProfileData, ProfilePreferences, ProfileLinks, Skill, SkillProficiency, Education, PatchProfileRequest, UpdateProfileRequest, ProfileStats } from "./profile";

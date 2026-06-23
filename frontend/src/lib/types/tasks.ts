@@ -13,26 +13,9 @@ export type TaskType =
   | "voice_session"
   | "fill_form";
 
-export interface Task {
-  id: string;
-  type: TaskType;
-  status: TaskStatus;
-  params: Record<string, unknown> | null;
-  result: Record<string, unknown> | null;
-  error: string | null;
-  attempts: number;
-  max_attempts: number;
-  priority: number;
-  scheduled_at: string;
-  started_at: string | null;
-  completed_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 /**
- * TaskResponse — matches backend TaskResponse DTO
- * Includes optional fields for params, result, error
+ * TaskResponse — matches backend TaskResponse DTO.
+ * Single source of truth for task data shape.
  */
 export interface TaskResponse {
   id: string;

@@ -26,6 +26,7 @@ import {
   LogOut,
   ScrollText,
   Send,
+  ClipboardList,
 } from "lucide-react";
 
 /** Navigation items shared between Sidebar and MobileNav. */
@@ -38,6 +39,7 @@ export const navItems = [
   { href: "/dashboard/cover-letters", label: "Cover Letters", icon: FileText },
   { href: "/dashboard/emails", label: "Emails", icon: Mail },
   { href: "/dashboard/interviews", label: "Interviews", icon: Mic },
+  { href: "/dashboard/tasks", label: "Tasks", icon: ClipboardList },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ] as const;
 

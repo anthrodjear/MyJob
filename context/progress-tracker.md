@@ -1,6 +1,6 @@
 # Project Progress Tracker
 
-> Auto-updated as milestones complete. Last updated: 2026-06-21
+> Auto-updated as milestones complete. Last updated: 2026-06-23
 
 ---
 
@@ -9,11 +9,11 @@
 | Field | Value |
 |-------|-------|
 | **Project** | AI Job Search Agent |
-| **Active Phase** | Phase 1 — Foundation (implementation complete, testing) |
-| **Phase Progress** | Scaffolding 100% / Implementation ~95% (12/12 domains complete, 11/11 worker handlers, Ollama + Browser Agent + Voice Module, Middleware complete) |
-| **Overall Progress** | ~78% (structure built, 12 domains complete + wired, Browser Agent fully reviewed, Voice Module 100% complete, Middleware complete with 61 tests) |
+| **Active Phase** | Phase 1 — Foundation (backend complete, frontend pages complete) |
+| **Phase Progress** | Scaffolding 100% / Backend 100% / Frontend ~90% (Phases 0–6 + Auth + Resumes + Tasks complete; tests pending) |
+| **Overall Progress** | ~85% (backend 12/12 domains, frontend all pages built, Docker Compose complete, auth flow complete) |
 | **Blockers** | None |
-| **Next Up** | Backend Phase 1 regression test → Frontend pages |
+| **Next Up** | Frontend tests → Browser-agent tests → Integration testing → Docker Compose validation |
 
 ---
 
@@ -230,16 +230,21 @@
 - logging.go: APPROVED
 - router.go + main.go wiring: APPROVED
 
-#### 1.7 Frontend Pages — NOT STARTED
+#### 1.7 Frontend Pages — COMPLETE
 
 | Page | Route | Status | Notes |
 |------|-------|--------|-------|
-| Dashboard | `/dashboard` | Not started | Overview + recent activity |
-| Jobs | `/jobs` | Not started | Job listings + scan trigger |
-| Applications | `/applications` | Not started | Application pipeline view |
-| Resumes | `/resumes` | Not started | Resume upload + management |
-| Settings | `/settings` | Not started | Config, sources, preferences |
-| Task Monitor | `/tasks` | Not started | Live task progress |
+| Dashboard | `/dashboard` | **Complete** ✅ | Stats, activity feed, quick actions, upcoming tasks |
+| Jobs | `/dashboard/jobs` | **Complete** ✅ | Job list, detail, filters, compare, similar jobs |
+| Applications | `/dashboard/applications` | **Complete** ✅ | Pipeline view, status transitions, timeline |
+| Approvals | `/dashboard/approvals` | **Complete** ✅ | Approve/reject with reason, status filter |
+| Resumes | `/dashboard/resumes` | **Complete** ✅ | Resume list, detail, content editing |
+| Cover Letters | `/dashboard/cover-letters` | **Complete** ✅ | Cover letter list, detail, strengths/gaps |
+| Emails | `/dashboard/emails` | **Complete** ✅ | Email list, detail, classification |
+| Interviews | `/dashboard/interviews` | **Complete** ✅ | Interview list, detail, transcript view |
+| Tasks | `/dashboard/tasks` | **Complete** ✅ | Task list with 5s polling, status filter |
+| Settings | `/dashboard/settings` | **Complete** ✅ | Profile, skills, education, links (tabbed) |
+| Login | `/login` | **Complete** ✅ | JWT auth, error handling, accessibility |
 
 ---
 
@@ -295,16 +300,17 @@ All prompts use Go template syntax (`{{.Field}}`) and are loaded via `config.Loa
 | Milestone | Target | Actual | Status |
 |-----------|--------|--------|--------|
 | Phase 1 scaffolding | Week 1 | Week 1 | Done |
-| Domain module implementation | Week 2-3 | — | **Done** (6/6 complete + scoring arch) |
-| API handler implementations | Week 3 | — | **Done** (6/6 complete + scoring) |
-| Worker task handlers | Week 3-4 | — | **Done** (8/10 handlers complete + reviewed) |
+| Domain module implementation | Week 2-3 | — | **Done** (12/12 complete) |
+| API handler implementations | Week 3 | — | **Done** (11/11 complete) |
+| Worker task handlers | Week 3-4 | — | **Done** (11/11 complete) |
 | Ollama integration | Week 4 | — | **Done** (3 generators working) |
-| Browser agent scrapers | Week 4 | — | **Done** (4 sources with LLM extraction) |
+| Browser agent scrapers | Week 4 | — | **Done** (5 sources with LLM extraction) |
 | Browser agent server | Week 4 | — | **Done** (Express + endpoints) |
-| Browser agent code review | Week 4 | — | **Done** (all 12 files reviewed, 24 issues fixed) |
-| Frontend dashboard pages | Week 4-5 | — | Pending |
-| Integration testing | Week 5 | — | Pending |
-| Phase 1 complete | Week 5 | — | Pending |
+| Browser agent code review | Week 4 | — | **Done** (all files reviewed, fixed) |
+| Frontend pages | Week 4-5 | — | **Done** (all 11 pages + auth + resumes + tasks) |
+| Docker Compose | Week 5 | — | **Done** (8 services, health checks, reviewed 10/10) |
+| Integration testing | Week 5-6 | — | Pending |
+| Phase 1 complete | Week 6 | — | Pending |
 
 ---
 
@@ -353,6 +359,11 @@ All prompts use Go template syntax (`{{.Field}}`) and are loaded via `config.Loa
 | 2026-06-21 | **All 12 Domains Complete** | Activity domain fully implemented (5 files + API wiring). All parallel reviews APPROVED. |
 | 2026-06-21 | **Middleware Complete** | Rate limit (per-IP token bucket) + Logging (structured zap) + Auth (JWT). All 3 reviewed in parallel. RPM validation + dynamic Retry-After added post-review. |
 | 2026-06-21 | **Backend ~95% Complete** | 12/12 domains, 11/11 worker handlers, all middleware. `go build ./...` + `go vet ./...` pass. Remaining: regression test, frontend. |
+| 2026-06-21 | **Frontend Phases 0–6 Complete** | All 11 pages built (Dashboard, Jobs, Applications, Approvals, Resumes, Cover Letters, Emails, Interviews, Settings). 90+ files, TypeScript compiles clean. |
+| 2026-06-21 | **Docker Compose Complete** | 8 services with health checks, depends_on, networks, volumes. Frontend standalone Dockerfile. migrate.sh. livekit.yaml. Reviewed 10/10 PASS. |
+| 2026-06-23 | **Auth Flow Complete** | JWT login, AuthGuard, logout in sidebar/mobile nav. 8 files, reviewed 8/8 PASS. |
+| 2026-06-23 | **Resumes & Cover Letters Complete** | 19 files (types, API, hooks, components, pages). Reviewed 8/9 PASS, 1 BLOCKER FIXED (link a11y). |
+| 2026-06-23 | **Tasks Page Complete** | Types, API, hooks with 5s polling, 4 components, 3 page files. Sidebar updated. Reviewed PASS_WITH_FIXES, all suggestions addressed. |
 
 ---
 
