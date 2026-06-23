@@ -1,0 +1,218 @@
+﻿
+# AI Job Search Agent - Docker Compose
+
+# 8 services: api, worker, frontend, browser-agent, postgres, redis, ollama, livekit
+#
+# Usage:
+#   docker compose up -d            # Start all services
+#   docker compose up -d postgres redis ollama  # Start infra only
+#   docker compose logs -f api      # Follow API logs
+#   docker compose exec api ./migrate.sh  # Run migrations
+#
+# Requires: .env file (copy from .env.example)
+
+
+services:
+  
+  # Infrastructure
+ 
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: myjob
+      POSTGRES_USER: myjob
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-myjob_dev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/internal/database/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myjob -d myjob"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - myjob-net
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - myjob-net
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:11434/api/tags || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - myjob-net
+
+  livekit:
+    image: livekit/livekit-server:latest
+    restart: unless-stopped
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+    command: --config /etc/livekit.yaml --dev
+    volumes:
+      - ./config/livekit.yaml:/etc/livekit.yaml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7880 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - myjob-net
+
+  # ---------------------------------------------------------------------------
+  # Application Services
+  # ---------------------------------------------------------------------------
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgres://myjob:${POSTGRES_PASSWORD:-myjob_dev}@postgres:5432/myjob?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OLLAMA_BASE_URL: http://ollama:11434
+      LIVEKIT_WS_URL: ws://livekit:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-devsecret}
+      QUEUE_CONCURRENCY: ${QUEUE_CONCURRENCY:-5}
+      RATE_LIMIT_RPM: ${RATE_LIMIT_RPM:-60}
+      RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-10}
+      APP_ENV: ${APP_ENV:-development}
+      CONFIG_PATH: /app/config/application.yaml
+    volumes:
+      - ./config:/app/config:ro
+      - storage_data:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - myjob-net
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://myjob:${POSTGRES_PASSWORD:-myjob_dev}@postgres:5432/myjob?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OLLAMA_BASE_URL: http://ollama:11434
+      LIVEKIT_WS_URL: ws://livekit:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-devsecret}
+      QUEUE_CONCURRENCY: ${QUEUE_CONCURRENCY:-5}
+      APP_ENV: ${APP_ENV:-development}
+      CONFIG_PATH: /app/config/application.yaml
+    volumes:
+      - ./config:/app/config:ro
+      - storage_data:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    networks:
+      - myjob-net
+
+  browser-agent:
+    build:
+      context: ./browser-agent
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      REDIS_URL: redis://redis:6379
+      API_URL: http://api:8080
+      OLLAMA_BASE_URL: http://ollama:11434
+      LIVEKIT_WS_URL: ws://livekit:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-devsecret}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    networks:
+      - myjob-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080
+      NODE_ENV: production
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - myjob-net
+
+# ============================================================================
+# Networks
+# ============================================================================
+
+networks:
+  myjob-net:
+    driver: bridge
+
+# ============================================================================
+# Volumes
+# ============================================================================
+
+volumes:
+  postgres_data:
+  redis_data:
+  ollama_data:
+  storage_data:
