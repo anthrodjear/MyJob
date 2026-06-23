@@ -164,7 +164,6 @@ services:
       REDIS_URL: redis://redis:6379
       API_URL: http://api:8080
       OLLAMA_BASE_URL: http://host.docker.internal:11434
-      CONFIG_PATH: /app/config/application.yaml
       LIVEKIT_WS_URL: ws://livekit:7880
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-devsecret}
@@ -210,5 +209,4 @@ networks:
 volumes:
   postgres_data:
   redis_data:
-  ollama_data:
   storage_data:
