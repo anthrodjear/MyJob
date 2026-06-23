@@ -24,14 +24,18 @@ import {
   Mic,
   Settings,
   LogOut,
+  ScrollText,
+  Send,
 } from "lucide-react";
 
 /** Navigation items shared between Sidebar and MobileNav. */
 export const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/jobs", label: "Jobs", icon: Briefcase },
-  { href: "/dashboard/applications", label: "Applications", icon: FileText },
+  { href: "/dashboard/applications", label: "Applications", icon: Send },
   { href: "/dashboard/approvals", label: "Approvals", icon: CheckCircle },
+  { href: "/dashboard/resumes", label: "Resumes", icon: ScrollText },
+  { href: "/dashboard/cover-letters", label: "Cover Letters", icon: FileText },
   { href: "/dashboard/emails", label: "Emails", icon: Mail },
   { href: "/dashboard/interviews", label: "Interviews", icon: Mic },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
