@@ -5,7 +5,6 @@ vendor/
 # Build outputs
 dist/
 build/
-context/
 *.exe
 *.exe~
 *.dll
@@ -15,6 +14,21 @@ context/
 *.bin
 *.onnx
 
+# AI agent context (session-specific, not for sharing)
+context/
+AGENTS.md
+CLAUDE.md
+
+# AI agent config & skills
+.config/
+.agents/
+.opencode/
+
+# User profile (personal data)
+profile/
+
+# Storage (generated files — resumes, cover letters, screenshots)
+storage/
 
 # Environment
 .env
@@ -24,15 +38,6 @@ context/
 # Next.js
 frontend/.next/
 frontend/out/
-
-# Storage (generated files)
-storage/resumes/*.pdf
-storage/coverletters/*.pdf
-storage/screenshots/*
-storage/job_descriptions/*
-storage/interview_prep/*
-storage/voice_recordings/*
-storage/models
 
 # IDE
 .idea/
