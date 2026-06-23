@@ -14,6 +14,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useLogout } from "@/hooks/useAuth";
 import {
   LayoutDashboard,
   Briefcase,
@@ -22,6 +23,7 @@ import {
   Mail,
   Mic,
   Settings,
+  LogOut,
 } from "lucide-react";
 
 /** Navigation items shared between Sidebar and MobileNav. */
@@ -34,6 +36,25 @@ export const navItems = [
   { href: "/dashboard/interviews", label: "Interviews", icon: Mic },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ] as const;
+
+/**
+ * Logout button — clears token and redirects to /login.
+ * Uses useLogout hook for consistent logout behavior.
+ */
+function LogoutButton() {
+  const logout = useLogout();
+
+  return (
+    <button
+      type="button"
+      onClick={logout}
+      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-foreground"
+    >
+      <LogOut className="h-5 w-5" aria-hidden="true" />
+      Sign Out
+    </button>
+  );
+}
 
 interface SidebarProps {
   /** Additional CSS classes. */
@@ -88,6 +109,11 @@ export function Sidebar({ className }: SidebarProps) {
           );
         })}
       </nav>
+
+      {/* Logout */}
+      <div className="border-t border-border px-3 py-4">
+        <LogoutButton />
+      </div>
     </aside>
   );
 }

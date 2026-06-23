@@ -14,7 +14,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Menu, X } from "lucide-react";
+import { useLogout } from "@/hooks/useAuth";
+import { Menu, X, LogOut } from "lucide-react";
 import { navItems } from "./Sidebar";
 
 /**
@@ -29,6 +30,7 @@ import { navItems } from "./Sidebar";
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const logout = useLogout();
 
   // Close on Escape key
   useEffect(() => {
@@ -74,6 +76,17 @@ export function MobileNav() {
               {item.label}
             </Link>
           ))}
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              logout();
+            }}
+            className="flex w-full items-center gap-3 border-t border-border px-6 py-3 text-sm font-medium text-text-secondary hover:bg-bg-tertiary"
+          >
+            <LogOut className="h-5 w-5" aria-hidden="true" />
+            Sign Out
+          </button>
         </nav>
       )}
     </div>
