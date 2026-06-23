@@ -18,6 +18,7 @@ build/
 context/
 AGENTS.md
 CLAUDE.md
+docs/
 
 # AI agent config & skills
 .config/
