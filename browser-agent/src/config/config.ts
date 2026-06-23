@@ -294,7 +294,7 @@ export function loadConfig(configPath?: string): Config {
     return configCache;
   }
 
-  const filePath = configPath || path.resolve(process.cwd(), 'config', 'application.yaml');
+  const filePath = configPath || process.env.CONFIG_PATH || path.resolve(process.cwd(), 'config', 'application.yaml');
 
   // 1. Read file
   let fileContents: string;

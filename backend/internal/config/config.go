@@ -147,7 +147,8 @@ func (c *Config) IsTest() bool {
 
 func Load() *Config {
 	// Read application.yaml for prompt loading
-	yamlData, _ := os.ReadFile("config/application.yaml")
+	configPath := getEnv("CONFIG_PATH", "config/application.yaml")
+	yamlData, _ := os.ReadFile(configPath)
 
 	cfg := &Config{
 		Server: ServerConfig{

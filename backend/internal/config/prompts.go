@@ -7,10 +7,9 @@ import (
 )
 
 // yamlPromptsConfig maps the application.yaml structure for prompts.
+// prompts: is a root-level key in the YAML, not nested under application:.
 type yamlPromptsConfig struct {
-	Application struct {
-		Prompts yamlPrompts `yaml:"prompts"`
-	} `yaml:"application"`
+	Prompts yamlPrompts `yaml:"prompts"`
 }
 
 // yamlPrompts maps YAML keys to PromptPair fields.
@@ -45,7 +44,7 @@ func LoadPromptsFromYAML(data []byte) PromptsConfig {
 		return PromptsConfig{}
 	}
 
-	p := yamlCfg.Application.Prompts
+	p := yamlCfg.Prompts
 	return PromptsConfig{
 		Scoring:           toPromptPair(p.Scoring),
 		EmailClassifier:   toPromptPair(p.EmailClassifier),
