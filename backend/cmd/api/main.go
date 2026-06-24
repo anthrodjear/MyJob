@@ -28,6 +28,7 @@ import (
 	"backend/internal/rag"
 	"backend/internal/resumes"
 	"backend/internal/scoring"
+	"backend/internal/systemconfig"
 	"backend/internal/tasks"
 )
 
@@ -158,6 +159,19 @@ func main() {
 	emailsService := emails.NewService(emailsRepo, emailClassifier)
 	emailsHandler := emails.NewHandler(emailsService, logger)
 
+	// Initialize system config domain
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		configPath = "config/application.yaml"
+	}
+	systemConfigResolver, err := systemconfig.NewResolver(logger, configPath)
+	if err != nil {
+		logger.Fatal("Failed to create system config resolver", zap.Error(err))
+	}
+	systemConfigRepo := systemconfig.NewRepository(postgres.DB)
+	systemConfigService := systemconfig.NewService(systemConfigRepo, systemConfigResolver)
+	systemConfigHandler := systemconfig.NewHandler(systemConfigService, logger)
+
 	// Setup router with all routes
 	router := api.SetupRouter(api.RouterConfig{
 		AuthHandler:     authHandler,
@@ -173,6 +187,7 @@ func main() {
 		RAGHandler:          ragHandler,
 		EmailsHandler:       emailsHandler,
 		ActivityHandler:     activityHandler,
+		SystemConfigHandler: systemConfigHandler,
 		Logger:              logger,
 	})
 
