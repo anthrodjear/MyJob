@@ -21,10 +21,11 @@ import { PreferencesForm } from "@/components/settings/PreferencesForm";
 import { SkillsForm } from "@/components/settings/SkillsForm";
 import { EducationForm } from "@/components/settings/EducationForm";
 import { LinksForm } from "@/components/settings/LinksForm";
+import { SystemConfigPageClient } from "./config/SystemConfigPageClient";
 import { Button } from "@/components/shared/Button";
 
 /** Settings page section tabs. */
-const SECTIONS = ["preferences", "skills", "education", "links"] as const;
+const SECTIONS = ["preferences", "skills", "education", "links", "system"] as const;
 type Section = (typeof SECTIONS)[number];
 
 /** Tab label mapping. */
@@ -33,6 +34,7 @@ const SECTION_LABELS: Record<Section, string> = {
   skills: "Skills",
   education: "Education",
   links: "Links",
+  system: "System",
 };
 
 /**
@@ -57,10 +59,6 @@ export function SettingsPageClient() {
     setTimeout(() => setSaveMessage(null), 3000);
   }, []);
 
-  // ---------------------------------------------------------------------------
-  // Loading State
-  // ---------------------------------------------------------------------------
-
   if (isLoading) {
     return (
       <div className="space-y-6" aria-busy="true">
@@ -74,10 +72,6 @@ export function SettingsPageClient() {
       </div>
     );
   }
-
-  // ---------------------------------------------------------------------------
-  // Error State
-  // ---------------------------------------------------------------------------
 
   if (isError || !profile) {
     return (
@@ -101,10 +95,6 @@ export function SettingsPageClient() {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
-
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -118,7 +108,7 @@ export function SettingsPageClient() {
       {/* Save Confirmation */}
       {saveMessage && (
         <div
-          className="rounded-md bg-success/10 p-3 text-sm text-success-dark"
+          className="rounded-md bg-success-light p-3 text-sm text-success-dark"
           role="status"
           aria-live="polite"
         >
@@ -154,7 +144,7 @@ export function SettingsPageClient() {
         role="tabpanel"
         id={`panel-${activeSection}`}
         aria-labelledby={`tab-${activeSection}`}
-        className="rounded-md border border-border bg-card p-6"
+        className="rounded-md border border-border bg-surface p-6"
       >
         {activeSection === "preferences" && (
           <PreferencesForm
@@ -179,6 +169,9 @@ export function SettingsPageClient() {
             links={profile.data.links ?? {}}
             onSaved={handleSaved}
           />
+        )}
+        {activeSection === "system" && (
+          <SystemConfigPageClient />
         )}
       </div>
 

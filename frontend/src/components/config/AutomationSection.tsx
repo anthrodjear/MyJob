@@ -1,0 +1,160 @@
+/**
+ * AutomationSection — queue and auto-generation configuration editor.
+ *
+ * Covers queue concurrency/retry settings and auto-generation toggles for
+ * resumes and cover letters.
+ *
+ * Uses controlled form state with local React state. On submit, calls
+ * executeOverrides to batch all changes with proper error handling.
+ *
+ * Does NOT:
+ * - Handle Scoring/LLM/Email settings (separate sections)
+ * - Manage authentication state
+ *
+ * @see lib/types/config.ts — AutomationSection
+ * @see hooks/useSystemConfig.ts — useSetOverride, executeOverrides
+ */
+
+"use client";
+
+import { useState, useCallback } from "react";
+import { useSetOverride, executeOverrides } from "@/hooks/useSystemConfig";
+import type { AutomationSection as AutomationSectionType } from "@/lib/types/config";
+import { Button } from "@/components/shared/Button";
+
+/** Props for AutomationSection. */
+interface AutomationSectionProps {
+  /** Current automation config to populate the form. */
+  automation: AutomationSectionType;
+  /** Called after a successful save. */
+  onSaved?: () => void;
+}
+
+/** Shared input class with consistent styling and surface background. */
+const INPUT_CLASS =
+  "mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary";
+
+/**
+ * Form for editing automation configuration.
+ *
+ * Renders fields for queue settings and auto-generation toggles.
+ * Each field saves independently via PATCH.
+ *
+ * @example
+ *   <AutomationSection automation={config.automation} onSaved={() => console.log("saved")} />
+ */
+export function AutomationSection({ automation, onSaved }: AutomationSectionProps) {
+  const { mutateAsync } = useSetOverride();
+
+  const [concurrency, setConcurrency] = useState(automation.queue.concurrency.toString());
+  const [retryAttempts, setRetryAttempts] = useState(automation.queue.retry_attempts.toString());
+  const [autoResume, setAutoResume] = useState(automation.auto_generate.resume);
+  const [autoCoverLetter, setAutoCoverLetter] = useState(automation.auto_generate.cover_letter);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      setIsSaving(true);
+
+      const overrides: Array<[string, unknown]> = [];
+
+      if (concurrency !== automation.queue.concurrency.toString()) {
+        overrides.push(["automation.queue.concurrency", parseInt(concurrency, 10)]);
+      }
+      if (retryAttempts !== automation.queue.retry_attempts.toString()) {
+        overrides.push(["automation.queue.retry_attempts", parseInt(retryAttempts, 10)]);
+      }
+      if (autoResume !== automation.auto_generate.resume) {
+        overrides.push(["automation.auto_generate.resume", autoResume]);
+      }
+      if (autoCoverLetter !== automation.auto_generate.cover_letter) {
+        overrides.push(["automation.auto_generate.cover_letter", autoCoverLetter]);
+      }
+
+      await executeOverrides(overrides, mutateAsync, onSaved);
+      setIsSaving(false);
+    },
+    [concurrency, retryAttempts, autoResume, autoCoverLetter, automation, mutateAsync, onSaved],
+  );
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="rounded-md bg-danger-light p-3 text-sm text-danger-dark" role="alert">
+        Failed to save automation settings. Please try again.
+      </div>
+
+      {/* Queue Settings */}
+      <fieldset className="space-y-4">
+        <legend className="text-sm font-medium text-text-primary">Queue Settings</legend>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="concurrency" className="block text-sm font-medium text-text-primary">
+              Concurrency
+            </label>
+            <input
+              id="concurrency"
+              type="number"
+              min="1"
+              max="20"
+              value={concurrency}
+              onChange={(e) => setConcurrency(e.target.value)}
+              className={INPUT_CLASS}
+            />
+            <p className="mt-1 text-xs text-text-secondary">
+              Number of concurrent task workers
+            </p>
+          </div>
+          <div>
+            <label htmlFor="retry-attempts" className="block text-sm font-medium text-text-primary">
+              Retry Attempts
+            </label>
+            <input
+              id="retry-attempts"
+              type="number"
+              min="0"
+              max="10"
+              value={retryAttempts}
+              onChange={(e) => setRetryAttempts(e.target.value)}
+              className={INPUT_CLASS}
+            />
+            <p className="mt-1 text-xs text-text-secondary">
+              Maximum retry attempts for failed tasks
+            </p>
+          </div>
+        </div>
+      </fieldset>
+
+      {/* Auto-Generation Toggles */}
+      <fieldset className="space-y-4">
+        <legend className="text-sm font-medium text-text-primary">Auto-Generation</legend>
+        <div className="space-y-3">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={autoResume}
+              onChange={(e) => setAutoResume(e.target.checked)}
+              className="rounded border-border text-primary focus:ring-primary"
+            />
+            <span className="text-sm text-text-primary">Auto-generate resumes for new applications</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={autoCoverLetter}
+              onChange={(e) => setAutoCoverLetter(e.target.checked)}
+              className="rounded border-border text-primary focus:ring-primary"
+            />
+            <span className="text-sm text-text-primary">Auto-generate cover letters for new applications</span>
+          </label>
+        </div>
+      </fieldset>
+
+      <div className="flex justify-end">
+        <Button type="submit" variant="primary" disabled={isSaving} loading={isSaving}>
+          Save Automation Settings
+        </Button>
+      </div>
+    </form>
+  );
+}
