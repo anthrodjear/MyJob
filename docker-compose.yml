@@ -19,7 +19,7 @@ services:
   # Infrastructure
  
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_DB: myjob
@@ -99,6 +99,9 @@ services:
       RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-10}
       APP_ENV: ${APP_ENV:-development}
       CONFIG_PATH: /app/config/application.yaml
+      LLM_PRIMARY_PROVIDER: ollama
+      LLM_FALLBACK_PROVIDER: ollama
+      VOICE_PROVIDER: ollama
     volumes:
       - ./config:/app/config:ro
       - storage_data:/app/storage
@@ -138,6 +141,8 @@ services:
       QUEUE_CONCURRENCY: ${QUEUE_CONCURRENCY:-5}
       APP_ENV: ${APP_ENV:-development}
       CONFIG_PATH: /app/config/application.yaml
+      LLM_PRIMARY_PROVIDER: ollama
+      LLM_FALLBACK_PROVIDER: ollama
     volumes:
       - ./config:/app/config:ro
       - storage_data:/app/storage
@@ -187,6 +192,7 @@ services:
       - "3000:3000"
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8080
+      INTERNAL_API_URL: http://api:8080
       NODE_ENV: production
     depends_on:
       api:

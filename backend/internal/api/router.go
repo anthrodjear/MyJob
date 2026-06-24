@@ -1,6 +1,9 @@
 package api
 
 import (
+	"time"
+
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
@@ -40,10 +43,22 @@ type RouterConfig struct {
 }
 
 // SetupRouter creates and configures the Gin router.
-// Middleware stack: Recovery → Logging → Rate Limit → Auth (on protected routes).
+// Middleware stack: Recovery → CORS → Logging → Rate Limit → Auth (on protected routes).
 func SetupRouter(cfg RouterConfig) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
+
+	// CORS middleware - must be before other middleware to handle preflight requests
+	corsConfig := cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Content-Length", "Accept", "Accept-Encoding", "Authorization", "X-Request-Id", "X-CSRF-Token"},
+		ExposeHeaders:    []string{"Content-Length", "X-Request-Id"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}
+	r.Use(cors.New(corsConfig))
+
 	r.Use(middleware.Logging(cfg.Logger))
 	r.Use(middleware.RateLimit(cfg.RateLimitConfig, cfg.Logger))
 

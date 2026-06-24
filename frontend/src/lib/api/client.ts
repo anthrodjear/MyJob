@@ -20,7 +20,21 @@
 
 import { API_PREFIX } from "@/lib/constants";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+/**
+ * Get the backend URL based on execution context.
+ * - Server-side (Server Components, SSR): use INTERNAL_API_URL (Docker network)
+ * - Client-side (browser): use NEXT_PUBLIC_API_URL (host machine)
+ */
+function getBackendUrl(): string {
+  // Server-side: window is undefined, use internal Docker network URL
+  if (typeof window === "undefined") {
+    return process.env.INTERNAL_API_URL || "http://api:8080";
+  }
+  // Client-side: use public URL (localhost from browser perspective)
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+}
+
+const BACKEND_URL = getBackendUrl();
 
 /**
  * Custom error class for API failures.

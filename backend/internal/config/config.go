@@ -200,8 +200,8 @@ func Load() *Config {
 			},
 		},
 		Voice: VoiceConfig{
-			Provider: "openai_realtime",
-			Model:    getEnv("OPENAI_REALTIME_MODEL", "gpt-4o-realtime-preview"),
+			Provider: getEnv("VOICE_PROVIDER", "ollama"),
+			Model:    getEnv("VOICE_MODEL", "qwen2.5:latest"), //HACK-change to config no hardcodding
 			APIKey:   getEnv("OPENAI_API_KEY", ""),
 			LiveKit: LiveKitConfig{
 				URL:       getEnv("LIVEKIT_WS_URL", "ws://localhost:7880"),
@@ -210,7 +210,7 @@ func Load() *Config {
 			},
 		},
 		Email: EmailConfig{
-			Provider:      "microsoft_graph",
+			Provider:      getEnv("EMAIL_PROVIDER", "microsoft_graph"),
 			TenantID:      getEnv("MS_TENANT_ID", ""),
 			ClientID:      getEnv("MS_CLIENT_ID", ""),
 			ClientSecret:  getEnv("MS_CLIENT_SECRET", ""),
@@ -301,11 +301,14 @@ func (c *Config) Validate() error {
 		return errors.New("config: LiveKit credentials required")
 	}
 
-	// Email validation — only if provider is set
+	// Email validation — only if provider is microsoft_graph and credentials are provided
 	if c.Email.Provider == "microsoft_graph" {
-		if c.Email.TenantID == "" || c.Email.ClientID == "" || c.Email.ClientSecret == "" {
-			return errors.New("config: Microsoft Graph credentials required")
+		if c.Email.TenantID != "" || c.Email.ClientID != "" || c.Email.ClientSecret != "" {
+			if c.Email.TenantID == "" || c.Email.ClientID == "" || c.Email.ClientSecret == "" {
+				return errors.New("config: Microsoft Graph credentials required when provider is microsoft_graph")
+			}
 		}
+		// If provider is microsoft_graph but no credentials at all, that's OK - it'll just fail at runtime
 	}
 
 	// Scoring validation
@@ -399,5 +402,3 @@ func (c *Config) validateScoringWeights() error {
 	}
 	return nil
 }
-
-
