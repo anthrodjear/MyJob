@@ -1,0 +1,49 @@
+# Gitleaks configuration — https://github.com/gitleaks/gitleaks
+
+title = "AI Job Search Agent — Gitleaks Config"
+
+[allowlist]
+  description = "Global allowlist"
+  paths = [
+    '''\.env\.example$''',
+    '''testdata/''',
+    '''_test\.go$''',
+    '''\.test\.ts$''',
+    '''\.test\.tsx$''',
+  ]
+
+[[rules]]
+  id = "generic-api-key"
+  description = "Generic API key"
+  regex = '''(?i)(api[_-]?key|apikey|api_secret|api_secret_key)\s*[:=]\s*['"]([A-Za-z0-9\-_]{20,})['"]'''
+  tags = ["key", "api"]
+
+[[rules]]
+  id = "generic-password"
+  description = "Generic password assignment"
+  regex = '''(?i)(password|passwd|pwd)\s*[:=]\s*['"]([^'"]{8,})['"]'''
+  tags = ["password"]
+
+[[rules]]
+  id = "jwt-token"
+  description = "JWT token"
+  regex = '''eyJ[A-Za-z0-9\-_]+\.eyJ[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+'''
+  tags = ["jwt"]
+
+[[rules]]
+  id = "private-key"
+  description = "Private key"
+  regex = '''-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----'''
+  tags = ["key", "private"]
+
+[[rules]]
+  id = "postgres-url"
+  description = "PostgreSQL connection URL with password"
+  regex = '''postgres(ql)?://[^:]+:[^@]+@[^\s]+'''
+  tags = ["database", "password"]
+
+[[rules]]
+  id = "redis-url"
+  description = "Redis connection URL with password"
+  regex = '''redis://:[^@]+@[^\s]+'''
+  tags = ["database", "password"]

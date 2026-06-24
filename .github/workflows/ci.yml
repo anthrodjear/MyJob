@@ -1,0 +1,327 @@
+﻿# .github/workflows/ci.yml
+# Main CI pipeline - lint, test, security scan, Docker build
+
+name: CI Pipeline
+
+on:
+  push:
+    branches: ['*']
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+  pull_request:
+    branches: [main, staging]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: '1.25'
+  NODE_VERSION: '20'
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      browser-agent: ${{ steps.filter.outputs.browser-agent }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+            browser-agent:
+              - 'browser-agent/**'
+
+  lint-go:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - name: Install golangci-lint
+        run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.1.6
+      - name: Run go vet
+        working-directory: backend
+        run: go vet ./...
+      - name: Run golangci-lint
+        working-directory: backend
+        run: golangci-lint run --config ../.golangci.yml ./...
+
+  lint-browser-agent:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.browser-agent == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: browser-agent/package-lock.json
+      - run: npm ci
+        working-directory: browser-agent
+      - run: npx tsc --noEmit
+        working-directory: browser-agent
+
+  lint-frontend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npx tsc --noEmit
+        working-directory: frontend
+      - run: npm run lint
+        working-directory: frontend
+
+  security-go:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - name: Run gosec
+        uses: securego/gosec@v2.21.4
+        with:
+          args: ./...
+      - name: Run govulncheck
+        working-directory: backend
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test-go:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: myjob_test
+          POSTGRES_USER: myjob
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U myjob -d myjob_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - name: Run tests
+        working-directory: backend
+        env:
+          DATABASE_URL: postgres://myjob:test_password@localhost:5432/myjob_test?sslmode=disable
+          REDIS_URL: redis://localhost:6379
+        run: |
+          go test -race -coverprofile=coverage.out -covermode=atomic -count=1 ./...
+          go tool cover -func=coverage.out | tail -1
+
+  test-browser-agent:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.browser-agent == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: browser-agent/package-lock.json
+      - run: npm ci
+        working-directory: browser-agent
+      - run: npm test -- --coverage
+        working-directory: browser-agent
+
+  test-frontend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run test:coverage
+        working-directory: frontend
+
+  docker-build:
+    needs: [lint-go, lint-browser-agent, lint-frontend, test-go, test-browser-agent, test-frontend]
+    if: |
+      always() &&
+      !failure() &&
+      !cancelled() &&
+      (needs.lint-go.result == 'success' || needs.lint-go.result == 'skipped') &&
+      (needs.test-go.result == 'success' || needs.test-go.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata (API)
+        id: meta-api
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/myjob-api
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=ref,event=branch
+      - name: Build and push API
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile.api
+          push: true
+          tags: ${{ steps.meta-api.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Docker metadata (Worker)
+        id: meta-worker
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/myjob-worker
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=ref,event=branch
+      - name: Build and push Worker
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile.worker
+          push: true
+          tags: ${{ steps.meta-worker.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Docker metadata (Browser Agent)
+        id: meta-browser-agent
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/myjob-browser-agent
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=ref,event=branch
+      - name: Build and push Browser Agent
+        uses: docker/build-push-action@v5
+        with:
+          context: ./browser-agent
+          file: ./browser-agent/Dockerfile
+          push: true
+          tags: ${{ steps.meta-browser-agent.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Docker metadata (Frontend)
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/myjob-frontend
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=ref,event=branch
+      - name: Build and push Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  ci-summary:
+    needs: [detect-changes, lint-go, lint-browser-agent, lint-frontend, test-go, test-browser-agent, test-frontend, docker-build, secret-scan, security-go]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pipeline Summary
+        run: |
+          echo "## CI Pipeline Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint Go | ${{ needs.lint-go.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint Browser Agent | ${{ needs.lint-browser-agent.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint Frontend | ${{ needs.lint-frontend.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Go | ${{ needs.security-go.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Secret Scan | ${{ needs.secret-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Go | ${{ needs.test-go.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Browser Agent | ${{ needs.test-browser-agent.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Frontend | ${{ needs.test-frontend.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Build | ${{ needs.docker-build.result }} |" >> $GITHUB_STEP_SUMMARY

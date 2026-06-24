@@ -1,0 +1,53 @@
+﻿# docker-compose.ci.yml — CI-specific overlay
+# Usage: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+
+services:
+  api:
+    environment:
+      DATABASE_URL: postgres://myjob:myjob_ci@postgres:5432/myjob?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      AUTH_PASSWORD_HASH: "$2a$10$dummy_hash_for_ci_testing_only"
+      AUTH_JWT_SECRET: ci-test-secret-do-not-use-in-production
+      APP_ENV: ci
+      CONFIG_PATH: /app/config/application.yaml
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  worker:
+    environment:
+      DATABASE_URL: postgres://myjob:myjob_ci@postgres:5432/myjob?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      AUTH_PASSWORD_HASH: "$2a$10$dummy_hash_for_ci_testing_only"
+      AUTH_JWT_SECRET: ci-test-secret-do-not-use-in-production
+      BROWSER_AGENT_URL: http://browser-agent:3000
+      APP_ENV: ci
+      CONFIG_PATH: /app/config/application.yaml
+
+  browser-agent:
+    environment:
+      REDIS_URL: redis://redis:6379
+      API_URL: http://api:8080
+      LOG_LEVEL: info
+
+  frontend:
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080
+      INTERNAL_API_URL: http://api:8080
+      NODE_ENV: production
+
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: myjob_ci
+    healthcheck:
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    healthcheck:
+      interval: 3s
+      timeout: 3s
+      retries: 5

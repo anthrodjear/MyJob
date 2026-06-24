@@ -184,3 +184,92 @@ test-api:
 
 test-frontend:
 	cd frontend && npm test
+
+# ============================================
+# CI / Lint
+# ============================================
+
+lint: lint-go lint-frontend lint-browser-agent
+
+lint-go:
+	cd backend && go vet ./...
+	golangci-lint run --config ../.golangci.yml ./...
+
+lint-frontend:
+	cd frontend && npm run lint
+	cd frontend && npx tsc --noEmit
+
+lint-browser-agent:
+	cd browser-agent && npx eslint src/ --max-warnings 0 || true
+	cd browser-agent && npx tsc --noEmit
+
+# Run full CI locally (lint + test + docker build)
+ci-local: lint test build
+
+# Docker compose CI mode (clean state, no host dependencies)
+docker-ci:
+	docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build
+
+docker-ci-down:
+	docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v
+
+# Health check
+health-check:
+	bash scripts/ci-health-check.sh
+
+# ============================================
+# Kubernetes / Helm
+# ============================================
+
+# Lint Helm chart
+helm-lint:
+	helm lint k8s/helm/myjob
+
+# Dry-run Helm template (local rendering)
+helm-template:
+	helm template myjob k8s/helm/myjob
+
+# Install/upgrade staging
+helm-staging:
+	helm upgrade --install myjob-staging k8s/helm/myjob \
+		--namespace myjob-staging \
+		--create-namespace \
+		--values k8s/helm/myjob/values.yaml \
+		--set api.image.tag=$(TAG) \
+		--set worker.image.tag=$(TAG) \
+		--set browserAgent.image.tag=$(TAG) \
+		--set frontend.image.tag=$(TAG)
+
+# Install/upgrade production
+helm-production:
+	helm upgrade --install myjob-production k8s/helm/myjob \
+		--namespace myjob-production \
+		--create-namespace \
+		--values k8s/helm/myjob/values.yaml \
+		--set api.image.tag=$(TAG) \
+		--set worker.image.tag=$(TAG) \
+		--set browserAgent.image.tag=$(TAG) \
+		--set frontend.image.tag=$(TAG) \
+		--set api.replicaCount=3 \
+		--set worker.replicaCount=3 \
+		--set frontend.replicaCount=3
+
+# Rollback Helm release
+helm-rollback:
+	helm rollback $(RELEASE) -n $(NAMESPACE)
+
+# Check HPA status
+kubectl-hpa:
+	kubectl get hpa -n $(NAMESPACE)
+
+# Check all pods
+kubectl-pods:
+	kubectl get pods -n $(NAMESPACE) -o wide
+
+# Tail logs
+kubectl-logs:
+	kubectl logs -n $(NAMESPACE) -l app.kubernetes.io/name=myjob --tail=100 -f
+
+# Kustomize build
+kustomize-build:
+	kubectl kustomize k8s/kustomize/overlays/$(ENV)
