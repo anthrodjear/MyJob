@@ -14,6 +14,8 @@ resources:
   - statefulset-redis.yaml
   - services.yaml
 
-commonLabels:
-  app.kubernetes.io/name: myjob
-  app.kubernetes.io/managed-by: kustomize
+labels:
+  - pairs:
+      app.kubernetes.io/name: myjob
+      app.kubernetes.io/managed-by: kustomize
+    includeSelectors: true
