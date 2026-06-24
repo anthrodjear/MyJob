@@ -211,15 +211,16 @@ secrets:
     keys:
       jwtSecret: AUTH_JWT_SECRET
       passwordHash: AUTH_PASSWORD_HASH
-  # Ollama (external service)
-  ollama:
-    baseUrl: "http://ollama.ollama.svc.cluster.local:11434"
   # LiveKit
   livekit:
     secretName: myjob-livekit
     keys:
       apiKey: LIVEKIT_API_KEY
       apiSecret: LIVEKIT_API_SECRET
+
+# -- Ollama (external service, override per environment)
+ollama:
+  baseUrl: "http://ollama.ollama.svc.cluster.local:11434"
 
 # -- Network Policy
 networkPolicy:

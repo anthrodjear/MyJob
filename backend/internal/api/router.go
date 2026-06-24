@@ -1,6 +1,7 @@
 package api
 
 import (
+	"os"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -67,6 +68,16 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		c.JSON(200, gin.H{
 			"status": "healthy",
 			"time":   "now",
+		})
+	})
+
+	// Version endpoint — returns deployed version for monitoring
+	r.GET("/version", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"version":   os.Getenv("APP_VERSION"),
+			"git_commit": os.Getenv("GIT_COMMIT"),
+			"build_time": os.Getenv("BUILD_TIME"),
+			"env":        os.Getenv("APP_ENV"),
 		})
 	})
 

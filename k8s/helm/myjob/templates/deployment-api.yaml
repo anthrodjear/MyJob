@@ -33,7 +33,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: api
-          image: {{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}
+          image: {{ include "myjob.api.image" . }}
           imagePullPolicy: {{ .Values.api.image.pullPolicy }}
           ports:
             - name: http
@@ -51,7 +51,7 @@ spec:
             - name: REDIS_URL
               value: "redis://{{ include "myjob.redis.host" . }}:6379"
             - name: OLLAMA_BASE_URL
-              value: {{ .Values.secrets.ollama.baseUrl | quote }}
+              value: {{ .Values.ollama.baseUrl | default "http://ollama.ollama.svc.cluster.local:11434" | quote }}
             - name: LIVEKIT_WS_URL
               value: "ws://{{ .Release.Name }}-livekit:7880"
             - name: POSTGRES_PASSWORD

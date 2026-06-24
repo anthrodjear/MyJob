@@ -1,0 +1,221 @@
+# .github/workflows/k8s-deploy.yml
+# Reusable workflow for Kubernetes deployment via Helm
+# Called by cd.yml with environment-specific parameters
+
+name: K8s Deploy (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      image_tag:
+        required: true
+        type: string
+      namespace:
+        required: true
+        type: string
+      helm_values_file:
+        required: false
+        type: string
+        default: ''
+      replica_count:
+        required: false
+        type: number
+        default: 2
+      pdb_min_available:
+        required: false
+        type: number
+        default: 1
+      health_check_retries:
+        required: false
+        type: number
+        default: 30
+    secrets:
+      KUBE_CONFIG:
+        required: true
+    outputs:
+      deploy_status:
+        description: "Deployment result (success/failed)"
+        value: ${{ jobs.deploy.outputs.status }}
+      deployed_version:
+        description: "The version that was deployed"
+        value: ${{ inputs.image_tag }}
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+  HELM_CHART_PATH: k8s/helm/myjob
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ vars.DEPLOY_URL }}
+    timeout-minutes: 15
+    outputs:
+      status: ${{ steps.deploy.outcome }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.15.0'
+
+      - name: Set up kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # --- Pre-deployment: Backup database ---
+      - name: Backup database
+        id: backup
+        run: |
+          echo "Creating database backup before deployment..."
+          POSTGRES_POD=$(kubectl get pod -n ${{ inputs.namespace }} -l app.kubernetes.io/component=postgres -o jsonpath='{.items[0].metadata.name}')
+          kubectl exec -n ${{ inputs.namespace }} $POSTGRES_POD -- \
+            pg_dump -U myjob myjob | gzip > backup-${{ inputs.image_tag }}.sql.gz
+          echo "Backup saved: backup-${{ inputs.image_tag }}.sql.gz"
+          ls -lh backup-${{ inputs.image_tag }}.sql.gz
+
+      # --- Pre-deployment: Run DB migrations ---
+      - name: Run database migrations
+        run: |
+          echo "Running database migrations for ${{ inputs.image_tag }}..."
+
+          # Validate image tag to prevent script injection
+          if [[ ! "${{ inputs.image_tag }}" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+            echo "::error::Invalid image tag: ${{ inputs.image_tag }}"
+            exit 1
+          fi
+
+          TAG="${{ inputs.image_tag }}"
+          NAMESPACE="${{ inputs.namespace }}"
+          MIGRATE_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-api:${TAG}"
+
+          # Create migration pod
+          cat <<EOF | kubectl apply -f -
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: myjob-migrate-${TAG}
+            namespace: ${NAMESPACE}
+          spec:
+            restartPolicy: Never
+            containers:
+            - name: migrate
+              image: ${MIGRATE_IMAGE}
+              command: ["/app/api", "migrate", "up"]
+              env:
+              - name: APP_ENV
+                value: "${{ inputs.environment }}"
+              - name: DATABASE_URL
+                valueFrom:
+                  secretKeyRef:
+                    name: myjob-${{ inputs.environment }}-database
+                    key: DATABASE_URL
+          EOF
+
+          # Wait for pod to complete (Succeeded or Failed)
+          echo "Waiting for migration pod to complete..."
+          kubectl wait --for=jsonpath='{.status.phase}'=Succeeded \
+            pod/myjob-migrate-${TAG} \
+            -n ${NAMESPACE} --timeout=120s || {
+            echo "::error::Migration pod did not complete within timeout"
+            kubectl logs pod/myjob-migrate-${TAG} -n ${NAMESPACE}
+            kubectl delete pod myjob-migrate-${TAG} -n ${NAMESPACE} --ignore-not-found
+            exit 1
+          }
+
+          echo "Database migration completed successfully"
+          kubectl delete pod myjob-migrate-${TAG} -n ${NAMESPACE} --ignore-not-found
+
+      # --- Deploy via Helm ---
+      - name: Deploy via Helm
+        id: deploy
+        run: |
+          EXTRA_VALUES=""
+          if [ -n "${{ inputs.helm_values_file }}" ] && [ -f "${{ inputs.helm_values_file }}" ]; then
+            EXTRA_VALUES="--values ${{ inputs.helm_values_file }}"
+          fi
+
+          helm upgrade --install myjob-${{ inputs.environment }} ${{ env.HELM_CHART_PATH }} \
+            --namespace ${{ inputs.namespace }} \
+            --create-namespace \
+            --set api.image.repository="${{ env.IMAGE_PREFIX }}-api" \
+            --set api.image.tag="${{ inputs.image_tag }}" \
+            --set api.image.pullPolicy=Always \
+            --set worker.image.repository="${{ env.IMAGE_PREFIX }}-worker" \
+            --set worker.image.tag="${{ inputs.image_tag }}" \
+            --set worker.image.pullPolicy=Always \
+            --set browserAgent.image.repository="${{ env.IMAGE_PREFIX }}-browser-agent" \
+            --set browserAgent.image.tag="${{ inputs.image_tag }}" \
+            --set browserAgent.image.pullPolicy=Always \
+            --set frontend.image.repository="${{ env.IMAGE_PREFIX }}-frontend" \
+            --set frontend.image.tag="${{ inputs.image_tag }}" \
+            --set frontend.image.pullPolicy=Always \
+            --set api.replicaCount=${{ inputs.replica_count }} \
+            --set worker.replicaCount=${{ inputs.replica_count }} \
+            --set frontend.replicaCount=${{ inputs.replica_count }} \
+            --set pdb.minAvailable=${{ inputs.pdb_min_available }} \
+            --set secrets.database.secretName=myjob-${{ inputs.environment }}-database \
+            --set secrets.auth.secretName=myjob-${{ inputs.environment }}-auth \
+            --set secrets.livekit.secretName=myjob-${{ inputs.environment }}-livekit \
+            --set ollama.baseUrl="${{ vars.OLLAMA_BASE_URL }}" \
+            --set ingress.hosts[0].host="${{ vars.DEPLOY_HOST }}" \
+            --set ingress.hosts[0].paths[0].path="/" \
+            --set ingress.hosts[0].paths[0].pathType=Prefix \
+            --set ingress.hosts[0].paths[0].service=frontend \
+            --set ingress.hosts[0].paths[0].port=3000 \
+            --set ingress.hosts[0].paths[1].path="/api" \
+            --set ingress.hosts[0].paths[1].pathType=Prefix \
+            --set ingress.hosts[0].paths[1].service=api \
+            --set ingress.hosts[0].paths[1].port=8080 \
+            $EXTRA_VALUES \
+            --wait \
+            --timeout 10m
+
+      # --- Verify rollout ---
+      - name: Verify rollout
+        run: |
+          echo "Waiting for rollouts to complete..."
+          kubectl rollout status deployment/myjob-${{ inputs.environment }}-api \
+            -n ${{ inputs.namespace }} --timeout=300s
+          kubectl rollout status deployment/myjob-${{ inputs.environment }}-worker \
+            -n ${{ inputs.namespace }} --timeout=300s
+          kubectl rollout status deployment/myjob-${{ inputs.environment }}-frontend \
+            -n ${{ inputs.namespace }} --timeout=300s
+          kubectl rollout status deployment/myjob-${{ inputs.environment }}-browser-agent \
+            -n ${{ inputs.namespace }} --timeout=300s
+
+      # --- Health check (no sleep, use readiness) ---
+      - name: Health check
+        run: |
+          chmod +x scripts/ci-health-check.sh
+          API_URL="https://${{ vars.DEPLOY_HOST }}/api" \
+          FRONTEND_URL="https://${{ vars.DEPLOY_HOST }}" \
+          MAX_RETRIES=${{ inputs.health_check_retries }} \
+          RETRY_INTERVAL=3 \
+          scripts/ci-health-check.sh
+
+      # --- Rollback on failure ---
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "::error::Deployment failed — rolling back Helm release"
+          helm rollback myjob-${{ inputs.environment }} \
+            -n ${{ inputs.namespace }} --wait --timeout 5m
+          echo "Rollback complete. Checking rollout status..."
+          kubectl rollout status deployment/myjob-${{ inputs.environment }}-api \
+            -n ${{ inputs.namespace }} --timeout=300s || true

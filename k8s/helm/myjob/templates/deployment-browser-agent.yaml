@@ -45,7 +45,7 @@ spec:
             - name: API_URL
               value: "http://{{ .Release.Name }}-api:{{ .Values.api.service.port }}"
             - name: OLLAMA_BASE_URL
-              value: {{ .Values.secrets.ollama.baseUrl | quote }}
+              value: {{ .Values.ollama.baseUrl | default "http://ollama.ollama.svc.cluster.local:11434" | quote }}
             - name: LIVEKIT_WS_URL
               value: "ws://{{ .Release.Name }}-livekit:7880"
             - name: LOG_LEVEL

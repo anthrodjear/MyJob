@@ -13,7 +13,7 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the API binary
+# Build the API binary (version info injected via ENV in runtime stage)
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/api ./cmd/api
 
 # Runtime stage
@@ -30,6 +30,14 @@ COPY --from=builder /app/internal/database/migrations ./migrations
 # Copy scripts
 COPY scripts/ ./scripts/
 RUN chmod +x ./scripts/*.sh
+
+# Version metadata
+ARG APP_VERSION=dev
+ARG GIT_COMMIT=unknown
+ARG BUILD_TIME=unknown
+ENV APP_VERSION=${APP_VERSION}
+ENV GIT_COMMIT=${GIT_COMMIT}
+ENV BUILD_TIME=${BUILD_TIME}
 
 EXPOSE 8080
 

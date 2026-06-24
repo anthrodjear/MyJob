@@ -248,6 +248,10 @@ jobs:
           file: ./backend/Dockerfile.api
           push: true
           tags: ${{ steps.meta-api.outputs.tags }}
+          build-args: |
+            APP_VERSION=${{ github.sha }}
+            GIT_COMMIT=${{ github.sha }}
+            BUILD_TIME=${{ github.event.head_commit.timestamp }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

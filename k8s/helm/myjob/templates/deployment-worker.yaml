@@ -33,7 +33,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: worker
-          image: {{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}
+          image: {{ include "myjob.worker.image" . }}
           imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
           env:
             - name: APP_ENV
@@ -49,7 +49,7 @@ spec:
             - name: BROWSER_AGENT_URL
               value: "http://{{ .Release.Name }}-browser-agent:{{ .Values.browserAgent.service.port }}"
             - name: OLLAMA_BASE_URL
-              value: {{ .Values.secrets.ollama.baseUrl | quote }}
+              value: {{ .Values.ollama.baseUrl | default "http://ollama.ollama.svc.cluster.local:11434" | quote }}
             - name: LIVEKIT_WS_URL
               value: "ws://{{ .Release.Name }}-livekit:7880"
             - name: POSTGRES_PASSWORD
