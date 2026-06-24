@@ -92,6 +92,12 @@ make start
 
 Open [http://localhost:3001](http://localhost:3001) in your browser.
 
+**Default login:**
+- **Username:** `admin`
+- **Password:** `admin123`
+
+> **Important:** Change your password after first login via Settings → Security → Change Password. The backend uses bcrypt with cost 10 for password hashing.
+
 | Service | URL | Description |
 |---------|-----|-------------|
 | Frontend | http://localhost:3001 | Dashboard UI |
