@@ -98,3 +98,18 @@ Decisions:
 - executeOverrides exported from useSystemConfig.ts for reuse across all section components
 - All 6 section components now use shared INPUT_CLASS for consistent input styling
 - TypeScript compiles cleanly, 75 tests pass
+
+## 2026-06-24 [saved]
+Goal: Deferred items identification and tracking
+Decisions:
+- Added 8 new items to context/deferred-items.md (items 9-16):
+  - Item 9: Integration Testing / End-to-End Flow Tests — HIGH priority
+  - Item 10: Docker Compose Validation — HIGH priority
+  - Item 11: Microsoft Graph Email Checking — HIGH priority (core feature)
+  - Item 12: Error Handling Hardening — MEDIUM priority
+  - Item 13: Seed Data Enhancement — MEDIUM priority
+  - Item 14: Browser Agent TODOs — Mixed priority (4 items)
+  - Item 15: LLM-First Architecture Gaps — MEDIUM priority (3 prompts designed but not coded)
+  - Item 16: System Config End-to-End Test — MEDIUM priority
+- Updated progress-tracker.md Next Up: "Integration testing → Docker Compose validation → Error handling hardening"
+- Project is feature-complete for Phase 1 — only integration tests and Docker Compose validation remain to declare Phase 1 complete
