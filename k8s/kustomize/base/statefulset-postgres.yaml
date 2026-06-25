@@ -26,6 +26,11 @@ spec:
               value: myjob
             - name: POSTGRES_USER
               value: myjob
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: myjob-secrets
+                  key: POSTGRES_PASSWORD
           resources:
             requests:
               cpu: 250m

@@ -45,7 +45,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_PREFIX: ${{ github.repository }}
+  IMAGE_PREFIX: ${{ github.repository_owner }}
   HELM_CHART_PATH: k8s/helm/myjob
 
 jobs:
@@ -86,7 +86,12 @@ jobs:
           POSTGRES_POD=$(kubectl get pod -n ${{ inputs.namespace }} -l app.kubernetes.io/component=postgres -o jsonpath='{.items[0].metadata.name}')
           kubectl exec -n ${{ inputs.namespace }} $POSTGRES_POD -- \
             pg_dump -U myjob myjob | gzip > backup-${{ inputs.image_tag }}.sql.gz
-          echo "Backup saved: backup-${{ inputs.image_tag }}.sql.gz"
+          BACKUP_SIZE=$(stat -c%s "backup-${{ inputs.image_tag }}.sql.gz" 2>/dev/null || echo "0")
+          if [ "$BACKUP_SIZE" -lt 100 ]; then
+            echo "::error::Database backup is too small (${BACKUP_SIZE} bytes) — likely empty or failed"
+            exit 1
+          fi
+          echo "Backup saved: backup-${{ inputs.image_tag }}.sql.gz (${BACKUP_SIZE} bytes)"
           ls -lh backup-${{ inputs.image_tag }}.sql.gz
 
       # --- Pre-deployment: Run DB migrations ---

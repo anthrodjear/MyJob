@@ -176,6 +176,7 @@ func main() {
 	router := api.SetupRouter(api.RouterConfig{
 		AuthHandler:     authHandler,
 		AuthService:     authService,
+		CORSOrigins:     cfg.Server.CORSOrigins,
 		RateLimitConfig: cfg.RateLimit,
 		JobsHandler:     jobsHandler,
 		ApplicationsHandler: appsHandler,

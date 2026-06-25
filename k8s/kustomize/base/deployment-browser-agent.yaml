@@ -14,12 +14,27 @@ spec:
       labels:
         app.kubernetes.io/component: browser-agent
     spec:
+      terminationGracePeriodSeconds: 30
       containers:
         - name: browser-agent
-          image: ghcr.io/OWNER/myjob-browser-agent:latest
+          image: ghcr.io/anthrodjear/myjob-browser-agent:latest
           ports:
             - name: http
               containerPort: 3000
+          env:
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: myjob-secrets
+                  key: REDIS_URL
+            - name: LIVEKIT_WS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: myjob-secrets
+                  key: LIVEKIT_WS_URL
+                  optional: true
+            - name: OLLAMA_BASE_URL
+              value: "http://ollama.ollama.svc.cluster.local:11434"
           resources:
             requests:
               cpu: 500m

@@ -29,6 +29,7 @@ type ServerConfig struct {
 	Port         int
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
+	CORSOrigins  []string
 }
 
 type DatabaseConfig struct {
@@ -155,6 +156,7 @@ func Load() *Config {
 			Port:         getEnvInt("SERVER_PORT", 8080),
 			ReadTimeout:  getEnvDuration("SERVER_READ_TIMEOUT", 30*time.Second),
 			WriteTimeout: getEnvDuration("SERVER_WRITE_TIMEOUT", 30*time.Second),
+			CORSOrigins:  parseCommaList(getEnv("CORS_ORIGINS", "http://localhost:3000")),
 		},
 		Database: DatabaseConfig{
 			URL:             getEnv("DATABASE_URL", ""),
@@ -376,6 +378,21 @@ func parseFolders(s string) []string {
 		return []string{"Inbox"}
 	}
 	return folders
+}
+
+func parseCommaList(s string) []string {
+	if s == "" {
+		return []string{}
+	}
+	parts := strings.Split(s, ",")
+	var result []string
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			result = append(result, part)
+		}
+	}
+	return result
 }
 
 func (c *Config) validateScoringWeights() error {

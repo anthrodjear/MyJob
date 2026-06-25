@@ -41,7 +41,7 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_PREFIX: ${{ github.repository }}
+  IMAGE_PREFIX: ${{ github.repository_owner }}
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -69,11 +69,12 @@ jobs:
         id: resolve-tag
         env:
           INPUT_IMAGE_TAG: ${{ github.event.inputs.image_tag }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           if [ -n "$INPUT_IMAGE_TAG" ]; then
             echo "tag=$INPUT_IMAGE_TAG" >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" = "workflow_run" ]; then
-            echo "tag=sha-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+            echo "tag=sha-${RUN_SHA::7}" >> $GITHUB_OUTPUT
           else
             echo "tag=sha-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
           fi
@@ -164,8 +165,8 @@ jobs:
             # Login to GHCR on remote
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # Save current tag for rollback
-            PREV_TAG=$(grep "image:" docker-compose.yml | head -1 | awk '{print $2}' | cut -d: -f2 || echo "")
+            # Save current tag for rollback (from running container)
+            PREV_TAG=$(docker inspect --format='{{.Config.Image}}' myjob-api-1 2>/dev/null | cut -d: -f2 || echo "")
             echo "$PREV_TAG" > /tmp/myjob-previous-tag.txt
 
             export API_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-api:$TAG"
@@ -251,8 +252,8 @@ jobs:
             # Login to GHCR on remote
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # Save current tag for rollback
-            PREV_TAG=$(grep "image:" docker-compose.yml | head -1 | awk '{print $2}' | cut -d: -f2 || echo "")
+            # Save current tag for rollback (from running container)
+            PREV_TAG=$(docker inspect --format='{{.Config.Image}}' myjob-api-1 2>/dev/null | cut -d: -f2 || echo "")
             echo "$PREV_TAG" > /tmp/myjob-previous-tag.txt
 
             # Backup database

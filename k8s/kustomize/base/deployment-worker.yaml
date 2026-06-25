@@ -14,12 +14,35 @@ spec:
       labels:
         app.kubernetes.io/component: worker
     spec:
+      terminationGracePeriodSeconds: 60
       containers:
         - name: worker
-          image: ghcr.io/OWNER/myjob-worker:latest
+          image: ghcr.io/anthrodjear/myjob-worker:latest
           env:
             - name: APP_ENV
-              value: production
+              valueFrom:
+                configMapKeyRef:
+                  name: myjob-config
+                  key: APP_ENV
+                  optional: true
+            - name: APP_VERSION
+              valueFrom:
+                configMapKeyRef:
+                  name: myjob-config
+                  key: APP_VERSION
+                  optional: true
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: myjob-secrets
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: myjob-secrets
+                  key: REDIS_URL
+            - name: BROWSER_AGENT_URL
+              value: "http://myjob-browser-agent:3000"
             - name: QUEUE_CONCURRENCY
               value: "10"
           resources:

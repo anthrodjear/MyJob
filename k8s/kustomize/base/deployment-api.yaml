@@ -14,9 +14,10 @@ spec:
       labels:
         app.kubernetes.io/component: api
     spec:
+      terminationGracePeriodSeconds: 30
       containers:
         - name: api
-          image: ghcr.io/OWNER/myjob-api:latest
+          image: ghcr.io/anthrodjear/myjob-api:latest
           ports:
             - name: http
               containerPort: 8080
@@ -24,7 +25,33 @@ spec:
             - name: PORT
               value: "8080"
             - name: APP_ENV
-              value: production
+              valueFrom:
+                configMapKeyRef:
+                  name: myjob-config
+                  key: APP_ENV
+                  optional: true
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: myjob-secrets
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: myjob-secrets
+                  key: REDIS_URL
+            - name: AUTH_PASSWORD_HASH
+              valueFrom:
+                secretKeyRef:
+                  name: myjob-secrets
+                  key: AUTH_PASSWORD_HASH
+            - name: AUTH_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: myjob-secrets
+                  key: AUTH_JWT_SECRET
+            - name: CORS_ORIGINS
+              value: "http://myjob.local,https://myjob.local"
           resources:
             requests:
               cpu: 250m

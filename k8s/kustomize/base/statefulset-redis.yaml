@@ -21,7 +21,16 @@ spec:
           ports:
             - name: redis
               containerPort: 6379
-          command: ["redis-server", "--appendonly", "yes"]
+          command:
+            - sh
+            - -c
+            - redis-server --appendonly yes --requirepass "$REDIS_PASSWORD"
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: myjob-secrets
+                  key: REDIS_PASSWORD
           resources:
             requests:
               cpu: 100m
@@ -29,6 +38,22 @@ spec:
             limits:
               cpu: 500m
               memory: 256Mi
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -a "$REDIS_PASSWORD" ping
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -a "$REDIS_PASSWORD" ping
+            initialDelaySeconds: 5
+            periodSeconds: 5
   volumeClaimTemplates:
     - metadata:
         name: redis-data

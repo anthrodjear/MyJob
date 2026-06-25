@@ -38,18 +38,33 @@ spec:
           ports:
             - name: redis
               containerPort: 6379
-          command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+          command:
+            - sh
+            - -c
+            - redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass "$REDIS_PASSWORD"
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.redis.secretName }}
+                  key: {{ .Values.secrets.redis.keys.password }}
           volumeMounts:
             - name: redis-data
               mountPath: /data
           livenessProbe:
             exec:
-              command: ["redis-cli", "ping"]
+              command:
+                - sh
+                - -c
+                - redis-cli -a "$REDIS_PASSWORD" ping
             initialDelaySeconds: 15
             periodSeconds: 10
           readinessProbe:
             exec:
-              command: ["redis-cli", "ping"]
+              command:
+                - sh
+                - -c
+                - redis-cli -a "$REDIS_PASSWORD" ping
             initialDelaySeconds: 5
             periodSeconds: 5
           resources:

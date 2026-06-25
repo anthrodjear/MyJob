@@ -13,36 +13,47 @@ patches:
   # Scale down for staging
   - target:
       kind: Deployment
-      name: api
+      name: myjob-api
     patch: |
       - op: replace
         path: /spec/replicas
         value: 1
   - target:
       kind: Deployment
-      name: worker
+      name: myjob-worker
     patch: |
       - op: replace
         path: /spec/replicas
         value: 1
   - target:
       kind: Deployment
-      name: browser-agent
+      name: myjob-browser-agent
     patch: |
       - op: replace
         path: /spec/replicas
         value: 1
   - target:
       kind: Deployment
-      name: frontend
+      name: myjob-frontend
     patch: |
       - op: replace
         path: /spec/replicas
         value: 1
 
-  # Disable HPA for staging
+  # Disable HPA for staging (set min=1, max=2)
   - target:
       kind: HorizontalPodAutoscaler
+      name: myjob-api-hpa
+    patch: |
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: myjob-worker-hpa
     patch: |
       - op: replace
         path: /spec/minReplicas
@@ -54,7 +65,7 @@ patches:
   # Reduce resource limits for staging
   - target:
       kind: Deployment
-      name: api
+      name: myjob-api
     patch: |
       - op: replace
         path: /spec/template/spec/containers/0/resources/requests/cpu
@@ -72,14 +83,14 @@ patches:
   # Smaller PVC for staging
   - target:
       kind: StatefulSet
-      name: postgres
+      name: myjob-postgres
     patch: |
       - op: replace
         path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
         value: 5Gi
 
 configMapGenerator:
-  - name: staging-config
+  - name: myjob-config
     literals:
       - APP_ENV=staging
       - LOG_LEVEL=debug

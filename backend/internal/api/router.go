@@ -28,6 +28,7 @@ import (
 type RouterConfig struct {
 	AuthHandler         *auth.Handler
 	AuthService         *auth.Service
+	CORSOrigins         []string
 	RateLimitConfig     config.RateLimitConfig
 	JobsHandler         *jobs.Handler
 	ApplicationsHandler *applications.Handler
@@ -51,7 +52,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 
 	// CORS middleware - must be before other middleware to handle preflight requests
 	corsConfig := cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowOrigins:     cfg.CORSOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Content-Length", "Accept", "Accept-Encoding", "Authorization", "X-Request-Id", "X-CSRF-Token"},
 		ExposeHeaders:    []string{"Content-Length", "X-Request-Id"},
@@ -88,13 +89,13 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		authGroup := v1.Group("/auth")
 		{
 			authGroup.POST("/login", cfg.AuthHandler.Login)
-			authGroup.POST("/change-password", cfg.AuthHandler.ChangePassword)
 		}
 
 		// Protected routes (require JWT)
 		protected := v1.Group("")
 		protected.Use(middleware.AuthMiddleware(cfg.AuthService))
 		{
+			protected.POST("/auth/change-password", cfg.AuthHandler.ChangePassword)
 			cfg.JobsHandler.RegisterRoutes(protected)
 			cfg.ApplicationsHandler.RegisterRoutes(protected)
 			cfg.ResumesHandler.RegisterRoutes(protected)

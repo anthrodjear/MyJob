@@ -42,7 +42,7 @@ check_api_health() {
 # Check frontend returns 200
 check_frontend() {
   local status_code
-  status_code=$(curl -sf --max-time 10 -o /dev/null -w "%{http_code}" "$FRONTEND_URL" 2>/dev/null) || fail "Frontend unreachable"
+  status_code=$(curl -s --max-time 10 -o /dev/null -w "%{http_code}" "$FRONTEND_URL" 2>/dev/null) || fail "Frontend unreachable"
   if [ "$status_code" = "200" ]; then
     log "✓ Frontend health check passed (HTTP $status_code)"
   else

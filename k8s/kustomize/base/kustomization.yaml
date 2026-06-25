@@ -13,6 +13,9 @@ resources:
   - statefulset-postgres.yaml
   - statefulset-redis.yaml
   - services.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - ingress.yaml
 
 labels:
   - pairs:

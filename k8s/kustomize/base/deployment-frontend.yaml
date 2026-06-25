@@ -14,15 +14,24 @@ spec:
       labels:
         app.kubernetes.io/component: frontend
     spec:
+      terminationGracePeriodSeconds: 30
       containers:
         - name: frontend
-          image: ghcr.io/OWNER/myjob-frontend:latest
+          image: ghcr.io/anthrodjear/myjob-frontend:latest
           ports:
             - name: http
               containerPort: 3000
           env:
             - name: NODE_ENV
               value: production
+            - name: APP_VERSION
+              valueFrom:
+                configMapKeyRef:
+                  name: myjob-config
+                  key: APP_VERSION
+                  optional: true
+            - name: NEXT_PUBLIC_API_URL
+              value: "http://myjob-api:8080"
           resources:
             requests:
               cpu: 100m

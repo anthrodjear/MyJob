@@ -13,28 +13,28 @@ patches:
   # Higher replicas for production
   - target:
       kind: Deployment
-      name: api
+      name: myjob-api
     patch: |
       - op: replace
         path: /spec/replicas
         value: 3
   - target:
       kind: Deployment
-      name: worker
+      name: myjob-worker
     patch: |
       - op: replace
         path: /spec/replicas
         value: 3
   - target:
       kind: Deployment
-      name: browser-agent
+      name: myjob-browser-agent
     patch: |
       - op: replace
         path: /spec/replicas
         value: 2
   - target:
       kind: Deployment
-      name: frontend
+      name: myjob-frontend
     patch: |
       - op: replace
         path: /spec/replicas
@@ -43,7 +43,7 @@ patches:
   # Higher resource limits for production
   - target:
       kind: Deployment
-      name: api
+      name: myjob-api
     patch: |
       - op: replace
         path: /spec/template/spec/containers/0/resources/requests/cpu
@@ -59,7 +59,7 @@ patches:
         value: 1Gi
   - target:
       kind: Deployment
-      name: worker
+      name: myjob-worker
     patch: |
       - op: replace
         path: /spec/template/spec/containers/0/resources/requests/cpu
@@ -77,14 +77,14 @@ patches:
   # Larger PVC for production
   - target:
       kind: StatefulSet
-      name: postgres
+      name: myjob-postgres
     patch: |
       - op: replace
         path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
         value: 50Gi
   - target:
       kind: StatefulSet
-      name: redis
+      name: myjob-redis
     patch: |
       - op: replace
         path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
@@ -93,13 +93,21 @@ patches:
   # PDB for production
   - target:
       kind: PodDisruptionBudget
+      name: myjob-api-pdb
+    patch: |
+      - op: replace
+        path: /spec/minAvailable
+        value: 2
+  - target:
+      kind: PodDisruptionBudget
+      name: myjob-worker-pdb
     patch: |
       - op: replace
         path: /spec/minAvailable
         value: 2
 
 configMapGenerator:
-  - name: production-config
+  - name: myjob-config
     literals:
       - APP_ENV=production
       - LOG_LEVEL=warn

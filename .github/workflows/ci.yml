@@ -114,11 +114,11 @@ jobs:
       - name: Run gosec
         uses: securego/gosec@v2.21.4
         with:
-          args: ./...
+          args: ./backend/...
       - name: Run govulncheck
         working-directory: backend
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
           govulncheck ./...
 
   secret-scan:
