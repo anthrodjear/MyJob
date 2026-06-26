@@ -8,6 +8,8 @@ import (
 // For a local-first app, this is minimal — just enough to support JWT auth.
 type User struct {
 	ID                string     `db:"id" json:"id"`
+	Username          string     `db:"username" json:"username"`
+	Email             string     `db:"email" json:"email"`
 	PasswordHash      string     `db:"password_hash" json:"-"`
 	SessionVersion    int        `db:"session_version" json:"session_version"`
 	LastLoginAt       *time.Time `db:"last_login_at" json:"last_login_at,omitempty"`

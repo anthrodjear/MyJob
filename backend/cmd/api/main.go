@@ -85,6 +85,16 @@ func main() {
 	authService := auth.NewService(authRepo, cfg.Auth)
 	authHandler := auth.NewHandler(authService, logger)
 
+	// Setup check function — closure over authRepo
+	isSetupRequired := func() bool {
+		required, err := authRepo.IsSetupRequired(context.Background())
+		if err != nil {
+			logger.Error("failed to check setup status", zap.Error(err))
+			return true // fail closed — require setup on error
+		}
+		return required
+	}
+
 	// Initialize asynq client for task dispatch
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: cfg.Redis.URL})
 	defer asynqClient.Close()
@@ -176,6 +186,7 @@ func main() {
 	router := api.SetupRouter(api.RouterConfig{
 		AuthHandler:     authHandler,
 		AuthService:     authService,
+		IsSetupRequired: isSetupRequired,
 		CORSOrigins:     cfg.Server.CORSOrigins,
 		RateLimitConfig: cfg.RateLimit,
 		JobsHandler:     jobsHandler,

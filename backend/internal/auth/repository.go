@@ -42,6 +42,7 @@ func NewRepository(db *sqlx.DB, cfg config.AuthConfig) (*Repository, error) {
 }
 
 // seedIfNeeded inserts the local-user with initial password hash if table is empty.
+// If initialHash is empty, it skips seeding — the user will complete setup via the web UI.
 func (r *Repository) seedIfNeeded(ctx context.Context, initialHash string) error {
 	var count int
 	err := r.db.GetContext(ctx, &count, `SELECT COUNT(*) FROM users WHERE id = 'local-user'`)
@@ -52,7 +53,12 @@ func (r *Repository) seedIfNeeded(ctx context.Context, initialHash string) error
 		return nil
 	}
 
-	// Insert initial user with hash from config
+	// Skip seeding if no password hash configured — setup flow will create the user
+	if initialHash == "" {
+		return nil
+	}
+
+	// Insert initial user with hash from config (backward compatibility)
 	_, err = r.db.ExecContext(ctx, `
 		INSERT INTO users (id, password_hash, session_version, password_changed_at)
 		VALUES ('local-user', $1, 1, NOW())
@@ -67,7 +73,7 @@ func (r *Repository) seedIfNeeded(ctx context.Context, initialHash string) error
 func (r *Repository) loadUser(ctx context.Context) (*User, error) {
 	var user User
 	err := r.db.GetContext(ctx, &user, `
-		SELECT id, password_hash, session_version, last_login_at, password_changed_at, created_at, updated_at
+		SELECT id, username, email, password_hash, session_version, last_login_at, password_changed_at, created_at, updated_at
 		FROM users
 		WHERE id = 'local-user'
 	`)
@@ -181,6 +187,56 @@ func (r *Repository) IncrementSessionVersion(ctx context.Context) error {
 	if r.user != nil {
 		r.user.SessionVersion++
 		r.user.UpdatedAt = time.Now()
+	}
+
+	return nil
+}
+
+// IsSetupRequired returns true if no users exist in the database.
+// Used by the setup middleware to determine if setup mode should be active.
+func (r *Repository) IsSetupRequired(ctx context.Context) (bool, error) {
+	var count int
+	err := r.db.GetContext(ctx, &count, `SELECT COUNT(*) FROM users`)
+	if err != nil {
+		return false, fmt.Errorf("auth: count users: %w", err)
+	}
+	return count == 0, nil
+}
+
+// CreateAdminUser inserts the first user with username, email, and password hash.
+// Only succeeds if no users exist (enforced by setup middleware + endpoint guard).
+func (r *Repository) CreateAdminUser(ctx context.Context, username, email, passwordHash string) error {
+	// Double-check: only allow if table is empty (defense in depth)
+	var count int
+	err := r.db.GetContext(ctx, &count, `SELECT COUNT(*) FROM users`)
+	if err != nil {
+		return fmt.Errorf("auth: count users for setup: %w", err)
+	}
+	if count > 0 {
+		return fmt.Errorf("auth: setup blocked — users already exist")
+	}
+
+	now := time.Now()
+	_, err = r.db.ExecContext(ctx, `
+		INSERT INTO users (id, username, email, password_hash, session_version, password_changed_at, created_at, updated_at)
+		VALUES ('local-user', $1, $2, $3, 1, $4, $4, $4)
+	`, username, email, passwordHash, now)
+	if err != nil {
+		return fmt.Errorf("auth: create admin user: %w", err)
+	}
+
+	// Update cached user
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.user = &User{
+		ID:                "local-user",
+		Username:          username,
+		Email:             email,
+		PasswordHash:      passwordHash,
+		SessionVersion:    1,
+		PasswordChangedAt: now,
+		CreatedAt:         now,
+		UpdatedAt:         now,
 	}
 
 	return nil
