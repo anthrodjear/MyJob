@@ -74,6 +74,13 @@ func Conflict(c *gin.Context, code string, msg string) {
 	})
 }
 
+// Forbidden sends a 403 JSON response for insufficient permissions.
+func Forbidden(c *gin.Context, code string, msg string) {
+	c.JSON(http.StatusForbidden, ErrorResponse{
+		Error: ErrorBody{Code: code, Message: msg},
+	})
+}
+
 // MultiStatus sends a 207 JSON response for partial success (some operations succeeded, some failed).
 func MultiStatus(c *gin.Context, data interface{}) {
 	c.JSON(http.StatusMultiStatus, data)

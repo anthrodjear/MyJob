@@ -54,12 +54,12 @@ services:
       - myjob-net
 
   livekit:
-    image: livekit/livekit-server:latest
+    image: livekit/livekit-server:1.6.1
     restart: unless-stopped
     ports:
       - "7880:7880"
       - "7881:7881"
-    command: --config /etc/livekit.yaml --dev
+    command: --config /etc/livekit.yaml ${LIVEKIT_FLAGS:---dev}
     volumes:
       - ./config/livekit.yaml:/etc/livekit.yaml:ro
     healthcheck:
@@ -72,9 +72,13 @@ services:
 
   
   # Application Services
+  # image: used for `docker compose pull` in CD (pulls from GHCR)
+  # build: used for `docker compose build` in local dev (builds from source)
   
 
   api:
+    # image: used for `docker compose pull` in CD (pulls from GHCR)
+    # build: used for `docker compose build` in local dev (builds from source)
     image: ghcr.io/${GITHUB_REPO_OWNER:-anthrodjear}/myjob-api:${API_TAG:-latest}
     build:
       context: ./backend
