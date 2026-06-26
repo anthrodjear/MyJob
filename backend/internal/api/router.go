@@ -28,6 +28,7 @@ import (
 type RouterConfig struct {
 	AuthHandler         *auth.Handler
 	AuthService         *auth.Service
+	IsSetupRequired     func() bool  // setup check function
 	CORSOrigins         []string
 	RateLimitConfig     config.RateLimitConfig
 	JobsHandler         *jobs.Handler
@@ -45,7 +46,7 @@ type RouterConfig struct {
 }
 
 // SetupRouter creates and configures the Gin router.
-// Middleware stack: Recovery → CORS → Logging → Rate Limit → Auth (on protected routes).
+// Middleware stack: Recovery → CORS → Logging → Rate Limit → Setup Check → Auth (on protected routes).
 func SetupRouter(cfg RouterConfig) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
@@ -63,6 +64,11 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 
 	r.Use(middleware.Logging(cfg.Logger))
 	r.Use(middleware.RateLimit(cfg.RateLimitConfig, cfg.Logger))
+
+	// Setup middleware — blocks non-setup routes when no users exist
+	if cfg.IsSetupRequired != nil {
+		r.Use(middleware.SetupMiddleware(cfg.IsSetupRequired, cfg.Logger))
+	}
 
 	// Health check (public, no rate limit logging)
 	r.GET("/health", func(c *gin.Context) {
@@ -89,6 +95,10 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		authGroup := v1.Group("/auth")
 		{
 			authGroup.POST("/login", cfg.AuthHandler.Login)
+
+			// Setup routes — public, no JWT needed
+			authGroup.GET("/setup/status", cfg.AuthHandler.SetupStatus)
+			authGroup.POST("/setup", cfg.AuthHandler.CompleteSetup)
 		}
 
 		// Protected routes (require JWT)

@@ -19,9 +19,10 @@
 
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useLogin } from "@/hooks/useAuth";
+import { getSetupStatus } from "@/lib/api/auth";
 import { Button } from "@/components/shared/Button";
 
 /**
@@ -49,6 +50,34 @@ export default function LoginPage() {
   const loginMutation = useLogin();
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [checkingSetup, setCheckingSetup] = useState(true);
+
+  // Check setup status on mount — redirect to /setup if required
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkSetup() {
+      try {
+        const status = await getSetupStatus();
+        if (!cancelled && status.setup_required) {
+          router.replace("/setup");
+          return;
+        }
+      } catch {
+        // If we can't reach the server, let the user try to log in
+        // The backend will return 403 if setup is required
+      } finally {
+        if (!cancelled) {
+          setCheckingSetup(false);
+        }
+      }
+    }
+
+    void checkSetup();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -68,6 +97,17 @@ export default function LoginPage() {
       },
     });
   };
+
+  // Show loading while checking setup status
+  if (checkingSetup) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-bg-primary">
+        <div className="text-center">
+          <p className="text-sm text-text-secondary">Loading…</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-bg-primary">

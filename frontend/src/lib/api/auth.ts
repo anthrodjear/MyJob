@@ -14,7 +14,7 @@
  *   // resp.access_token is stored, all subsequent apiFetch calls include it
  */
 
-import { apiPost } from "./client";
+import { apiGet, apiPost } from "./client";
 import { setAuthToken } from "@/lib/auth";
 
 /** Response from POST /auth/login. */
@@ -70,6 +70,57 @@ export async function changePassword(
   });
   if (resp == null) {
     throw new Error("Password change failed: no response from server");
+  }
+  return resp;
+}
+
+// --- Setup API ---
+
+/** Response from GET /auth/setup/status. */
+export interface SetupStatusResponse {
+  setup_required: boolean;
+}
+
+/** Response from POST /auth/setup. */
+export interface SetupResponse {
+  message: string;
+}
+
+/**
+ * Check if setup is required (no users exist).
+ *
+ * @returns Setup status with setup_required flag
+ * @throws ApiError on server error
+ */
+export async function getSetupStatus(): Promise<SetupStatusResponse> {
+  const resp = await apiGet<SetupStatusResponse>("auth/setup/status");
+  if (resp == null) {
+    throw new Error("Setup status check failed: no response from server");
+  }
+  return resp;
+}
+
+/**
+ * Complete the first-boot setup by creating the admin user.
+ *
+ * @param username - Display name (min 3 chars)
+ * @param email - Email address
+ * @param password - Password (min 8 chars)
+ * @returns Confirmation message
+ * @throws ApiError on validation error or if setup already complete
+ */
+export async function completeSetup(
+  username: string,
+  email: string,
+  password: string,
+): Promise<SetupResponse> {
+  const resp = await apiPost<SetupResponse>("auth/setup", {
+    username,
+    email,
+    password,
+  });
+  if (resp == null) {
+    throw new Error("Setup failed: no response from server");
   }
   return resp;
 }

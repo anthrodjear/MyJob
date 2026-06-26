@@ -19,7 +19,8 @@ var (
 	ErrTokenExpired       = errors.New("auth: token expired")
 	ErrUserNotFound       = errors.New("auth: user not found")
 	ErrSessionInvalidated = errors.New("auth: session invalidated")
-	ErrPasswordSame       = errors.New("auth: new password must differ from current password")
+	ErrPasswordSame         = errors.New("auth: new password must differ from current password")
+	ErrSetupAlreadyComplete = errors.New("auth: setup already complete — users exist")
 )
 
 // Service handles authentication business logic.
@@ -207,4 +208,40 @@ func (s *Service) UpdateLastLogin(ctx context.Context) error {
 // IncrementSessionVersion manually increments the session version (for logout everywhere).
 func (s *Service) IncrementSessionVersion(ctx context.Context) error {
 	return s.repo.IncrementSessionVersion(ctx)
+}
+
+// GetSetupStatus returns whether setup is required (no users exist).
+func (s *Service) GetSetupStatus(ctx context.Context) (*SetupStatusResponse, error) {
+	required, err := s.repo.IsSetupRequired(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("auth: get setup status: %w", err)
+	}
+	return &SetupStatusResponse{SetupRequired: required}, nil
+}
+
+// CompleteSetup creates the first admin user.
+// Validates input, hashes password, and inserts the user.
+// Returns ErrSetupAlreadyComplete if users already exist.
+func (s *Service) CompleteSetup(ctx context.Context, username, email, password string) error {
+	// Check if setup is still needed
+	required, err := s.repo.IsSetupRequired(ctx)
+	if err != nil {
+		return fmt.Errorf("auth: complete setup: %w", err)
+	}
+	if !required {
+		return ErrSetupAlreadyComplete
+	}
+
+	// Hash the password
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("auth: complete setup: hash password: %w", err)
+	}
+
+	// Create the user
+	if err := s.repo.CreateAdminUser(ctx, username, email, string(hash)); err != nil {
+		return fmt.Errorf("auth: complete setup: %w", err)
+	}
+
+	return nil
 }

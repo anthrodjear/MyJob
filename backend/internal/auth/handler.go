@@ -29,6 +29,8 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 	{
 		auth.POST("/login", h.Login)
 		auth.POST("/change-password", h.ChangePassword)
+		auth.GET("/setup/status", h.SetupStatus)
+		auth.POST("/setup", h.CompleteSetup)
 	}
 }
 
@@ -80,4 +82,36 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 	}
 
 	httpresp.OK(c, gin.H{"message": "password changed"})
+}
+
+// SetupStatus handles GET /auth/setup/status.
+func (h *Handler) SetupStatus(c *gin.Context) {
+	resp, err := h.service.GetSetupStatus(c.Request.Context())
+	if err != nil {
+		h.logger.Error("get setup status error", zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+	httpresp.OK(c, resp)
+}
+
+// CompleteSetup handles POST /auth/setup.
+func (h *Handler) CompleteSetup(c *gin.Context) {
+	var req SetupRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpresp.BadRequest(c, "INVALID_REQUEST", "invalid request body")
+		return
+	}
+
+	if err := h.service.CompleteSetup(c.Request.Context(), req.Username, req.Email, req.Password); err != nil {
+		if errors.Is(err, ErrSetupAlreadyComplete) {
+			httpresp.Conflict(c, "SETUP_COMPLETE", "setup already completed")
+			return
+		}
+		h.logger.Error("complete setup error", zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, SetupResponse{Message: "setup completed successfully"})
 }

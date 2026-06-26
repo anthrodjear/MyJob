@@ -263,10 +263,9 @@ func (c *Config) Validate() error {
 	if len(c.Auth.JWTSecret) < 32 {
 		return errors.New("config: JWT secret must be at least 32 characters")
 	}
-	if c.Auth.PasswordHash == "" {
-		return errors.New("config: password hash required")
-	}
-	if !strings.HasPrefix(c.Auth.PasswordHash, "$2") {
+	// PasswordHash is now optional — setup flow creates the user if not set.
+	// When set, validates format for backward compatibility.
+	if c.Auth.PasswordHash != "" && !strings.HasPrefix(c.Auth.PasswordHash, "$2") {
 		return errors.New("config: invalid bcrypt hash format")
 	}
 
