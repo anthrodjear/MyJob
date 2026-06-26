@@ -8,7 +8,6 @@
 
 "use client";
 
-import { type ReactNode } from "react";
 import { Button } from "@/components/shared/Button";
 
 interface DashboardErrorProps {
@@ -40,11 +39,6 @@ function getUserMessage(err: Error): string {
 
   // Generic fallback — don't expose raw error details
   return "An unexpected error occurred while loading the dashboard. Please try again.";
-}
-
-interface DashboardErrorProps {
-  error: Error;
-  reset: () => void;
 }
 
 export default function DashboardError({ error, reset }: DashboardErrorProps) {

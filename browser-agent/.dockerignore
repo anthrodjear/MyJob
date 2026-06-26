@@ -1,0 +1,55 @@
+# Secrets — never bake into image layers
+.env
+.env.*
+!.env.example
+
+# Git
+.git/
+.gitignore
+
+# Dependencies (installed inside image via npm ci)
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Test files (not needed in production image)
+coverage/
+*.test.ts
+*.spec.ts
+playwright-report/
+test-results/
+
+# AI agent context
+../context/
+../AGENTS.md
+../CLAUDE.md
+../docs/
+../.config/
+../.agents/
+../.opencode/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# Docker
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+
+# Documentation
+*.md
+LICENSE

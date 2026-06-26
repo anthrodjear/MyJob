@@ -58,6 +58,7 @@ export const SelectTrigger = React.forwardRef<HTMLButtonElement, SelectTriggerPr
         type="button"
         role="combobox"
         aria-expanded={open}
+        aria-controls={open ? "select-content" : undefined}
         className={cn(
           "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
           className
@@ -122,6 +123,8 @@ export function SelectContent({ children }: SelectContentProps) {
   return (
     <div
       ref={ref}
+      id="select-content"
+      role="listbox"
       className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
     >
       {children}

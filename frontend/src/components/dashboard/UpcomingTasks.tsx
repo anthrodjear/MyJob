@@ -10,7 +10,6 @@ import { Card } from "@/components/shared/Card";
 import { Badge } from "@/components/shared/Badge";
 import { ProgressBar } from "@/components/shared/ProgressBar";
 import { formatDate } from "@/lib/utils";
-import { cn } from "@/lib/utils";
 import { Zap, Cog, FileText, Mail, Mic2, LayoutTemplate, Search, Send, Target } from "lucide-react";
 
 interface UpcomingTasksProps {

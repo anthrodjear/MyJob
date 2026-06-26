@@ -6,8 +6,6 @@
  */
 
 import { z } from "zod";
-import type { Job, JobStatus, JobSource, JobListParams, JobListResponse } from "@/lib/types/jobs";
-import type { SortDirection } from "@/lib/types/common";
 
 /** Valid job status values — matches backend ApplicationStatus. */
 export const jobStatusSchema = z.enum([

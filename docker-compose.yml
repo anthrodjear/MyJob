@@ -54,12 +54,12 @@ services:
       - myjob-net
 
   livekit:
-    image: livekit/livekit-server:latest
+    image: livekit/livekit-server:1.6.1
     restart: unless-stopped
     ports:
       - "7880:7880"
       - "7881:7881"
-    command: --config /etc/livekit.yaml --dev
+    command: --config /etc/livekit.yaml ${LIVEKIT_FLAGS:---dev}
     volumes:
       - ./config/livekit.yaml:/etc/livekit.yaml:ro
     healthcheck:
@@ -72,12 +72,19 @@ services:
 
   
   # Application Services
+  # image: used for `docker compose pull` in CD (pulls from GHCR)
+  # build: used for `docker compose build` in local dev (builds from source)
   
 
   api:
+    # image: used for `docker compose pull` in CD (pulls from GHCR)
+    # build: used for `docker compose build` in local dev (builds from source)
+    image: ghcr.io/${GITHUB_REPO_OWNER:-anthrodjear}/myjob-api:${API_TAG:-latest}
     build:
       context: ./backend
       dockerfile: Dockerfile.api
+      args:
+        BUILD_TIME: ${BUILD_TIME:-}
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -120,9 +127,12 @@ services:
       - myjob-net
 
   worker:
+    image: ghcr.io/${GITHUB_REPO_OWNER:-anthrodjear}/myjob-worker:${WORKER_TAG:-latest}
     build:
       context: ./backend
       dockerfile: Dockerfile.worker
+      args:
+        BUILD_TIME: ${BUILD_TIME:-}
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -157,9 +167,12 @@ services:
       - myjob-net
 
   browser-agent:
+    image: ghcr.io/${GITHUB_REPO_OWNER:-anthrodjear}/myjob-browser-agent:${BROWSER_AGENT_TAG:-latest}
     build:
       context: ./browser-agent
       dockerfile: Dockerfile
+      args:
+        BUILD_TIME: ${BUILD_TIME:-}
     restart: unless-stopped
     ports:
       - "3001:3000"
@@ -184,6 +197,7 @@ services:
       - myjob-net
 
   frontend:
+    image: ghcr.io/${GITHUB_REPO_OWNER:-anthrodjear}/myjob-frontend:${FRONTEND_TAG:-latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile

@@ -14,14 +14,12 @@
 
 "use client";
 
-import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTasks } from "@/hooks/useTasks";
 import { TaskList } from "@/components/tasks/TaskList";
 import { CardSkeleton } from "@/components/shared/LoadingSkeleton";
 import { Pagination } from "@/components/shared/Pagination";
 import { Button } from "@/components/shared/Button";
-import { cn } from "@/lib/utils";
 import type { TaskStatus } from "@/lib/types/tasks";
 
 const PAGE_SIZE = 20;

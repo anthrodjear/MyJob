@@ -7,6 +7,8 @@ set -euo pipefail
 
 API_URL="${API_URL:-http://localhost:8080}"
 FRONTEND_URL="${FRONTEND_URL:-http://localhost:3000}"
+WORKER_URL="${WORKER_URL:-http://localhost:8081}"
+BROWSER_AGENT_URL="${BROWSER_AGENT_URL:-http://localhost:3001}"
 MAX_RETRIES="${MAX_RETRIES:-30}"
 RETRY_INTERVAL="${RETRY_INTERVAL:-2}"
 
@@ -50,10 +52,37 @@ check_frontend() {
   fi
 }
 
+# Check worker is running (Docker container status)
+check_worker_running() {
+  local status
+  status=$(docker inspect --format='{{.State.Status}}' myjob-worker-1 2>/dev/null || echo "not_found")
+  if [ "$status" = "running" ]; then
+    log "✓ Worker container is running"
+  else
+    fail "Worker container status: $status"
+  fi
+}
+
+# Check browser-agent is running and responds
+check_browser_agent_running() {
+  local status
+  status=$(docker inspect --format='{{.State.Status}}' myjob-browser-agent-1 2>/dev/null || echo "not_found")
+  if [ "$status" = "running" ]; then
+    log "✓ Browser agent container is running"
+  else
+    fail "Browser agent container status: $status"
+  fi
+}
+
 # Main
 log "Starting health checks..."
-log "API: $API_URL | Frontend: $FRONTEND_URL"
+log "API: $API_URL | Frontend: $FRONTEND_URL | Worker: $WORKER_URL | Browser Agent: $BROWSER_AGENT_URL"
 
+# Docker container status checks
+check_worker_running
+check_browser_agent_running
+
+# HTTP endpoint checks
 wait_for_url "$API_URL/health" "API" "$MAX_RETRIES" "$RETRY_INTERVAL"
 check_api_health
 

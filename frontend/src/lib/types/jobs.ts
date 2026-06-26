@@ -1,5 +1,3 @@
-import type { SortDirection } from "./common";
-
 export interface Job {
   id: string;
   source_id: string;

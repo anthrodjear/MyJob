@@ -12,7 +12,6 @@
 
 import { apiGet, apiPost, apiPut, apiDelete } from "./client";
 import type {
-  Resume,
   ResumeDetail,
   ResumeListResponse,
   ResumeContentResponse,

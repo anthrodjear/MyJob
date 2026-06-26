@@ -7,8 +7,8 @@
 
 import { apiGet } from "@/lib/api/client";
 import type { ApplicationStatsResponse } from "@/lib/types/applications";
-import type { ActivityResponse, ActivityListResponse } from "@/lib/types/activity";
-import type { TaskResponse, TaskListResponse } from "@/lib/types/tasks";
+import type { ActivityListResponse } from "@/lib/types/activity";
+import type { TaskListResponse } from "@/lib/types/tasks";
 
 /**
  * Fetch application statistics for KPI cards and pipeline funnel.

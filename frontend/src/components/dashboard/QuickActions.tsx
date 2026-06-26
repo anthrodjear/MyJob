@@ -8,11 +8,9 @@
 
 "use client";
 
-import { Button } from "@/components/shared/Button";
 import { Badge } from "@/components/shared/Badge";
 import { cn } from "@/lib/utils";
 import {
-  Briefcase,
   CheckCircle,
   Mail,
   Settings,
