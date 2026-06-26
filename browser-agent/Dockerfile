@@ -1,6 +1,8 @@
 # Build stage
 FROM node:20-alpine AS builder
 
+ARG BUILD_TIME=unknown
+
 WORKDIR /app
 
 # Copy package files

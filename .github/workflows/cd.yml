@@ -174,11 +174,16 @@ jobs:
             export BROWSER_AGENT_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-browser-agent:$TAG"
             export FRONTEND_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:$TAG"
 
+            # Set tag env vars for docker-compose.yml image: directives
+            export GITHUB_REPO_OWNER="${{ env.IMAGE_PREFIX }}"
+            export API_TAG="$TAG"
+            export WORKER_TAG="$TAG"
+            export BROWSER_AGENT_TAG="$TAG"
+            export FRONTEND_TAG="$TAG"
+            export BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
             docker compose pull api worker browser-agent frontend
-            docker compose up -d --no-deps api
-            docker compose up -d --no-deps worker
-            docker compose up -d --no-deps browser-agent
-            docker compose up -d --no-deps frontend
+            docker compose up -d --force-recreate --no-build api worker browser-agent frontend
             echo "=== Deploy complete ==="
 
       - name: Health check
@@ -211,8 +216,13 @@ jobs:
             export WORKER_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-worker:$PREV_TAG"
             export BROWSER_AGENT_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-browser-agent:$PREV_TAG"
             export FRONTEND_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:$PREV_TAG"
+            export GITHUB_REPO_OWNER="${{ env.IMAGE_PREFIX }}"
+            export API_TAG="$PREV_TAG"
+            export WORKER_TAG="$PREV_TAG"
+            export BROWSER_AGENT_TAG="$PREV_TAG"
+            export FRONTEND_TAG="$PREV_TAG"
             docker compose pull api worker browser-agent frontend
-            docker compose up -d --force-recreate
+            docker compose up -d --force-recreate --no-build
             echo "=== Rollback complete ==="
 
   deploy-docker-production:
@@ -264,11 +274,16 @@ jobs:
             export BROWSER_AGENT_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-browser-agent:$TAG"
             export FRONTEND_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:$TAG"
 
+            # Set tag env vars for docker-compose.yml image: directives
+            export GITHUB_REPO_OWNER="${{ env.IMAGE_PREFIX }}"
+            export API_TAG="$TAG"
+            export WORKER_TAG="$TAG"
+            export BROWSER_AGENT_TAG="$TAG"
+            export FRONTEND_TAG="$TAG"
+            export BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
             docker compose pull api worker browser-agent frontend
-            docker compose up -d --no-deps api
-            docker compose up -d --no-deps worker
-            docker compose up -d --no-deps browser-agent
-            docker compose up -d --no-deps frontend
+            docker compose up -d --force-recreate --no-build api worker browser-agent frontend
             echo "=== Deploy complete ==="
 
       - name: Health check
@@ -308,8 +323,13 @@ jobs:
             export WORKER_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-worker:$PREV_TAG"
             export BROWSER_AGENT_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-browser-agent:$PREV_TAG"
             export FRONTEND_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:$PREV_TAG"
+            export GITHUB_REPO_OWNER="${{ env.IMAGE_PREFIX }}"
+            export API_TAG="$PREV_TAG"
+            export WORKER_TAG="$PREV_TAG"
+            export BROWSER_AGENT_TAG="$PREV_TAG"
+            export FRONTEND_TAG="$PREV_TAG"
             docker compose pull api worker browser-agent frontend
-            docker compose up -d --force-recreate
+            docker compose up -d --force-recreate --no-build
             echo "=== Rollback complete ==="
 
   # ---------------------------------------------------------------------------

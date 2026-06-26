@@ -75,9 +75,12 @@ services:
   
 
   api:
+    image: ghcr.io/${GITHUB_REPO_OWNER:-anthrodjear}/myjob-api:${API_TAG:-latest}
     build:
       context: ./backend
       dockerfile: Dockerfile.api
+      args:
+        BUILD_TIME: ${BUILD_TIME:-}
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -120,9 +123,12 @@ services:
       - myjob-net
 
   worker:
+    image: ghcr.io/${GITHUB_REPO_OWNER:-anthrodjear}/myjob-worker:${WORKER_TAG:-latest}
     build:
       context: ./backend
       dockerfile: Dockerfile.worker
+      args:
+        BUILD_TIME: ${BUILD_TIME:-}
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -157,9 +163,12 @@ services:
       - myjob-net
 
   browser-agent:
+    image: ghcr.io/${GITHUB_REPO_OWNER:-anthrodjear}/myjob-browser-agent:${BROWSER_AGENT_TAG:-latest}
     build:
       context: ./browser-agent
       dockerfile: Dockerfile
+      args:
+        BUILD_TIME: ${BUILD_TIME:-}
     restart: unless-stopped
     ports:
       - "3001:3000"
@@ -184,6 +193,7 @@ services:
       - myjob-net
 
   frontend:
+    image: ghcr.io/${GITHUB_REPO_OWNER:-anthrodjear}/myjob-frontend:${FRONTEND_TAG:-latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile
