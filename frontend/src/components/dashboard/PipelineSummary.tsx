@@ -9,8 +9,6 @@
 import { type ApplicationStatsResponse, ApplicationStatus } from "@/lib/types/applications";
 import { Card } from "@/components/shared/Card";
 import { Badge } from "@/components/shared/Badge";
-import { cn } from "@/lib/utils";
-
 interface PipelineSummaryProps {
   /** Application stats from GET /applications/stats */
   stats: ApplicationStatsResponse;

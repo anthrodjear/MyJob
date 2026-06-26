@@ -70,7 +70,7 @@ export function useUpdateEmail() {
         queryClient.setQueryData(["emails", id], context.previous);
       }
     },
-    onSettled: (_data, _error, { id }) => {
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["emails"] });
     },
   });

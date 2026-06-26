@@ -21,7 +21,6 @@ import {
 import type { ResumeDetail as ResumeDetailType } from "@/lib/types/resumes";
 import { useDeleteResume, useGenerateResumeContent } from "@/hooks/useResumes";
 import { Button } from "@/components/shared/Button";
-import { cn } from "@/lib/utils";
 
 interface ResumeDetailProps {
   resume: ResumeDetailType;

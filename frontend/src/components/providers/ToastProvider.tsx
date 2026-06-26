@@ -79,6 +79,16 @@ export function ToastProvider({
   const [toasts, setToasts] = useState<Toast[]>([]);
   const timeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
+  const dismiss = useCallback((id: string) => {
+    // Clear associated timeout if exists
+    const timeout = timeoutsRef.current.get(id);
+    if (timeout != null) {
+      clearTimeout(timeout);
+      timeoutsRef.current.delete(id);
+    }
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
   const toast = useCallback((message: string, type: ToastType = "info") => {
     const id = crypto.randomUUID();
     setToasts((prev) => {
@@ -92,17 +102,7 @@ export function ToastProvider({
       dismiss(id);
     }, 5_000);
     timeoutsRef.current.set(id, timeout);
-  }, []);
-
-  const dismiss = useCallback((id: string) => {
-    // Clear associated timeout if exists
-    const timeout = timeoutsRef.current.get(id);
-    if (timeout != null) {
-      clearTimeout(timeout);
-      timeoutsRef.current.delete(id);
-    }
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
+  }, [dismiss]);
 
   return (
     <ToastContext.Provider value={{ toast }}>

@@ -18,7 +18,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchSystemConfig, setOverride, deleteOverride } from "@/lib/api/config";
-import type { EffectiveConfig, SystemConfigResponse } from "@/lib/types/config";
+import type { SystemConfigResponse } from "@/lib/types/config";
 
 /**
  * Query keys for system config — consistent cache invalidation.
