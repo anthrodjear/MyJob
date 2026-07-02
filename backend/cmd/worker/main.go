@@ -33,7 +33,7 @@ func main() {
 		logger.Fatal("config validation failed", zap.Error(err))
 	}
 
-	postgres, err := database.NewPostgresDB(cfg.Database.URL, logger)
+	postgres, err := database.NewPostgresDB(cfg.Database, logger)
 	if err != nil {
 		logger.Fatal("Failed to connect to PostgreSQL", zap.Error(err))
 	}

@@ -282,6 +282,9 @@ func (c *Config) Validate() error {
 	if c.Database.MaxIdleConns > c.Database.MaxOpenConns {
 		return errors.New("config: MaxIdleConns must not exceed MaxOpenConns")
 	}
+	if c.Database.ConnMaxLifetime < 0 {
+		return errors.New("config: ConnMaxLifetime must be non-negative")
+	}
 	if c.Redis.URL == "" {
 		return errors.New("config: Redis URL required")
 	}

@@ -122,9 +122,12 @@ func NewNoopEmbeddingClient(logger *zap.Logger) *NoopEmbeddingClient {
 	return &NoopEmbeddingClient{logger: logger.Named("embeddings.noop")}
 }
 
-// Embed returns a zero vector — used when embedding generation is disabled.
+// Embed returns nil and an error — callers must check the error before using the slice.
+// Returning nil (not empty slice) prevents downstream code from treating a failed
+// embedding as a valid zero-dimensional vector and crashing on pgvector inserts or
+// similarity calculations.
 func (n *NoopEmbeddingClient) Embed(_ context.Context, _ string) ([]float32, error) {
-	return []float32{}, fmt.Errorf("embedding generation disabled")
+	return nil, fmt.Errorf("embedding generation disabled")
 }
 
 // ModelName returns the model identifier.

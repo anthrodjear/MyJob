@@ -8,6 +8,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"go.uber.org/zap"
+
+	"backend/internal/config"
 )
 
 type PostgresDB struct {
@@ -15,16 +17,16 @@ type PostgresDB struct {
 	Logger *zap.Logger
 }
 
-func NewPostgresDB(databaseURL string, logger *zap.Logger) (*PostgresDB, error) {
-	db, err := sqlx.Connect("postgres", databaseURL)
+func NewPostgresDB(cfg config.DatabaseConfig, logger *zap.Logger) (*PostgresDB, error) {
+	db, err := sqlx.Connect("postgres", cfg.URL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	// Configure connection pool
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	// Configure connection pool from application config.
+	db.SetMaxOpenConns(cfg.MaxOpenConns)
+	db.SetMaxIdleConns(cfg.MaxIdleConns)
+	db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
 
 	// Test connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -34,7 +36,11 @@ func NewPostgresDB(databaseURL string, logger *zap.Logger) (*PostgresDB, error) 
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	logger.Info("Connected to PostgreSQL database")
+	logger.Info("Connected to PostgreSQL database",
+		zap.Int("max_open_conns", cfg.MaxOpenConns),
+		zap.Int("max_idle_conns", cfg.MaxIdleConns),
+		zap.Duration("conn_max_lifetime", cfg.ConnMaxLifetime),
+	)
 
 	return &PostgresDB{
 		DB:     db,

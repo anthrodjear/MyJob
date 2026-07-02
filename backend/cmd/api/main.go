@@ -64,7 +64,7 @@ func main() {
 	defer logger.Sync()
 
 	// Connect to PostgreSQL
-	postgres, err := database.NewPostgresDB(cfg.Database.URL, logger)
+	postgres, err := database.NewPostgresDB(cfg.Database, logger)
 	if err != nil {
 		logger.Fatal("Failed to connect to PostgreSQL", zap.Error(err))
 	}
