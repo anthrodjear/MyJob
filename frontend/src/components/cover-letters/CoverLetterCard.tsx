@@ -11,7 +11,7 @@
 "use client";
 
 import Link from "next/link";
-import { Mail, FileText } from "lucide-react";
+import { Mail } from "lucide-react";
 import type { CoverLetter } from "@/lib/types/resumes";
 import { cn } from "@/lib/utils";
 

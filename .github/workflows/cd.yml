@@ -87,7 +87,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "method=$INPUT_DEPLOY_METHOD" >> $GITHUB_OUTPUT
           else
-            echo "method=kubernetes" >> $GITHUB_OUTPUT
+            echo "method=docker-compose" >> $GITHUB_OUTPUT
           fi
 
       - name: Validate CI passed
@@ -150,6 +150,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Save previous tag for rollback
+        id: prev-tag
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            DEPLOY_DIR="${{ vars.DEPLOY_DIR || '/opt/myjob' }}"
+            cd "$DEPLOY_DIR" 2>/dev/null || true
+            # Try to read current image tag from running container
+            PREV_TAG=$(docker inspect --format='{{.Config.Image}}' myjob-api-1 2>/dev/null | cut -d: -f2 || echo "")
+            if [ -n "$PREV_TAG" ]; then
+              echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
+              echo "Previous tag: $PREV_TAG"
+            else
+              echo "tag=" >> $GITHUB_OUTPUT
+              echo "No previous deployment found (first deploy)"
+            fi
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
@@ -165,20 +186,21 @@ jobs:
             # Login to GHCR on remote
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # Save current tag for rollback (from running container)
-            PREV_TAG=$(docker inspect --format='{{.Config.Image}}' myjob-api-1 2>/dev/null | cut -d: -f2 || echo "")
-            echo "$PREV_TAG" > /tmp/myjob-previous-tag.txt
-
             export API_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-api:$TAG"
             export WORKER_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-worker:$TAG"
             export BROWSER_AGENT_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-browser-agent:$TAG"
             export FRONTEND_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:$TAG"
 
+            # Set tag env vars for docker-compose.yml image: directives
+            export GITHUB_REPO_OWNER="${{ env.IMAGE_PREFIX }}"
+            export API_TAG="$TAG"
+            export WORKER_TAG="$TAG"
+            export BROWSER_AGENT_TAG="$TAG"
+            export FRONTEND_TAG="$TAG"
+            export BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
             docker compose pull api worker browser-agent frontend
-            docker compose up -d --no-deps api
-            docker compose up -d --no-deps worker
-            docker compose up -d --no-deps browser-agent
-            docker compose up -d --no-deps frontend
+            docker compose up -d --force-recreate --no-build api worker browser-agent frontend
             echo "=== Deploy complete ==="
 
       - name: Health check
@@ -200,10 +222,10 @@ jobs:
           script: |
             set -euo pipefail
             DEPLOY_DIR="${{ vars.DEPLOY_DIR || '/opt/myjob' }}"
-            PREV_TAG=$(cat /tmp/myjob-previous-tag.txt 2>/dev/null || echo "")
+            PREV_TAG="${{ needs.prev-tag.outputs.tag }}"
             if [ -z "$PREV_TAG" ]; then
-              echo "No previous tag found — cannot rollback"
-              exit 1
+              echo "No previous tag found — cannot rollback (first deploy)"
+              exit 0
             fi
             echo "=== ROLLING BACK to $PREV_TAG ==="
             cd "$DEPLOY_DIR"
@@ -211,8 +233,13 @@ jobs:
             export WORKER_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-worker:$PREV_TAG"
             export BROWSER_AGENT_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-browser-agent:$PREV_TAG"
             export FRONTEND_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:$PREV_TAG"
+            export GITHUB_REPO_OWNER="${{ env.IMAGE_PREFIX }}"
+            export API_TAG="$PREV_TAG"
+            export WORKER_TAG="$PREV_TAG"
+            export BROWSER_AGENT_TAG="$PREV_TAG"
+            export FRONTEND_TAG="$PREV_TAG"
             docker compose pull api worker browser-agent frontend
-            docker compose up -d --force-recreate
+            docker compose up -d --force-recreate --no-build
             echo "=== Rollback complete ==="
 
   deploy-docker-production:
@@ -237,6 +264,26 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Save previous tag for rollback
+        id: prev-tag
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            DEPLOY_DIR="${{ vars.DEPLOY_DIR || '/opt/myjob' }}"
+            cd "$DEPLOY_DIR" 2>/dev/null || true
+            PREV_TAG=$(docker inspect --format='{{.Config.Image}}' myjob-api-1 2>/dev/null | cut -d: -f2 || echo "")
+            if [ -n "$PREV_TAG" ]; then
+              echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
+              echo "Previous tag: $PREV_TAG"
+            else
+              echo "tag=" >> $GITHUB_OUTPUT
+              echo "No previous deployment found (first deploy)"
+            fi
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
@@ -252,10 +299,6 @@ jobs:
             # Login to GHCR on remote
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # Save current tag for rollback (from running container)
-            PREV_TAG=$(docker inspect --format='{{.Config.Image}}' myjob-api-1 2>/dev/null | cut -d: -f2 || echo "")
-            echo "$PREV_TAG" > /tmp/myjob-previous-tag.txt
-
             # Backup database
             docker compose exec -T postgres pg_dump -U myjob myjob | gzip > /tmp/myjob-db-backup.sql.gz
 
@@ -264,11 +307,16 @@ jobs:
             export BROWSER_AGENT_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-browser-agent:$TAG"
             export FRONTEND_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:$TAG"
 
+            # Set tag env vars for docker-compose.yml image: directives
+            export GITHUB_REPO_OWNER="${{ env.IMAGE_PREFIX }}"
+            export API_TAG="$TAG"
+            export WORKER_TAG="$TAG"
+            export BROWSER_AGENT_TAG="$TAG"
+            export FRONTEND_TAG="$TAG"
+            export BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
             docker compose pull api worker browser-agent frontend
-            docker compose up -d --no-deps api
-            docker compose up -d --no-deps worker
-            docker compose up -d --no-deps browser-agent
-            docker compose up -d --no-deps frontend
+            docker compose up -d --force-recreate --no-build api worker browser-agent frontend
             echo "=== Deploy complete ==="
 
       - name: Health check
@@ -290,10 +338,10 @@ jobs:
           script: |
             set -euo pipefail
             DEPLOY_DIR="${{ vars.DEPLOY_DIR || '/opt/myjob' }}"
-            PREV_TAG=$(cat /tmp/myjob-previous-tag.txt 2>/dev/null || echo "")
+            PREV_TAG="${{ needs.prev-tag.outputs.tag }}"
             if [ -z "$PREV_TAG" ]; then
-              echo "No previous tag found — cannot rollback"
-              exit 1
+              echo "No previous tag found — cannot rollback (first deploy)"
+              exit 0
             fi
             echo "=== ROLLING BACK to $PREV_TAG ==="
             cd "$DEPLOY_DIR"
@@ -308,8 +356,13 @@ jobs:
             export WORKER_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-worker:$PREV_TAG"
             export BROWSER_AGENT_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-browser-agent:$PREV_TAG"
             export FRONTEND_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:$PREV_TAG"
+            export GITHUB_REPO_OWNER="${{ env.IMAGE_PREFIX }}"
+            export API_TAG="$PREV_TAG"
+            export WORKER_TAG="$PREV_TAG"
+            export BROWSER_AGENT_TAG="$PREV_TAG"
+            export FRONTEND_TAG="$PREV_TAG"
             docker compose pull api worker browser-agent frontend
-            docker compose up -d --force-recreate
+            docker compose up -d --force-recreate --no-build
             echo "=== Rollback complete ==="
 
   # ---------------------------------------------------------------------------

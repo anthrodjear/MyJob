@@ -107,15 +107,23 @@ func (s *Service) GetJob(ctx context.Context, id uuid.UUID) (JobData, error) {
 			heuristicScore := ComputeScore(heuristicDetails, weights)
 			heuristicTier := Tier(heuristicScore, s.cfg.AutoThreshold, s.cfg.ReviewThreshold)
 
-			// Fast-path: auto-reject obvious mismatches without LLM cost
+			// Fast-path: auto-reject obvious mismatches without LLM cost.
+			// The auto-reject threshold is reviewThreshold - margin.
+			// If a job scores below this, it's so far from qualifying that
+			// the LLM won't change the outcome — skip the API call.
 			margin := s.cfg.HybridRejectMargin
 			if margin == 0 {
 				margin = 20
 			}
-			if heuristicTier == TierReject && heuristicScore < float64(s.cfg.ReviewThreshold)-float64(margin) {
+			autoRejectThreshold := float64(s.cfg.ReviewThreshold) - float64(margin)
+			if autoRejectThreshold < 0 {
+				autoRejectThreshold = 0
+			}
+			if heuristicTier == TierReject && heuristicScore < autoRejectThreshold {
 				s.logger.Debug("heuristic auto-reject, skipping LLM",
 					zap.String("job_id", jobID.String()),
 					zap.Float64("heuristic_score", heuristicScore),
+					zap.Float64("auto_reject_threshold", autoRejectThreshold),
 				)
 				return s.persistAndReturn(ctx, jobID, heuristicScore, heuristicTier, "heuristic", "", &heuristicDetails)
 			}

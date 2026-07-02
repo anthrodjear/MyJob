@@ -9,17 +9,6 @@
 
 import { z } from "zod";
 import { SKILL_PROFICIENCIES } from "@/lib/types/profile";
-import type {
-  Profile,
-  ProfileData,
-  Skill,
-  Education,
-  PatchProfileRequest,
-  UpdateProfileRequest,
-  SkillProficiency,
-  ProfilePreferences,
-  ProfileLinks,
-} from "@/lib/types/profile";
 
 // ---------------------------------------------------------------------------
 // Sub-schemas

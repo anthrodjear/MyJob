@@ -14,7 +14,7 @@ import {
   approveApproval,
   rejectApproval,
 } from "@/lib/api/approvals";
-import type { Approval, ApprovalListParams } from "@/lib/types/approvals";
+import type { ApprovalListParams } from "@/lib/types/approvals";
 
 /** Stable stringify for query keys — sorts keys for consistent references. */
 function stableStringify(obj: Record<string, unknown>): string {

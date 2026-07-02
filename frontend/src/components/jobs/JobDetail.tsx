@@ -14,7 +14,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   ExternalLink,
   Building2,
@@ -33,7 +33,7 @@ import { ProgressBar } from "@/components/shared/ProgressBar";
 import { Skeleton } from "@/components/shared/LoadingSkeleton";
 import { SOURCE_COLORS } from "@/lib/constants";
 import { useJob, useApplyToJob, useScoreJob, useSaveJob, useUpdateJobStatus, useDeleteJob } from "@/hooks/useJobs";
-import type { Job, JobStatus } from "@/lib/types/jobs";
+import type { JobStatus } from "@/lib/types/jobs";
 
 /** Remote type union for type-safe lookups. */
 type RemoteType = "remote" | "hybrid" | "onsite" | "unknown";
@@ -108,11 +108,6 @@ interface JobDetailProps {
  */
 export function JobDetail({ jobId, onBack, className }: JobDetailProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
-
-  // Reset delete confirmation when job changes
-  useEffect(() => {
-    setConfirmDelete(false);
-  }, [jobId]);
 
   // Fetch job data
   const { data: job, isLoading, error } = useJob(jobId);

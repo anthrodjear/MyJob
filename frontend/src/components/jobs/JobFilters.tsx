@@ -15,7 +15,7 @@
 
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 import { X, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { JobListParams } from "@/lib/types/jobs";

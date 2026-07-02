@@ -14,7 +14,7 @@
 "use client";
 
 import { X, Trash2, BarChart3 } from "lucide-react";
-import { cn, formatDate, formatScore, scoreLevel } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { Badge } from "@/components/shared/Badge";
 import { SourceBadge } from "./SourceBadge";
 import { MatchScoreBadge } from "./MatchScoreBadge";

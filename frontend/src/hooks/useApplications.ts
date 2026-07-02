@@ -20,8 +20,6 @@ import {
 import type {
   Application,
   ApplicationListParams,
-  ApplicationStatsResponse,
-  ApplicationEvent,
   ApplicationStatus,
 } from "@/lib/types/applications";
 

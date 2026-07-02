@@ -282,6 +282,9 @@ func (c *Config) Validate() error {
 	if c.Database.MaxIdleConns > c.Database.MaxOpenConns {
 		return errors.New("config: MaxIdleConns must not exceed MaxOpenConns")
 	}
+	if c.Database.ConnMaxLifetime < 0 {
+		return errors.New("config: ConnMaxLifetime must be non-negative")
+	}
 	if c.Redis.URL == "" {
 		return errors.New("config: Redis URL required")
 	}
@@ -315,6 +318,12 @@ func (c *Config) Validate() error {
 	// Scoring validation
 	if c.Scoring.AutoThreshold <= c.Scoring.ReviewThreshold {
 		return errors.New("config: scoring auto threshold must be greater than review threshold")
+	}
+	if c.Scoring.HybridRejectMargin < 0 {
+		return errors.New("config: scoring hybrid reject margin must be non-negative")
+	}
+	if c.Scoring.HybridRejectMargin >= c.Scoring.ReviewThreshold {
+		return errors.New("config: scoring hybrid reject margin must be less than review threshold")
 	}
 	validModes := map[string]struct{}{"heuristic": {}, "llm": {}, "hybrid": {}}
 	if _, ok := validModes[c.Scoring.Mode]; !ok {
