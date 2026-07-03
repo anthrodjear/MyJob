@@ -222,7 +222,7 @@ jobs:
           script: |
             set -euo pipefail
             DEPLOY_DIR="${{ vars.DEPLOY_DIR || '/opt/myjob' }}"
-            PREV_TAG="${{ needs.prev-tag.outputs.tag }}"
+            PREV_TAG="${{ steps.prev-tag.outputs.tag }}"
             if [ -z "$PREV_TAG" ]; then
               echo "No previous tag found — cannot rollback (first deploy)"
               exit 0
@@ -338,7 +338,7 @@ jobs:
           script: |
             set -euo pipefail
             DEPLOY_DIR="${{ vars.DEPLOY_DIR || '/opt/myjob' }}"
-            PREV_TAG="${{ needs.prev-tag.outputs.tag }}"
+            PREV_TAG="${{ steps.prev-tag.outputs.tag }}"
             if [ -z "$PREV_TAG" ]; then
               echo "No previous tag found — cannot rollback (first deploy)"
               exit 0
