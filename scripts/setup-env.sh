@@ -74,11 +74,12 @@ cp "$ENV_EXAMPLE" "$ENV_FILE"
 JWT_SECRET=$(openssl rand -hex 32 2>/dev/null || head -c 64 /dev/urandom | base64 | tr -d '\n/+=' | head -c 64)
 
 # Replace empty AUTH_JWT_SECRET with generated secret
-# NOTE: AUTH_PASSWORD_HASH is intentionally NOT written to .env because
-# bcrypt hashes contain $ characters that docker-compose interpolates.
-# Instead, make start/build exports it as a shell environment variable.
+# Remove AUTH_PASSWORD_HASH from .env — it's stored in .env.auth instead.
+# Bcrypt hashes contain $ characters that docker-compose interpolates,
+# so the hash MUST be passed via shell export, not .env file.
 # Use awk to avoid $ interpretation issues in sed
 awk -v secret="$JWT_SECRET" '
+  /^AUTH_PASSWORD_HASH=/  { next }
   /^AUTH_JWT_SECRET=$/    { print "AUTH_JWT_SECRET=" secret; next }
   { print }
 ' "$ENV_FILE" > "$ENV_FILE.tmp" && mv "$ENV_FILE.tmp" "$ENV_FILE"
