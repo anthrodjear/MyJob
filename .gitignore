@@ -33,6 +33,7 @@ storage/
 
 # Environment
 .env
+.env.auth
 .env.local
 .env*.local
 
