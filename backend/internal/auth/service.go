@@ -4,9 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"backend/internal/config"
+	"backend/internal/systemconfig"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -25,15 +29,17 @@ var (
 
 // Service handles authentication business logic.
 type Service struct {
-	repo *Repository
-	cfg  config.AuthConfig
+	repo       *Repository
+	cfg        config.AuthConfig
+	configSvc  *systemconfig.Service
 }
 
 // NewService creates a new auth service.
-func NewService(repo *Repository, cfg config.AuthConfig) *Service {
+func NewService(repo *Repository, cfg config.AuthConfig, configSvc *systemconfig.Service) *Service {
 	return &Service{
-		repo: repo,
-		cfg:  cfg,
+		repo:      repo,
+		cfg:       cfg,
+		configSvc: configSvc,
 	}
 }
 
@@ -200,7 +206,7 @@ func (s *Service) generateToken(ctx context.Context) (string, int64, error) {
 	return tokenString, expiresAt.Unix(), nil
 }
 
-// UpdateLastLogin updates the user's last login timestamp implimente in handler.
+// UpdateLastLogin updates the user's last login timestamp implemented in handler.
 func (s *Service) UpdateLastLogin(ctx context.Context) error {
 	return s.repo.UpdateLastLogin(ctx)
 }
@@ -244,4 +250,131 @@ func (s *Service) CompleteSetup(ctx context.Context, username, email, password s
 	}
 
 	return nil
+}
+
+// CompleteOnboarding marks onboarding as finished.
+func (s *Service) CompleteOnboarding(ctx context.Context) error {
+	return s.repo.SetOnboardingCompleted(ctx, time.Now())
+}
+
+// UpdateOnboardingStep tracks progress for resume capability.
+func (s *Service) UpdateOnboardingStep(ctx context.Context, step string) error {
+	return s.repo.UpdateOnboardingStep(ctx, step)
+}
+
+// SaveOnboardingConfig persists all onboarding config overrides.
+func (s *Service) SaveOnboardingConfig(ctx context.Context, req *OnboardingConfigRequest) error {
+	configs := map[string]string{}
+	if req.OpenAIKey != "" {
+		configs["llm.primary.api_key"] = req.OpenAIKey
+	}
+	if req.AnthropicKey != "" {
+		configs["llm.fallback.api_key"] = req.AnthropicKey
+	}
+	if req.LivekitURL != "" {
+		configs["voice.livekit.url"] = req.LivekitURL
+	}
+	if req.LivekitKey != "" {
+		configs["voice.livekit.api_key"] = req.LivekitKey
+	}
+	if req.LivekitSecret != "" {
+		configs["voice.livekit.api_secret"] = req.LivekitSecret
+	}
+	if req.MSTenantID != "" {
+		configs["email.ms_365.tenant_id"] = req.MSTenantID
+	}
+	if req.MSClientID != "" {
+		configs["email.ms_365.client_id"] = req.MSClientID
+	}
+	if req.MSClientSecret != "" {
+		configs["email.ms_365.client_secret"] = req.MSClientSecret
+	}
+
+	for key, value := range configs {
+		if err := s.configSvc.SetOverride(ctx, key, []byte(value)); err != nil {
+			return fmt.Errorf("auth: save config %s: %w", key, err)
+		}
+	}
+	return nil
+}
+
+// TestLLMKey validates an LLM API key by calling the provider's API.
+func (s *Service) TestLLMKey(ctx context.Context, provider, apiKey string) (bool, error) {
+	switch provider {
+	case "openai":
+		return s.testOpenAIKey(ctx, apiKey)
+	case "anthropic":
+		return s.testAnthropicKey(ctx, apiKey)
+	default:
+		return false, fmt.Errorf("auth: unsupported provider: %s", provider)
+	}
+}
+
+// testHTTPClient is a shared HTTP client with timeout for provider validation.
+var testHTTPClient = &http.Client{Timeout: 10 * time.Second}
+
+func (s *Service) testOpenAIKey(ctx context.Context, apiKey string) (bool, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.openai.com/v1/models", nil)
+	if err != nil {
+		return false, fmt.Errorf("auth: create openai request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	resp, err := testHTTPClient.Do(req)
+	if err != nil {
+		return false, nil // network error, not invalid key
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == 200, nil
+}
+
+func (s *Service) testAnthropicKey(ctx context.Context, apiKey string) (bool, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.anthropic.com/v1/models", nil)
+	if err != nil {
+		return false, fmt.Errorf("auth: create anthropic request: %w", err)
+	}
+	req.Header.Set("x-api-key", apiKey)
+	req.Header.Set("anthropic-version", "2023-06-01")
+	resp, err := testHTTPClient.Do(req)
+	if err != nil {
+		return false, nil
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == 200, nil
+}
+
+// TestVoiceConfig validates LiveKit credentials by listing rooms.
+func (s *Service) TestVoiceConfig(ctx context.Context, livekitURL, apiKey, apiSecret string) (bool, error) {
+	listURL := strings.TrimSuffix(livekitURL, "/") + "/rooms"
+	req, err := http.NewRequestWithContext(ctx, "GET", listURL, nil)
+	if err != nil {
+		return false, fmt.Errorf("auth: create livekit request: %w", err)
+	}
+	req.SetBasicAuth(apiKey, apiSecret)
+	resp, err := testHTTPClient.Do(req)
+	if err != nil {
+		return false, nil // connection failed
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == 200, nil
+}
+
+// TestEmailConfig validates Microsoft Graph credentials via client_credentials flow.
+func (s *Service) TestEmailConfig(ctx context.Context, tenantID, clientID, clientSecret string) (bool, error) {
+	// Validate tenantID is a valid GUID to prevent URL injection
+	if _, err := uuid.Parse(tenantID); err != nil {
+		return false, fmt.Errorf("auth: invalid tenant ID format: %w", err)
+	}
+	tokenURL := fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", tenantID)
+	data := url.Values{}
+	data.Set("grant_type", "client_credentials")
+	data.Set("client_id", clientID)
+	data.Set("client_secret", clientSecret)
+	data.Set("scope", "https://graph.microsoft.com/.default")
+
+	resp, err := testHTTPClient.PostForm(tokenURL, data)
+	if err != nil {
+		return false, nil
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == 200, nil
 }
