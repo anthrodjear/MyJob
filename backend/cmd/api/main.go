@@ -32,16 +32,6 @@ import (
 	"backend/internal/tasks"
 )
 
-// getEnvDuration parses a duration from environment variable with a fallback.
-func getEnvDuration(key string, fallback time.Duration) time.Duration {
-	if value := os.Getenv(key); value != "" {
-		if d, err := time.ParseDuration(value); err == nil {
-			return d
-		}
-	}
-	return fallback
-}
-
 // toEmailPromptPair converts config.PromptPair to emails.PromptPair.
 func toEmailPromptPair(cfg config.PromptPair) emails.PromptPair {
 	return emails.PromptPair{

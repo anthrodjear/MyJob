@@ -264,6 +264,9 @@ func (r *Repository) GetStats(ctx context.Context) (*ApplicationStatsResponse, e
 		}
 		stats.ByStatus[status] = count
 	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate status rows: %w", err)
+	}
 
 	// By tier
 	rows2, err := r.db.QueryContext(ctx, "SELECT approval_tier, COUNT(*) FROM applications GROUP BY approval_tier")
@@ -278,6 +281,9 @@ func (r *Repository) GetStats(ctx context.Context) (*ApplicationStatsResponse, e
 			return nil, fmt.Errorf("scan tier count: %w", err)
 		}
 		stats.ByTier[tier] = count
+	}
+	if err = rows2.Err(); err != nil {
+		return nil, fmt.Errorf("iterate tier rows: %w", err)
 	}
 
 	return stats, nil

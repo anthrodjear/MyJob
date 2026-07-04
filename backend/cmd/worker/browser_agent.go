@@ -233,7 +233,7 @@ func (c *HTTPBrowserAgentClient) FillForm(ctx context.Context, req FillFormReque
 
 // CheckEmails calls the browser agent's email checking endpoint.
 func (c *HTTPBrowserAgentClient) CheckEmails(ctx context.Context, req CheckEmailsRequest) (*CheckEmailsResponse, error) {
-	data, err := json.Marshal(req)
+	data, err := json.Marshal(req) //nolint:gosec // ClientSecret is needed by local browser agent for Microsoft Graph auth
 	if err != nil {
 		return nil, fmt.Errorf("browser-agent: marshal check emails request: %w", err)
 	}
