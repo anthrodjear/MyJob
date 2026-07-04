@@ -29,7 +29,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/internal/database/migrations:/docker-entrypoint-initdb.d:ro
+      - ./backend/internal/database/initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U myjob -d myjob"]
       interval: 5s
@@ -54,7 +54,7 @@ services:
       - myjob-net
 
   livekit:
-    image: livekit/livekit-server:1.6.1
+    image: livekit/livekit-server:latest
     restart: unless-stopped
     ports:
       - "7880:7880"
@@ -119,10 +119,10 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 5
-      start_period: 15s
+      retries: 10
+      start_period: 60s
     networks:
       - myjob-net
 
