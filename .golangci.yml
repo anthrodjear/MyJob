@@ -1,6 +1,7 @@
-version: "1"
+version: "2"
 
 linters:
+  default: none
   enable:
     - errcheck
     - gosimple
@@ -18,15 +19,16 @@ linters:
     - bodyclose
     - nilerr
 
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-    check-blank: true
-  gosec:
-    excludes:
-      - G104  # Unhandled errors — we handle them via our httpresp package
-  goimports:
-    local-prefixes: backend
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    gosec:
+      excludes:
+        - G104  # Unhandled errors — we handle them via our httpresp package
+    goimports:
+      local-prefixes:
+        - backend
 
 issues:
   exclude-rules:
