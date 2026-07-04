@@ -1,9 +1,17 @@
 /**
- * Auth API functions — login and password management.
+ * Auth API functions — login, password management, and onboarding.
  *
  * Backend endpoints:
  * - POST /auth/login → { access_token, expires_at }
  * - POST /auth/change-password → { message }
+ * - GET /auth/setup/status → { setup_required, step }
+ * - POST /auth/setup → { message }
+ * - POST /auth/setup/test-llm → { valid }
+ * - POST /auth/setup/test-voice → { valid }
+ * - POST /auth/setup/test-email → { valid }
+ * - POST /auth/setup/config → { message }
+ * - POST /auth/setup/onboarding-step → { message }
+ * - POST /auth/setup/complete-onboarding → { message }
  *
  * Token storage is handled by lib/auth.ts (localStorage).
  * The API client (lib/api/client.ts) automatically injects the token.
@@ -79,6 +87,7 @@ export async function changePassword(
 /** Response from GET /auth/setup/status. */
 export interface SetupStatusResponse {
   setup_required: boolean;
+  step?: string;
 }
 
 /** Response from POST /auth/setup. */
@@ -89,7 +98,7 @@ export interface SetupResponse {
 /**
  * Check if setup is required (no users exist).
  *
- * @returns Setup status with setup_required flag
+ * @returns Setup status with setup_required flag and optional step for resume
  * @throws ApiError on server error
  */
 export async function getSetupStatus(): Promise<SetupStatusResponse> {
@@ -121,6 +130,160 @@ export async function completeSetup(
   });
   if (resp == null) {
     throw new Error("Setup failed: no response from server");
+  }
+  return resp;
+}
+
+// --- Onboarding API ---
+
+/** Response from POST /auth/setup/test-llm, test-voice, test-email. */
+export interface TestServiceResponse {
+  valid: boolean;
+}
+
+/** Response from POST /auth/setup/config, onboarding-step, complete-onboarding. */
+export interface OnboardingResponse {
+  message: string;
+}
+
+/** Payload for POST /auth/setup/config. */
+export interface OnboardingConfigPayload {
+  openai_key?: string;
+  anthropic_key?: string;
+  livekit_url?: string;
+  livekit_key?: string;
+  livekit_secret?: string;
+  ms_tenant_id?: string;
+  ms_client_id?: string;
+  ms_client_secret?: string;
+  auto_threshold?: number;
+  review_threshold?: number;
+  job_sources?: string[];
+  custom_job_sites?: string[];
+}
+
+/**
+ * Test an LLM API key by calling the provider's validation endpoint.
+ *
+ * @param provider - "openai" or "anthropic"
+ * @param apiKey - The API key to validate
+ * @returns Whether the key is valid
+ * @throws ApiError on server error
+ */
+export async function testLLMKey(
+  provider: "openai" | "anthropic",
+  apiKey: string,
+): Promise<TestServiceResponse> {
+  const resp = await apiPost<TestServiceResponse>("auth/setup/test-llm", {
+    provider,
+    api_key: apiKey,
+  });
+  if (resp == null) {
+    throw new Error("LLM test failed: no response from server");
+  }
+  return resp;
+}
+
+/**
+ * Test LiveKit voice configuration by listing rooms.
+ *
+ * @param url - LiveKit server URL
+ * @param apiKey - LiveKit API key
+ * @param apiSecret - LiveKit API secret
+ * @returns Whether the configuration is valid
+ * @throws ApiError on server error
+ */
+export async function testVoiceConfig(
+  url: string,
+  apiKey: string,
+  apiSecret: string,
+): Promise<TestServiceResponse> {
+  const resp = await apiPost<TestServiceResponse>("auth/setup/test-voice", {
+    url,
+    api_key: apiKey,
+    api_secret: apiSecret,
+  });
+  if (resp == null) {
+    throw new Error("Voice test failed: no response from server");
+  }
+  return resp;
+}
+
+/**
+ * Test Microsoft 365 email configuration via OAuth token flow.
+ *
+ * @param tenantId - Azure AD tenant ID
+ * @param clientId - App registration client ID
+ * @param clientSecret - App registration client secret
+ * @returns Whether the configuration is valid
+ * @throws ApiError on server error
+ */
+export async function testEmailConfig(
+  tenantId: string,
+  clientId: string,
+  clientSecret: string,
+): Promise<TestServiceResponse> {
+  const resp = await apiPost<TestServiceResponse>("auth/setup/test-email", {
+    tenant_id: tenantId,
+    client_id: clientId,
+    client_secret: clientSecret,
+  });
+  if (resp == null) {
+    throw new Error("Email test failed: no response from server");
+  }
+  return resp;
+}
+
+/**
+ * Save onboarding configuration (LLM keys, voice, email settings).
+ *
+ * @param config - Configuration payload with optional fields
+ * @returns Confirmation message
+ * @throws ApiError on server error
+ */
+export async function saveOnboardingConfig(
+  config: OnboardingConfigPayload,
+): Promise<OnboardingResponse> {
+  const resp = await apiPost<OnboardingResponse>("auth/setup/config", config);
+  if (resp == null) {
+    throw new Error("Config save failed: no response from server");
+  }
+  return resp;
+}
+
+/**
+ * Update onboarding step for resume capability.
+ *
+ * @param step - Current step identifier
+ * @returns Confirmation message
+ * @throws ApiError on server error
+ */
+export async function updateOnboardingStep(
+  step: string,
+): Promise<OnboardingResponse> {
+  const resp = await apiPost<OnboardingResponse>(
+    "auth/setup/onboarding-step",
+    { step },
+  );
+  if (resp == null) {
+    throw new Error("Step update failed: no response from server");
+  }
+  return resp;
+}
+
+/**
+ * Mark onboarding as completed.
+ *
+ * @returns Confirmation message
+ * @throws ApiError on server error
+ */
+export async function completeOnboarding(): Promise<OnboardingResponse> {
+  const resp = await apiPost<OnboardingResponse>(
+    "auth/setup/complete-onboarding",
+    {},
+  );
+  if (resp == null) {
+    throw new Error("Onboarding complete failed: no response from server");
   }
   return resp;
 }

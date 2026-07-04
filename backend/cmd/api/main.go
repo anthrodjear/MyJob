@@ -77,12 +77,24 @@ func main() {
 	}
 	defer redis.Close()
 
+	// Initialize system config (needed by auth service for onboarding)
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		configPath = "config/application.yaml"
+	}
+	systemConfigResolver, err := systemconfig.NewResolver(logger, configPath)
+	if err != nil {
+		logger.Fatal("Failed to create system config resolver", zap.Error(err))
+	}
+	systemConfigRepo := systemconfig.NewRepository(postgres.DB)
+	systemConfigService := systemconfig.NewService(systemConfigRepo, systemConfigResolver)
+
 	// Initialize auth domain
 	authRepo, err := auth.NewRepository(postgres.DB, cfg.Auth)
 	if err != nil {
 		logger.Fatal("Failed to create auth repository", zap.Error(err))
 	}
-	authService := auth.NewService(authRepo, cfg.Auth)
+	authService := auth.NewService(authRepo, cfg.Auth, systemConfigService)
 	authHandler := auth.NewHandler(authService, logger)
 
 	// Setup check function — closure over authRepo
@@ -169,17 +181,7 @@ func main() {
 	emailsService := emails.NewService(emailsRepo, emailClassifier)
 	emailsHandler := emails.NewHandler(emailsService, logger)
 
-	// Initialize system config domain
-	configPath := os.Getenv("CONFIG_PATH")
-	if configPath == "" {
-		configPath = "config/application.yaml"
-	}
-	systemConfigResolver, err := systemconfig.NewResolver(logger, configPath)
-	if err != nil {
-		logger.Fatal("Failed to create system config resolver", zap.Error(err))
-	}
-	systemConfigRepo := systemconfig.NewRepository(postgres.DB)
-	systemConfigService := systemconfig.NewService(systemConfigRepo, systemConfigResolver)
+	// Initialize system config handler (service already initialized above)
 	systemConfigHandler := systemconfig.NewHandler(systemConfigService, logger)
 
 	// Setup router with all routes

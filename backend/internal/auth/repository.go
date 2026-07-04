@@ -73,7 +73,9 @@ func (r *Repository) seedIfNeeded(ctx context.Context, initialHash string) error
 func (r *Repository) loadUser(ctx context.Context) (*User, error) {
 	var user User
 	err := r.db.GetContext(ctx, &user, `
-		SELECT id, username, email, password_hash, session_version, last_login_at, password_changed_at, created_at, updated_at
+		SELECT id, username, email, password_hash, session_version, last_login_at,
+		       password_changed_at, onboarding_completed_at, onboarding_step,
+		       created_at, updated_at
 		FROM users
 		WHERE id = 'local-user'
 	`)
@@ -239,5 +241,50 @@ func (r *Repository) CreateAdminUser(ctx context.Context, username, email, passw
 		UpdatedAt:         now,
 	}
 
+	return nil
+}
+
+// IsOnboardingCompleted returns true if onboarding_completed_at is set.
+func (r *Repository) IsOnboardingCompleted(ctx context.Context) (bool, error) {
+	var completed bool
+	err := r.db.GetContext(ctx, &completed,
+		`SELECT onboarding_completed_at IS NOT NULL FROM users WHERE id = 'local-user'`)
+	if err != nil {
+		return false, fmt.Errorf("auth: check onboarding completed: %w", err)
+	}
+	return completed, nil
+}
+
+// GetOnboardingStep returns the current onboarding step for resume capability.
+func (r *Repository) GetOnboardingStep(ctx context.Context) (string, error) {
+	var step sql.NullString
+	err := r.db.GetContext(ctx, &step,
+		`SELECT onboarding_step FROM users WHERE id = 'local-user'`)
+	if err != nil {
+		return "", fmt.Errorf("auth: get onboarding step: %w", err)
+	}
+	if !step.Valid {
+		return "account", nil
+	}
+	return step.String, nil
+}
+
+// SetOnboardingCompleted marks onboarding as finished with timestamp.
+func (r *Repository) SetOnboardingCompleted(ctx context.Context, t time.Time) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users SET onboarding_completed_at = $1, updated_at = $2 WHERE id = 'local-user'`, t, t)
+	if err != nil {
+		return fmt.Errorf("auth: set onboarding completed: %w", err)
+	}
+	return nil
+}
+
+// UpdateOnboardingStep tracks progress for resume capability.
+func (r *Repository) UpdateOnboardingStep(ctx context.Context, step string) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users SET onboarding_step = $1, updated_at = $2 WHERE id = 'local-user'`, step, time.Now())
+	if err != nil {
+		return fmt.Errorf("auth: update onboarding step: %w", err)
+	}
 	return nil
 }
