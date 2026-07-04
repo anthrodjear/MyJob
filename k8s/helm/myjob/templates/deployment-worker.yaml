@@ -1,0 +1,84 @@
+﻿{{- if .Values.worker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-worker
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "myjob.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  {{- if not .Values.worker.autoscaling.enabled }}
+  replicas: {{ .Values.worker.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "myjob.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        {{- include "myjob.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: worker
+          image: {{ include "myjob.worker.image" . }}
+          imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
+          env:
+            - name: APP_ENV
+              value: {{ .Values.worker.env.APP_ENV | quote }}
+            - name: QUEUE_CONCURRENCY
+              value: {{ .Values.worker.env.QUEUE_CONCURRENCY | quote }}
+            - name: CONFIG_PATH
+              value: {{ .Values.worker.env.CONFIG_PATH | quote }}
+            - name: DATABASE_URL
+              value: "postgres://myjob:$(POSTGRES_PASSWORD)@{{ include "myjob.postgres.host" . }}:5432/myjob?sslmode=disable"
+            - name: REDIS_URL
+              value: "redis://{{ include "myjob.redis.host" . }}:6379"
+            - name: BROWSER_AGENT_URL
+              value: "http://{{ .Release.Name }}-browser-agent:{{ .Values.browserAgent.service.port }}"
+            - name: OLLAMA_BASE_URL
+              value: {{ .Values.ollama.baseUrl | default "http://ollama.ollama.svc.cluster.local:11434" | quote }}
+            - name: LIVEKIT_WS_URL
+              value: "ws://{{ .Release.Name }}-livekit:7880"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.database.secretName }}
+                  key: {{ .Values.secrets.database.keys.password }}
+            - name: AUTH_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.auth.secretName }}
+                  key: {{ .Values.secrets.auth.keys.jwtSecret }}
+            - name: AUTH_PASSWORD_HASH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.auth.secretName }}
+                  key: {{ .Values.secrets.auth.keys.passwordHash }}
+            - name: LIVEKIT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.livekit.secretName }}
+                  key: {{ .Values.secrets.livekit.keys.apiKey }}
+            - name: LIVEKIT_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.livekit.secretName }}
+                  key: {{ .Values.secrets.livekit.keys.apiSecret }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+      imagePullSecrets:
+        {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
+{{- end }}

@@ -1,0 +1,38 @@
+# Kustomize base: PDB for API
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: myjob-api-pdb
+  labels:
+    app.kubernetes.io/component: api
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: api
+---
+# Kustomize base: PDB for Worker
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: myjob-worker-pdb
+  labels:
+    app.kubernetes.io/component: worker
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: worker
+---
+# Kustomize base: PDB for Frontend
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: myjob-frontend-pdb
+  labels:
+    app.kubernetes.io/component: frontend
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: frontend

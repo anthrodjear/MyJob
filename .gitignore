@@ -55,8 +55,5 @@ Thumbs.db
 *.log
 logs/
 
-# Kubernetes (local dev only — not for repo)
-k8s/
-
 # Docker
 docker-compose.override.yml
