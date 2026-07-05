@@ -55,11 +55,10 @@ jobs:
           cache: true
           cache-dependency-path: backend/go.sum
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@v9
         with:
           version: v2.12.2
           working-directory: backend
-          args: --config ../.golangci.yml
 
   lint-browser-agent:
     needs: detect-changes
@@ -117,7 +116,7 @@ jobs:
         run: go install github.com/securego/gosec/v2/cmd/gosec@latest
       - name: Run gosec
         working-directory: backend
-        run: $GOPATH/bin/gosec -config .gosec.yaml ./...
+        run: $GOPATH/bin/gosec -config .gosec.json ./...
       - name: Run govulncheck
         working-directory: backend
         run: |
