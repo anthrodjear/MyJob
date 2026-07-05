@@ -116,12 +116,12 @@ jobs:
         run: go install github.com/securego/gosec/v2/cmd/gosec@latest
       - name: Run gosec
         working-directory: backend
-        run: $GOPATH/bin/gosec -config .gosec.json ./...
+        run: $(go env GOPATH)/bin/gosec -config .gosec.json ./...
       - name: Run govulncheck
         working-directory: backend
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
-          govulncheck ./...
+          $(go env GOPATH)/bin/govulncheck ./...
 
   secret-scan:
     runs-on: ubuntu-latest
