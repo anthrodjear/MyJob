@@ -1,5 +1,5 @@
 # .github/workflows/deploy-local.yml
-# Deploy to local server via self-hosted runner
+# Deploy to local server via self-hosted runner with k3s
 
 name: Deploy Local
 
@@ -33,36 +33,270 @@ jobs:
   deploy:
     needs: validate
     runs-on: self-hosted
-    timeout-minutes: 15
+    timeout-minutes: 45
+    env:
+      TAG: ${{ github.sha }}
+      ENV: ${{ github.event.inputs.environment || 'staging' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build and deploy
-        run: docker compose up -d --build --force-recreate
+      - name: Set short tag
+        run: echo "SHORT_TAG=${TAG::7}" >> "$GITHUB_ENV"
 
-      - name: Wait for services
-        run: sleep 30
+      - name: Verify k3s
+        run: |
+          echo "=== k3s Cluster Info ==="
+          kubectl cluster-info
+          kubectl get nodes
+          echo ""
+          echo "=== Existing Resources ==="
+          kubectl get all -A || true
+
+      - name: Verify Helm
+        run: |
+          if ! command -v helm &> /dev/null; then
+            echo "Installing Helm..."
+            curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash -s -- --version v3.17.3
+          fi
+          helm version
+
+      - name: Build Docker images
+        run: |
+          echo "=== Building Docker images ==="
+
+          # Build API
+          echo "Building API..."
+          docker build -t "myjob-api:${SHORT_TAG}" -f backend/Dockerfile.api backend/
+
+          # Build Worker
+          echo "Building Worker..."
+          docker build -t "myjob-worker:${SHORT_TAG}" -f backend/Dockerfile.worker backend/
+
+          # Build Browser Agent
+          echo "Building Browser Agent..."
+          docker build -t "myjob-browser-agent:${SHORT_TAG}" -f browser-agent/Dockerfile browser-agent/
+
+          # Build Frontend
+          echo "Building Frontend..."
+          docker build -t "myjob-frontend:${SHORT_TAG}" -f frontend/Dockerfile frontend/
+
+          echo "=== Images built ==="
+          docker images | grep myjob
+
+      - name: Load images into k3s
+        run: |
+          echo "=== Loading images into k3s ==="
+
+          # Save images as tarballs
+          docker save "myjob-api:${SHORT_TAG}" > /tmp/myjob-api.tar
+          docker save "myjob-worker:${SHORT_TAG}" > /tmp/myjob-worker.tar
+          docker save "myjob-browser-agent:${SHORT_TAG}" > /tmp/myjob-browser-agent.tar
+          docker save "myjob-frontend:${SHORT_TAG}" > /tmp/myjob-frontend.tar
+
+          # Import into k3s containerd
+          sudo ctr -n k8s.io image import /tmp/myjob-api.tar
+          sudo ctr -n k8s.io image import /tmp/myjob-worker.tar
+          sudo ctr -n k8s.io image import /tmp/myjob-browser-agent.tar
+          sudo ctr -n k8s.io image import /tmp/myjob-frontend.tar
+
+          # Verify images are loaded
+          echo "=== Loaded images ==="
+          sudo ctr -n k8s.io image list | grep myjob
+
+          # Cleanup tarballs
+          rm -f /tmp/myjob-*.tar
+
+      - name: Create namespace
+        run: |
+          NAMESPACE="myjob-${ENV}"
+          kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create secrets
+        run: |
+          NAMESPACE="myjob-${ENV}"
+
+          # Create database secret
+          kubectl create secret generic myjob-database \
+            --namespace="${NAMESPACE}" \
+            --from-literal=POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          # Create auth secret
+          kubectl create secret generic myjob-auth \
+            --namespace="${NAMESPACE}" \
+            --from-literal=AUTH_JWT_SECRET="${{ secrets.AUTH_JWT_SECRET }}" \
+            --from-literal=AUTH_PASSWORD_HASH="${{ secrets.AUTH_PASSWORD_HASH }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          # Create livekit secret
+          kubectl create secret generic myjob-livekit \
+            --namespace="${NAMESPACE}" \
+            --from-literal=LIVEKIT_API_KEY="${{ secrets.LIVEKIT_API_KEY }}" \
+            --from-literal=LIVEKIT_API_SECRET="${{ secrets.LIVEKIT_API_SECRET }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          # Create redis secret
+          kubectl create secret generic myjob-redis \
+            --namespace="${NAMESPACE}" \
+            --from-literal=REDIS_PASSWORD="${{ secrets.REDIS_PASSWORD }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          echo "=== Secrets created ==="
+          kubectl get secrets -n "${NAMESPACE}"
+
+      - name: Deploy with Helm
+        run: |
+          echo "=== Deploying with Helm ==="
+          RELEASE_NAME="myjob-${ENV}"
+          NAMESPACE="myjob-${ENV}"
+
+          # Deploy with Helm using local images
+          helm upgrade --install "${RELEASE_NAME}" ./k8s/helm/myjob \
+            --namespace "${NAMESPACE}" \
+            --set global.imageRegistry="" \
+            --set api.image.repository="myjob-api" \
+            --set api.image.tag="${SHORT_TAG}" \
+            --set api.image.pullPolicy=Never \
+            --set worker.image.repository="myjob-worker" \
+            --set worker.image.tag="${SHORT_TAG}" \
+            --set worker.image.pullPolicy=Never \
+            --set browserAgent.image.repository="myjob-browser-agent" \
+            --set browserAgent.image.tag="${SHORT_TAG}" \
+            --set browserAgent.image.pullPolicy=Never \
+            --set frontend.image.repository="myjob-frontend" \
+            --set frontend.image.tag="${SHORT_TAG}" \
+            --set frontend.image.pullPolicy=Never \
+            --set api.replicaCount=1 \
+            --set worker.replicaCount=1 \
+            --set browserAgent.replicaCount=1 \
+            --set frontend.replicaCount=1 \
+            --set api.autoscaling.enabled=false \
+            --set worker.autoscaling.enabled=false \
+            --set browserAgent.autoscaling.enabled=false \
+            --set frontend.autoscaling.enabled=false \
+            --set ingress.enabled=true \
+            --set ingress.className=traefik \
+            --set-json 'ingress.hosts=[{"host":"localhost","paths":[{"path":"/","pathType":"Prefix","service":"frontend","port":3000},{"path":"/api","pathType":"Prefix","service":"api","port":8080}]}]' \
+            --set-json 'ingress.tls=[]' \
+            --set postgres.persistence.storageClass=local-path \
+            --set redis.persistence.storageClass=local-path \
+            --set networkPolicy.enabled=false \
+            --set pdb.enabled=false \
+            --wait \
+            --timeout 10m
+
+          echo "=== Helm Release Status ==="
+          helm status "${RELEASE_NAME}" -n "${NAMESPACE}"
+
+      - name: Wait for pods
+        run: |
+          NAMESPACE="myjob-${ENV}"
+          echo "=== Waiting for pods to be ready ==="
+          kubectl wait --for=condition=ready pod -l "app.kubernetes.io/instance=myjob-${ENV}" -n "${NAMESPACE}" --timeout=300s || true
+          echo ""
+          echo "=== Pod Status ==="
+          kubectl get pods -n "${NAMESPACE}" -o wide
+
+      - name: Port forward (background)
+        run: |
+          NAMESPACE="myjob-${ENV}"
+          echo "=== Setting up port forwarding ==="
+
+          # Kill any existing port-forward from this workflow
+          pkill -f "kubectl port-forward.*${NAMESPACE}" || true
+
+          # Port forward API
+          kubectl port-forward -n "${NAMESPACE}" "svc/myjob-${ENV}-myjob-api" 8080:8080 &
+          echo "API port-forward started on :8080"
+
+          # Port forward Frontend
+          kubectl port-forward -n "${NAMESPACE}" "svc/myjob-${ENV}-myjob-frontend" 3000:3000 &
+          echo "Frontend port-forward started on :3000"
+
+          sleep 5
 
       - name: Health check
         run: |
-          curl -sf http://localhost:8080/health || echo "API not ready"
-          curl -sf http://localhost:3000 || echo "Frontend not ready"
+          echo "=== Running health checks ==="
+
+          # Check API
+          echo "Checking API..."
+          api_healthy=false
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+              echo "API is healthy"
+              api_healthy=true
+              break
+            fi
+            echo "Waiting for API... ($i/30)"
+            sleep 2
+          done
+          if [ "$api_healthy" != "true" ]; then
+            echo "::error::API health check failed after 60s"
+            exit 1
+          fi
+
+          # Check Frontend
+          echo "Checking Frontend..."
+          frontend_healthy=false
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000 > /dev/null 2>&1; then
+              echo "Frontend is healthy"
+              frontend_healthy=true
+              break
+            fi
+            echo "Waiting for Frontend... ($i/30)"
+            sleep 2
+          done
+          if [ "$frontend_healthy" != "true" ]; then
+            echo "::error::Frontend health check failed after 60s"
+            exit 1
+          fi
+
+      - name: Cleanup port-forwards
+        if: always()
+        run: pkill -f "kubectl port-forward.*myjob" || true
 
       - name: Status
-        run: docker compose ps
+        run: |
+          NAMESPACE="myjob-${ENV}"
+          echo "=== Deployment Status ==="
+          kubectl get all -n "${NAMESPACE}"
+          echo ""
+          echo "=== PVC Status ==="
+          kubectl get pvc -n "${NAMESPACE}"
+          echo ""
+          echo "=== Ingress Status ==="
+          kubectl get ingress -n "${NAMESPACE}"
+          echo ""
+          echo "=== Services ==="
+          kubectl get svc -n "${NAMESPACE}"
+
+      - name: Deployment summary
+        run: |
+          NAMESPACE="myjob-${ENV}"
+          echo "## Deployment Complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Detail | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|--------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Environment | ${ENV} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Namespace | ${NAMESPACE} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Commit | ${SHORT_TAG} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| API | http://localhost:8080 |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Frontend | http://localhost:3000 |" >> "$GITHUB_STEP_SUMMARY"
 
   rollback:
     needs: deploy
     if: failure()
     runs-on: self-hosted
+    timeout-minutes: 10
     steps:
-      - name: Checkout previous
-        uses: actions/checkout@v4
-        with:
-          ref: HEAD~1
-
-      - name: Rollback
+      - name: Rollback Helm
         run: |
-          docker compose down
-          docker compose up -d --build
+          RELEASE_NAME="myjob-${{ github.event.inputs.environment || 'staging' }}"
+          NAMESPACE="myjob-${{ github.event.inputs.environment || 'staging' }}"
+          echo "=== ROLLING BACK ==="
+          helm rollback "${RELEASE_NAME}" -n "${NAMESPACE}" --wait --timeout 5m
+          echo "Rollback complete"
+          kubectl get pods -n "${NAMESPACE}"
