@@ -73,23 +73,23 @@ type SearchResponse struct {
 
 // SearchResultResponse is a single search result in the API response.
 type SearchResultResponse struct {
-	ID         uuid.UUID  `json:"id"`
-	SourceType string     `json:"source_type"`
-	SourceID   uuid.UUID  `json:"source_id"`
-	Content    string     `json:"content"`
-	Metadata   *Metadata  `json:"metadata,omitempty"`
-	Similarity float64    `json:"similarity"`
-	CreatedAt  string     `json:"created_at"`
+	ID         uuid.UUID `json:"id"`
+	SourceType string    `json:"source_type"`
+	SourceID   uuid.UUID `json:"source_id"`
+	Content    string    `json:"content"`
+	Metadata   *Metadata `json:"metadata,omitempty"`
+	Similarity float64   `json:"similarity"`
+	CreatedAt  string    `json:"created_at"`
 }
 
 // EmbeddingResponse is the API response for a single embedding.
 type EmbeddingResponse struct {
-	ID         uuid.UUID  `json:"id"`
-	SourceType string     `json:"source_type"`
-	SourceID   uuid.UUID  `json:"source_id"`
-	Content    string     `json:"content"`
-	Metadata   *Metadata  `json:"metadata,omitempty"`
-	CreatedAt  string     `json:"created_at"`
+	ID         uuid.UUID `json:"id"`
+	SourceType string    `json:"source_type"`
+	SourceID   uuid.UUID `json:"source_id"`
+	Content    string    `json:"content"`
+	Metadata   *Metadata `json:"metadata,omitempty"`
+	CreatedAt  string    `json:"created_at"`
 }
 
 // EmbeddingListResponse is the response for GET /rag/embeddings.

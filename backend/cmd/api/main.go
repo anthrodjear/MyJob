@@ -20,8 +20,8 @@ import (
 	"backend/internal/auth"
 	"backend/internal/config"
 	"backend/internal/database"
-	"backend/internal/embeddings"
 	"backend/internal/emails"
+	"backend/internal/embeddings"
 	"backend/internal/interviews"
 	"backend/internal/jobs"
 	"backend/internal/profile"
@@ -50,7 +50,10 @@ func main() {
 	}
 
 	// Initialize logger
-	logger, _ := zap.NewProduction()
+	logger, err := zap.NewProduction()
+	if err != nil {
+		panic(fmt.Sprintf("failed to initialize logger: %v", err))
+	}
 	defer logger.Sync()
 
 	// Connect to PostgreSQL
@@ -176,12 +179,12 @@ func main() {
 
 	// Setup router with all routes
 	router := api.SetupRouter(api.RouterConfig{
-		AuthHandler:     authHandler,
-		AuthService:     authService,
-		IsSetupRequired: isSetupRequired,
-		CORSOrigins:     cfg.Server.CORSOrigins,
-		RateLimitConfig: cfg.RateLimit,
-		JobsHandler:     jobsHandler,
+		AuthHandler:         authHandler,
+		AuthService:         authService,
+		IsSetupRequired:     isSetupRequired,
+		CORSOrigins:         cfg.Server.CORSOrigins,
+		RateLimitConfig:     cfg.RateLimit,
+		JobsHandler:         jobsHandler,
 		ApplicationsHandler: appsHandler,
 		ResumesHandler:      resumesHandler,
 		ScoringHandler:      scoringHandler,

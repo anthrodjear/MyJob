@@ -149,7 +149,7 @@ func (c *Config) IsTest() bool {
 func Load() *Config {
 	// Read application.yaml for prompt loading
 	configPath := getEnv("CONFIG_PATH", "config/application.yaml")
-	yamlData, _ := os.ReadFile(configPath)
+	yamlData, _ := os.ReadFile(configPath) //nolint:gosec // G304: config path is from env var, not user input
 
 	cfg := &Config{
 		Server: ServerConfig{

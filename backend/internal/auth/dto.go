@@ -27,8 +27,8 @@ type LoginResponse struct {
 
 // Claims holds the JWT claims for the single local user.
 type Claims struct {
-	UserID        string `json:"user_id"`
-	SessionVersion int   `json:"session_version"`
+	UserID         string `json:"user_id"`
+	SessionVersion int    `json:"session_version"`
 	jwt.RegisteredClaims
 }
 
@@ -82,18 +82,18 @@ type TestEmailRequest struct {
 
 // OnboardingConfigRequest is the payload for POST /auth/setup/config.
 type OnboardingConfigRequest struct {
-	OpenAIKey      string   `json:"openai_key,omitempty"`
-	AnthropicKey   string   `json:"anthropic_key,omitempty"`
-	LivekitURL     string   `json:"livekit_url,omitempty"`
-	LivekitKey     string   `json:"livekit_key,omitempty"`
-	LivekitSecret  string   `json:"livekit_secret,omitempty"`
-	MSTenantID     string   `json:"ms_tenant_id,omitempty"`
-	MSClientID     string   `json:"ms_client_id,omitempty"`
-	MSClientSecret string   `json:"ms_client_secret,omitempty"`
-	AutoThreshold  *int     `json:"auto_threshold,omitempty"`
-	ReviewThreshold *int    `json:"review_threshold,omitempty"`
-	JobSources     []string `json:"job_sources,omitempty"`
-	CustomJobSites []string `json:"custom_job_sites,omitempty"`
+	OpenAIKey       string   `json:"openai_key,omitempty"`
+	AnthropicKey    string   `json:"anthropic_key,omitempty"`
+	LivekitURL      string   `json:"livekit_url,omitempty"`
+	LivekitKey      string   `json:"livekit_key,omitempty"`
+	LivekitSecret   string   `json:"livekit_secret,omitempty"`
+	MSTenantID      string   `json:"ms_tenant_id,omitempty"`
+	MSClientID      string   `json:"ms_client_id,omitempty"`
+	MSClientSecret  string   `json:"ms_client_secret,omitempty"`
+	AutoThreshold   *int     `json:"auto_threshold,omitempty"`
+	ReviewThreshold *int     `json:"review_threshold,omitempty"`
+	JobSources      []string `json:"job_sources,omitempty"`
+	CustomJobSites  []string `json:"custom_job_sites,omitempty"`
 }
 
 // OnboardingStepRequest is the payload for POST /auth/setup/onboarding-step.

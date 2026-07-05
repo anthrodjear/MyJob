@@ -56,14 +56,14 @@ func newHandleScrapeSource(
 
 		inputs := make([]jobs.CreateJobInput, 0, len(resp.Jobs))
 		for _, s := range resp.Jobs {
-		inputs = append(inputs, jobs.CreateJobInput{
-			SourceID: payload.SourceID, ExternalID: s.ExternalID,
-			Title: s.Title, Company: s.Company, Location: s.Location,
-			RemoteType: s.RemoteType, SalaryMin: s.SalaryMin, SalaryMax: s.SalaryMax,
-			SalaryCurrency: s.SalaryCurrency, Description: s.Description,
-			Requirements: s.Requirements, URL: s.URL, ApplicationURL: s.ApplicationURL,
-			CompanyURL: s.CompanyURL, Source: s.Source,
-		})
+			inputs = append(inputs, jobs.CreateJobInput{
+				SourceID: payload.SourceID, ExternalID: s.ExternalID,
+				Title: s.Title, Company: s.Company, Location: s.Location,
+				RemoteType: s.RemoteType, SalaryMin: s.SalaryMin, SalaryMax: s.SalaryMax,
+				SalaryCurrency: s.SalaryCurrency, Description: s.Description,
+				Requirements: s.Requirements, URL: s.URL, ApplicationURL: s.ApplicationURL,
+				CompanyURL: s.CompanyURL, Source: s.Source,
+			})
 		}
 
 		importCtx, importCancel := context.WithTimeout(ctx, 30*time.Second)

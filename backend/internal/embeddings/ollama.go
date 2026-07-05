@@ -11,8 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/zap"
 	"backend/internal/config"
+
+	"go.uber.org/zap"
 )
 
 // EmbeddingClient defines the interface for generating embeddings.
@@ -32,10 +33,10 @@ const maxConcurrentEmbeds = 5
 
 // OllamaEmbeddingClient calls a local Ollama model for embedding generation.
 type OllamaEmbeddingClient struct {
-	logger   *zap.Logger
-	baseURL  string
-	model    string
-	client   *http.Client
+	logger  *zap.Logger
+	baseURL string
+	model   string
+	client  *http.Client
 }
 
 // NewOllamaEmbeddingClient creates a new Ollama-based embedding client.

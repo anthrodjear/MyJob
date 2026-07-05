@@ -454,8 +454,8 @@ func (o *OllamaResumeTailor) TailorResume(ctx context.Context, resume *Resume, j
 	profile := buildProfileFromResume(resume)
 
 	data := map[string]any{
-		"ResumeContent":  profile,
-		"JobTitle":       jobTitle,
+		"ResumeContent":   profile,
+		"JobTitle":        jobTitle,
 		"JobRequirements": jobRequirements,
 		"JobDescription":  jobDescription,
 	}

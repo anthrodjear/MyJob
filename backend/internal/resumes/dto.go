@@ -30,9 +30,9 @@ type UpdateResumeRequest struct {
 // GenerateResumeContentRequest is the payload for POST /resumes/:id/generate.
 // Triggers async LLM generation of structured resume content.
 type GenerateResumeContentRequest struct {
-	JobID        *uuid.UUID `json:"job_id,omitempty"`        // optional: tailor for specific job
-	JobTitle     string     `json:"job_title,omitempty"`     // optional: target job title
-	JobRequirements string `json:"job_requirements,omitempty"` // optional: target job requirements
+	JobID           *uuid.UUID `json:"job_id,omitempty"`           // optional: tailor for specific job
+	JobTitle        string     `json:"job_title,omitempty"`        // optional: target job title
+	JobRequirements string     `json:"job_requirements,omitempty"` // optional: target job requirements
 }
 
 // UpdateResumeContentRequest is the payload for PUT /resumes/:id/content.
@@ -61,17 +61,17 @@ type GenerateCoverLetterRequest struct {
 
 // ResumeResponse is the API response for a single resume (list view — content omitted).
 type ResumeResponse struct {
-	ID                  uuid.UUID  `json:"id"`
-	Name                string     `json:"name"`
-	Specialization      string     `json:"specialization"`
-	TemplatePath        string     `json:"template_path"`
-	FocusSkills         []string   `json:"focus_skills"`
+	ID                  uuid.UUID   `json:"id"`
+	Name                string      `json:"name"`
+	Specialization      string      `json:"specialization"`
+	TemplatePath        string      `json:"template_path"`
+	FocusSkills         []string    `json:"focus_skills"`
 	HighlightExperience []uuid.UUID `json:"highlight_experience,omitempty"`
-	HasContent          bool       `json:"has_content"`
-	PdfKey              *string    `json:"pdf_key,omitempty"`
-	Version             int32      `json:"version"`
-	CreatedAt           time.Time  `json:"created_at"`
-	UpdatedAt           time.Time  `json:"updated_at"`
+	HasContent          bool        `json:"has_content"`
+	PdfKey              *string     `json:"pdf_key,omitempty"`
+	Version             int32       `json:"version"`
+	CreatedAt           time.Time   `json:"created_at"`
+	UpdatedAt           time.Time   `json:"updated_at"`
 }
 
 // ResumeDetailResponse is the API response for a single resume with content.
@@ -90,19 +90,19 @@ type ResumeListResponse struct {
 
 // ResumeContentResponse wraps the structured content for API responses.
 type ResumeContentResponse struct {
-	ResumeID uuid.UUID      `json:"resume_id"`
-	Version  int32          `json:"version"`
-	Content  ResumeContent  `json:"content"`
+	ResumeID uuid.UUID     `json:"resume_id"`
+	Version  int32         `json:"version"`
+	Content  ResumeContent `json:"content"`
 }
 
 // ResumeVersionResponse represents a historical version of resume content.
 type ResumeVersionResponse struct {
-	ID        uuid.UUID      `json:"id"`
-	ResumeID  uuid.UUID      `json:"resume_id"`
-	Version   int32          `json:"version"`
-	Content   ResumeContent  `json:"content"`
-	PdfKey    *string        `json:"pdf_key,omitempty"`
-	CreatedAt time.Time      `json:"created_at"`
+	ID        uuid.UUID     `json:"id"`
+	ResumeID  uuid.UUID     `json:"resume_id"`
+	Version   int32         `json:"version"`
+	Content   ResumeContent `json:"content"`
+	PdfKey    *string       `json:"pdf_key,omitempty"`
+	CreatedAt time.Time     `json:"created_at"`
 }
 
 // ResumeVersionListResponse is the API response for listing versions.
@@ -112,21 +112,21 @@ type ResumeVersionListResponse struct {
 
 // CoverLetterResponse is the API response for a single cover letter.
 type CoverLetterResponse struct {
-	ID             uuid.UUID      `json:"id"`
-	JobID          *uuid.UUID     `json:"job_id,omitempty"`
-	ResumeID       *uuid.UUID     `json:"resume_id,omitempty"`
-	JobTitle       *string        `json:"job_title,omitempty"`
-	Content        string         `json:"content"`
-	Model          *string        `json:"model,omitempty"`
-	PromptVersion  *string        `json:"prompt_version,omitempty"`
-	ResumeVersion  *int32         `json:"resume_version,omitempty"`
-	Strengths      *StringSliceDB `json:"strengths,omitempty"`
-	Gaps           *StringSliceDB `json:"gaps,omitempty"`
-	PdfKey         *string        `json:"pdf_key,omitempty"`
-	WordCount      *int           `json:"word_count,omitempty"`
-	Version        int32          `json:"version"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
+	ID            uuid.UUID      `json:"id"`
+	JobID         *uuid.UUID     `json:"job_id,omitempty"`
+	ResumeID      *uuid.UUID     `json:"resume_id,omitempty"`
+	JobTitle      *string        `json:"job_title,omitempty"`
+	Content       string         `json:"content"`
+	Model         *string        `json:"model,omitempty"`
+	PromptVersion *string        `json:"prompt_version,omitempty"`
+	ResumeVersion *int32         `json:"resume_version,omitempty"`
+	Strengths     *StringSliceDB `json:"strengths,omitempty"`
+	Gaps          *StringSliceDB `json:"gaps,omitempty"`
+	PdfKey        *string        `json:"pdf_key,omitempty"`
+	WordCount     *int           `json:"word_count,omitempty"`
+	Version       int32          `json:"version"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
 }
 
 // UpdateCoverLetterContentRequest is the payload for PUT /cover-letters/:id/content.
@@ -207,21 +207,21 @@ func ToVersionResponses(versions []*ResumeVersion) []ResumeVersionResponse {
 // ToCoverLetterResponse converts a CoverLetter domain model to an API response.
 func ToCoverLetterResponse(cl *CoverLetter) CoverLetterResponse {
 	return CoverLetterResponse{
-		ID:             cl.ID,
-		JobID:          cl.JobID,
-		ResumeID:       cl.ResumeID,
-		JobTitle:       cl.JobTitle,
-		Content:        cl.Content,
-		Model:          cl.Model,
-		PromptVersion:  cl.PromptVersion,
-		ResumeVersion:  cl.ResumeVersion,
-		Strengths:      cl.Strengths,
-		Gaps:           cl.Gaps,
-		PdfKey:         cl.PdfKey,
-		WordCount:      cl.WordCount,
-		Version:        cl.Version,
-		CreatedAt:      cl.CreatedAt,
-		UpdatedAt:      cl.UpdatedAt,
+		ID:            cl.ID,
+		JobID:         cl.JobID,
+		ResumeID:      cl.ResumeID,
+		JobTitle:      cl.JobTitle,
+		Content:       cl.Content,
+		Model:         cl.Model,
+		PromptVersion: cl.PromptVersion,
+		ResumeVersion: cl.ResumeVersion,
+		Strengths:     cl.Strengths,
+		Gaps:          cl.Gaps,
+		PdfKey:        cl.PdfKey,
+		WordCount:     cl.WordCount,
+		Version:       cl.Version,
+		CreatedAt:     cl.CreatedAt,
+		UpdatedAt:     cl.UpdatedAt,
 	}
 }
 

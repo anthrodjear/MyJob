@@ -252,10 +252,10 @@ type EffectiveConfig struct {
 // ScoringSection holds scoring thresholds, weights, and mode.
 // Weights uses scoring.Weights from the scoring package — not a local copy.
 type ScoringSection struct {
-	AutoThreshold      int            `json:"auto_threshold"`
-	ReviewThreshold    int            `json:"review_threshold"`
-	Mode               ScoringMode    `json:"mode"`
-	HybridRejectMargin int            `json:"hybrid_reject_margin"`
+	AutoThreshold      int             `json:"auto_threshold"`
+	ReviewThreshold    int             `json:"review_threshold"`
+	Mode               ScoringMode     `json:"mode"`
+	HybridRejectMargin int             `json:"hybrid_reject_margin"`
 	Weights            scoring.Weights `json:"weights"`
 }
 
@@ -343,7 +343,7 @@ type InterviewSection struct {
 
 // InterviewMemory holds transcript window and eviction settings.
 type InterviewMemory struct {
-	MaxRecentSegments int `json:"max_recent_segments"`
+	MaxRecentSegments  int `json:"max_recent_segments"`
 	KeepAfterSummarize int `json:"keep_after_summarize"`
 }
 
@@ -360,8 +360,8 @@ type LLMTimeout struct {
 
 // InterviewPlanner holds decision thresholds for the interview planner.
 type InterviewPlanner struct {
-	DuplicateThreshold float64 `json:"duplicate_threshold"`
-	MinSubstantiveLength int   `json:"min_substantive_length"`
+	DuplicateThreshold   float64 `json:"duplicate_threshold"`
+	MinSubstantiveLength int     `json:"min_substantive_length"`
 }
 
 // EmailSection holds email polling interval and folder configuration.
@@ -379,9 +379,9 @@ type RateLimitsSection struct {
 
 // IntegrationsSection holds connection health for external services.
 type IntegrationsSection struct {
-	LiveKit     IntegrationStatus          `json:"livekit"`
-	Email       IntegrationStatus          `json:"email"`
-	AIProviders map[string]AIProviderInfo  `json:"ai_providers"`
+	LiveKit     IntegrationStatus         `json:"livekit"`
+	Email       IntegrationStatus         `json:"email"`
+	AIProviders map[string]AIProviderInfo `json:"ai_providers"`
 }
 
 // IntegrationStatus holds connection health and optional URL for a service.
@@ -430,7 +430,7 @@ func ValidateOverrideKey(key string) error {
 			return fmt.Errorf("systemconfig: override key has empty segment at position %d: %q", i, key)
 		}
 		for _, c := range seg {
-			if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+			if (c < 'a' || c > 'z') && (c < '0' || c > '9') {
 				return fmt.Errorf("systemconfig: override key segment %q contains invalid character %q in key %q", seg, string(c), key)
 			}
 		}

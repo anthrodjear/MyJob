@@ -160,12 +160,10 @@ type ListFilter struct {
 func (f ListFilter) buildWhere() (string, []interface{}) {
 	var conditions []string
 	var args []interface{}
-	argIdx := 1
 
 	if f.SourceType != "" {
-		conditions = append(conditions, fmt.Sprintf("source_type = $%d", argIdx))
+		conditions = append(conditions, fmt.Sprintf("source_type = $%d", len(args)+1))
 		args = append(args, f.SourceType)
-		argIdx++
 	}
 
 	if len(conditions) == 0 {

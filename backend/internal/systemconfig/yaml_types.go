@@ -88,9 +88,9 @@ type YAMLLLMProvider struct {
 
 // YAMLVoice holds voice provider settings from YAML.
 type YAMLVoice struct {
-	Provider string           `yaml:"provider"`
-	Model    string           `yaml:"model"`
-	LiveKit  YAMLLiveKit      `yaml:"livekit"`
+	Provider string      `yaml:"provider"`
+	Model    string      `yaml:"model"`
+	LiveKit  YAMLLiveKit `yaml:"livekit"`
 }
 
 // YAMLLiveKit holds LiveKit connection settings.
@@ -126,8 +126,8 @@ type YAMLLLMTimeout struct {
 
 // YAMLInterviewPlanner holds decision thresholds.
 type YAMLInterviewPlanner struct {
-	DuplicateThreshold  float64 `yaml:"duplicate_threshold"`
-	MinSubstantiveLength int    `yaml:"min_substantive_length"`
+	DuplicateThreshold   float64 `yaml:"duplicate_threshold"`
+	MinSubstantiveLength int     `yaml:"min_substantive_length"`
 }
 
 // YAMLEmail holds email settings from YAML.

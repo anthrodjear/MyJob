@@ -15,8 +15,9 @@ import (
 	"text/template"
 	"time"
 
-	"go.uber.org/zap"
 	"backend/internal/config"
+
+	"go.uber.org/zap"
 )
 
 // LLMScorer defines the interface for LLM-based job scoring.
@@ -31,12 +32,12 @@ type LLMScorer interface {
 
 // LLMScoreResult holds the LLM's scoring output.
 type LLMScoreResult struct {
-	Score      float64      `json:"score"`
-	Reasoning  string       `json:"reasoning"`
-	Strengths  []string     `json:"strengths,omitempty"`
-	Gaps       []string     `json:"gaps,omitempty"`
+	Score      float64       `json:"score"`
+	Reasoning  string        `json:"reasoning"`
+	Strengths  []string      `json:"strengths,omitempty"`
+	Gaps       []string      `json:"gaps,omitempty"`
 	Details    *ScoreDetails `json:"details,omitempty"`
-	Confidence float64      `json:"confidence,omitempty"`
+	Confidence float64       `json:"confidence,omitempty"`
 }
 
 // NoopLLMScorer is a fallback when LLM is disabled or unavailable.
@@ -53,10 +54,10 @@ func NewNoopLLMScorer(logger *zap.Logger) *NoopLLMScorer {
 // ScoreJob returns neutral scores — used when LLM scoring is disabled.
 func (n *NoopLLMScorer) ScoreJob(_ context.Context, _ JobData, _ Profile) (*LLMScoreResult, error) {
 	return &LLMScoreResult{
-		Score:     50,
-		Reasoning: "LLM scoring disabled, using heuristic pre-filter only",
-		Strengths: []string{},
-		Gaps:      []string{},
+		Score:      50,
+		Reasoning:  "LLM scoring disabled, using heuristic pre-filter only",
+		Strengths:  []string{},
+		Gaps:       []string{},
 		Confidence: 0.1,
 	}, nil
 }
@@ -68,11 +69,11 @@ func (n *NoopLLMScorer) ModelName() string {
 
 // OllamaLLMScorer calls a local Ollama model for scoring.
 type OllamaLLMScorer struct {
-	logger    *zap.Logger
-	baseURL   string
-	model     string
-	prompt    config.PromptPair
-	client    *http.Client
+	logger  *zap.Logger
+	baseURL string
+	model   string
+	prompt  config.PromptPair
+	client  *http.Client
 }
 
 // NewOllamaLLMScorer creates a new Ollama-based LLM scorer with prompt from config.
@@ -221,20 +222,20 @@ Return ONLY valid JSON. Do not wrap in markdown. Do not explain your answer.
 	}
 
 	data := map[string]any{
-		"Title":             job.Title,
-		"Company":           job.Company,
-		"Location":          job.Location,
-		"RemoteType":        job.RemoteType,
-		"SalaryMin":         job.SalaryMin,
-		"SalaryMax":         job.SalaryMax,
-		"Requirements":      job.Requirements,
-		"Description":       job.Description,
-		"Skills":            strings.Join(profile.Skills, ", "),
-		"Experience":        formatExperience(profile.Experience),
-		"Preferences":       formatPreferences(profile.Preferences),
-		"Specializations":   strings.Join(profile.Specializations, ", "),
-		"Industries":        strings.Join(profile.Industries, ", "),
-		"CareerGoals":       strings.Join(profile.CareerGoals, ", "),
+		"Title":           job.Title,
+		"Company":         job.Company,
+		"Location":        job.Location,
+		"RemoteType":      job.RemoteType,
+		"SalaryMin":       job.SalaryMin,
+		"SalaryMax":       job.SalaryMax,
+		"Requirements":    job.Requirements,
+		"Description":     job.Description,
+		"Skills":          strings.Join(profile.Skills, ", "),
+		"Experience":      formatExperience(profile.Experience),
+		"Preferences":     formatPreferences(profile.Preferences),
+		"Specializations": strings.Join(profile.Specializations, ", "),
+		"Industries":      strings.Join(profile.Industries, ", "),
+		"CareerGoals":     strings.Join(profile.CareerGoals, ", "),
 	}
 
 	// Execute system template

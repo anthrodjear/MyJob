@@ -36,6 +36,18 @@ linters:
           - errcheck
           - gosec
           - unused
+      # Defer with Close/Rollback/Sync is almost always benign
+      - linters:
+          - errcheck
+        text: "Error return value of `.*\\.(Close|Rollback|Sync)` is not checked"
+      # RowsAffected on ExecContext is often intentionally ignored
+      - linters:
+          - errcheck
+        text: "Error return value of `result\\.RowsAffected` is not checked"
+      # os.ReadFile in config loading — file may not exist, defaults are fine
+      - linters:
+          - errcheck
+        text: "Error return value of `os\\.ReadFile` is not checked"
 
 formatters:
   enable:

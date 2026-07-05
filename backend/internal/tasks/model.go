@@ -9,20 +9,20 @@ import (
 
 // Task represents an async task tracked in the database.
 type Task struct {
-	ID           uuid.UUID       `db:"id" json:"id"`
-	Type         string          `db:"type" json:"type"`
-	Status       string          `db:"status" json:"status"`
-	Params       json.RawMessage `db:"params" json:"params,omitempty"`
-	Result       json.RawMessage `db:"result" json:"result,omitempty"`
-	Error        *string         `db:"error" json:"error,omitempty"`
-	Attempts     int             `db:"attempts" json:"attempts"`
-	MaxAttempts  int             `db:"max_attempts" json:"max_attempts"`
-	Priority     int             `db:"priority" json:"priority"`
-	ScheduledAt  time.Time       `db:"scheduled_at" json:"scheduled_at"`
-	StartedAt    *time.Time      `db:"started_at" json:"started_at,omitempty"`
-	CompletedAt  *time.Time      `db:"completed_at" json:"completed_at,omitempty"`
-	CreatedAt    time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt    time.Time       `db:"updated_at" json:"updated_at"`
+	ID          uuid.UUID       `db:"id" json:"id"`
+	Type        string          `db:"type" json:"type"`
+	Status      string          `db:"status" json:"status"`
+	Params      json.RawMessage `db:"params" json:"params,omitempty"`
+	Result      json.RawMessage `db:"result" json:"result,omitempty"`
+	Error       *string         `db:"error" json:"error,omitempty"`
+	Attempts    int             `db:"attempts" json:"attempts"`
+	MaxAttempts int             `db:"max_attempts" json:"max_attempts"`
+	Priority    int             `db:"priority" json:"priority"`
+	ScheduledAt time.Time       `db:"scheduled_at" json:"scheduled_at"`
+	StartedAt   *time.Time      `db:"started_at" json:"started_at,omitempty"`
+	CompletedAt *time.Time      `db:"completed_at" json:"completed_at,omitempty"`
+	CreatedAt   time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time       `db:"updated_at" json:"updated_at"`
 }
 
 // Task status constants.

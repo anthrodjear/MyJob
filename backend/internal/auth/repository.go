@@ -3,11 +3,13 @@ package auth
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"backend/internal/config"
+
 	"github.com/jmoiron/sqlx"
 )
 
@@ -83,7 +85,7 @@ func (r *Repository) loadUser(ctx context.Context) (*User, error) {
 		WHERE id = 'local-user'
 	`)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("auth: user not found")
 		}
 		return nil, fmt.Errorf("auth: get user: %w", err)

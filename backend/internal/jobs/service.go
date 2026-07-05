@@ -9,9 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"backend/internal/config"
 	"backend/internal/tasks"
+
+	"github.com/google/uuid"
 )
 
 // Service handles job business logic.

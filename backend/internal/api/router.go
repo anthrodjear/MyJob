@@ -28,7 +28,7 @@ import (
 type RouterConfig struct {
 	AuthHandler         *auth.Handler
 	AuthService         *auth.Service
-	IsSetupRequired     func() bool  // setup check function
+	IsSetupRequired     func() bool // setup check function
 	CORSOrigins         []string
 	RateLimitConfig     config.RateLimitConfig
 	JobsHandler         *jobs.Handler
@@ -81,7 +81,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 	// Version endpoint — returns deployed version for monitoring
 	r.GET("/version", func(c *gin.Context) {
 		c.JSON(200, gin.H{
-			"version":   os.Getenv("APP_VERSION"),
+			"version":    os.Getenv("APP_VERSION"),
 			"git_commit": os.Getenv("GIT_COMMIT"),
 			"build_time": os.Getenv("BUILD_TIME"),
 			"env":        os.Getenv("APP_ENV"),

@@ -90,12 +90,12 @@ func (s *Service) SetOverride(ctx context.Context, key string, value json.RawMes
 
 	// Validate value is non-empty and well-formed
 	if err := ValidateOverrideValue(value); err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidValue, err)
+		return fmt.Errorf("%w: %w", ErrInvalidValue, err)
 	}
 
 	// Key-specific value validation
 	if err := s.validateValue(key, value); err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidValue, err)
+		return fmt.Errorf("%w: %w", ErrInvalidValue, err)
 	}
 
 	// Determine category from key prefix
@@ -160,17 +160,17 @@ var allowedKeys = map[string]bool{
 	"llm.embeddings.model":    true,
 
 	// Voice
-	"voice.provider":           true,
-	"voice.model":              true,
-	"voice.livekit.url":        true,
+	"voice.provider":    true,
+	"voice.model":       true,
+	"voice.livekit.url": true,
 
 	// Interview
-	"interview.memory.max_recent_segments":       true,
-	"interview.memory.keep_after_summarize":      true,
-	"interview.responder.llm.timeout_ms":         true,
-	"interview.responder.llm.retries":            true,
-	"interview.planner.duplicate_threshold":      true,
-	"interview.planner.min_substantive_length":   true,
+	"interview.memory.max_recent_segments":     true,
+	"interview.memory.keep_after_summarize":    true,
+	"interview.responder.llm.timeout_ms":       true,
+	"interview.responder.llm.retries":          true,
+	"interview.planner.duplicate_threshold":    true,
+	"interview.planner.min_substantive_length": true,
 
 	// Email
 	"email.check_interval": true,
@@ -182,9 +182,9 @@ var allowedKeys = map[string]bool{
 	"rate_limits.burst": true,
 
 	// Automation
-	"automation.queue.concurrency":      true,
-	"automation.queue.retry_attempts":   true,
-	"automation.auto_generate.resume":      true,
+	"automation.queue.concurrency":          true,
+	"automation.queue.retry_attempts":       true,
+	"automation.auto_generate.resume":       true,
 	"automation.auto_generate.cover_letter": true,
 
 	// Approval tiers
@@ -199,11 +199,11 @@ var allowedKeys = map[string]bool{
 	"approval_tiers.reject.log":           true,
 
 	// Resume & cover letter
-	"resume.engine":          true,
-	"resume.template_dir":    true,
-	"cover_letter.engine":        true,
-	"cover_letter.template_dir":  true,
-	"cover_letter.max_length":    true,
+	"resume.engine":             true,
+	"resume.template_dir":       true,
+	"cover_letter.engine":       true,
+	"cover_letter.template_dir": true,
+	"cover_letter.max_length":   true,
 }
 
 // validateKey checks that the key is in the allowlist.
@@ -212,7 +212,7 @@ var allowedKeys = map[string]bool{
 func (s *Service) validateKey(key string) error {
 	// First check format
 	if err := ValidateOverrideKey(key); err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidKeyFormat, err)
+		return fmt.Errorf("%w: %w", ErrInvalidKeyFormat, err)
 	}
 
 	// Then check allowlist

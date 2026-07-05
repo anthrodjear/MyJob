@@ -10,16 +10,16 @@ import (
 
 // ScoreResponse is the API response for a scored job.
 type ScoreResponse struct {
-	JobID      uuid.UUID      `json:"job_id"`
-	Score      float64        `json:"score"`
-	Tier       ApprovalTier   `json:"tier"`
-	Reasoning  string         `json:"reasoning,omitempty"`
-	Source     string         `json:"source,omitempty"`      // "heuristic" | "llm" | "hybrid"
-	Model      string         `json:"model,omitempty"`       // model name used (e.g., "gpt-4o", "qwen2.5")
-	Confidence float64        `json:"confidence,omitempty"`  // 0-1 confidence in score
-	Strengths  []string       `json:"strengths,omitempty"`   // extracted from reasoning
-	Gaps       []string       `json:"gaps,omitempty"`        // extracted from reasoning
-	Details    *ScoreDetails  `json:"details,omitempty"`
+	JobID      uuid.UUID     `json:"job_id"`
+	Score      float64       `json:"score"`
+	Tier       ApprovalTier  `json:"tier"`
+	Reasoning  string        `json:"reasoning,omitempty"`
+	Source     string        `json:"source,omitempty"`     // "heuristic" | "llm" | "hybrid"
+	Model      string        `json:"model,omitempty"`      // model name used (e.g., "gpt-4o", "qwen2.5")
+	Confidence float64       `json:"confidence,omitempty"` // 0-1 confidence in score
+	Strengths  []string      `json:"strengths,omitempty"`  // extracted from reasoning
+	Gaps       []string      `json:"gaps,omitempty"`       // extracted from reasoning
+	Details    *ScoreDetails `json:"details,omitempty"`
 }
 
 // ScoreBreakdownResponse provides detailed scoring breakdown with weights used.

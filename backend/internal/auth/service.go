@@ -18,20 +18,20 @@ import (
 )
 
 var (
-	ErrInvalidCredentials = errors.New("auth: invalid credentials")
-	ErrTokenInvalid       = errors.New("auth: token invalid")
-	ErrTokenExpired       = errors.New("auth: token expired")
-	ErrUserNotFound       = errors.New("auth: user not found")
-	ErrSessionInvalidated = errors.New("auth: session invalidated")
+	ErrInvalidCredentials   = errors.New("auth: invalid credentials")
+	ErrTokenInvalid         = errors.New("auth: token invalid")
+	ErrTokenExpired         = errors.New("auth: token expired")
+	ErrUserNotFound         = errors.New("auth: user not found")
+	ErrSessionInvalidated   = errors.New("auth: session invalidated")
 	ErrPasswordSame         = errors.New("auth: new password must differ from current password")
 	ErrSetupAlreadyComplete = errors.New("auth: setup already complete — users exist")
 )
 
 // Service handles authentication business logic.
 type Service struct {
-	repo       *Repository
-	cfg        config.AuthConfig
-	configSvc  *systemconfig.Service
+	repo      *Repository
+	cfg       config.AuthConfig
+	configSvc *systemconfig.Service
 }
 
 // NewService creates a new auth service.
@@ -371,7 +371,14 @@ func (s *Service) TestEmailConfig(ctx context.Context, tenantID, clientID, clien
 	data.Set("client_secret", clientSecret)
 	data.Set("scope", "https://graph.microsoft.com/.default")
 
-	resp, err := testHTTPClient.PostForm(tokenURL, data)
+	body := strings.NewReader(data.Encode())
+	req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, body)
+	if err != nil {
+		return false, fmt.Errorf("auth: create email test request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := testHTTPClient.Do(req)
 	if err != nil {
 		return false, nil
 	}
