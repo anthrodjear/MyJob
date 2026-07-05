@@ -35,10 +35,8 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 15
     steps:
-      - name: Pull latest
-        run: |
-          git fetch origin main
-          git reset --hard origin/main
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Build and deploy
         run: docker compose up -d --build --force-recreate
@@ -59,7 +57,12 @@ jobs:
     if: failure()
     runs-on: self-hosted
     steps:
-      - run: |
-          git checkout HEAD~1
+      - name: Checkout previous
+        uses: actions/checkout@v4
+        with:
+          ref: HEAD~1
+
+      - name: Rollback
+        run: |
           docker compose down
           docker compose up -d --build
