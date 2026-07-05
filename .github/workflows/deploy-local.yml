@@ -36,26 +36,22 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Pull latest
-        working-directory: ~/MyJob
         run: |
           git fetch origin main
           git reset --hard origin/main
 
       - name: Build and deploy
-        working-directory: ~/MyJob
         run: docker compose up -d --build --force-recreate
 
       - name: Wait for services
         run: sleep 30
 
       - name: Health check
-        working-directory: ~/MyJob
         run: |
           curl -sf http://localhost:8080/health || echo "API not ready"
           curl -sf http://localhost:3000 || echo "Frontend not ready"
 
       - name: Status
-        working-directory: ~/MyJob
         run: docker compose ps
 
   rollback:
@@ -64,7 +60,6 @@ jobs:
     runs-on: self-hosted
     steps:
       - run: |
-          cd ~/MyJob
           git checkout HEAD~1
           docker compose down
           docker compose up -d --build
