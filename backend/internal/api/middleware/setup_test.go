@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -42,7 +43,7 @@ func TestSetupMiddleware_WhenSetupRequired(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
-			req, _ := http.NewRequest(tt.method, tt.path, nil)
+			req, _ := http.NewRequestWithContext(context.Background(), tt.method, tt.path, nil)
 			r.ServeHTTP(w, req)
 
 			if w.Code != tt.wantStatus {
@@ -61,7 +62,7 @@ func TestSetupMiddleware_WhenSetupNotRequired(t *testing.T) {
 	r.GET("/api/v1/jobs", func(c *gin.Context) { c.JSON(200, gin.H{"jobs": []string{}}) })
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/jobs", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "/api/v1/jobs", nil)
 	r.ServeHTTP(w, req)
 
 	if w.Code != 200 {

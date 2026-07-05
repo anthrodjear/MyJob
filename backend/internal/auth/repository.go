@@ -3,11 +3,13 @@ package auth
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"backend/internal/config"
+
 	"github.com/jmoiron/sqlx"
 )
 
@@ -31,12 +33,15 @@ func NewRepository(db *sqlx.DB, cfg config.AuthConfig) (*Repository, error) {
 		return nil, fmt.Errorf("auth: seed user: %w", err)
 	}
 
-	// Load initial user
+	// Load initial user — tolerate missing user for first-time setup.
+	// The setup flow will create the user via CompleteSetup.
 	user, err := repo.loadUser(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("auth: load user: %w", err)
+		// User not found is expected on first run — not a fatal error
+		repo.user = nil
+	} else {
+		repo.user = user
 	}
-	repo.user = user
 
 	return repo, nil
 }
@@ -80,7 +85,7 @@ func (r *Repository) loadUser(ctx context.Context) (*User, error) {
 		WHERE id = 'local-user'
 	`)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("auth: user not found")
 		}
 		return nil, fmt.Errorf("auth: get user: %w", err)

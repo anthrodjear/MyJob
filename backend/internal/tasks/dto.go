@@ -11,10 +11,10 @@ import (
 
 // CreateTaskRequest is the payload for creating a new task.
 type CreateTaskRequest struct {
-	Type       string          `json:"type" binding:"required"`
-	Params     json.RawMessage `json:"params"`
-	Priority   int             `json:"priority"`
-	ScheduledAt *time.Time     `json:"scheduled_at"`
+	Type        string          `json:"type" binding:"required"`
+	Params      json.RawMessage `json:"params"`
+	Priority    int             `json:"priority"`
+	ScheduledAt *time.Time      `json:"scheduled_at"`
 }
 
 // --- Response DTOs ---

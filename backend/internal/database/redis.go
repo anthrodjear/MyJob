@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -52,7 +53,7 @@ func (r *RedisClient) CheckRateLimit(ctx context.Context, key string, limit int,
 
 	// Get current count
 	count, err := pipe.Get(ctx, key).Int()
-	if err != nil && err != redis.Nil {
+	if err != nil && !errors.Is(err, redis.Nil) {
 		return false, err
 	}
 

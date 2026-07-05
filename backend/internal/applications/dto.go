@@ -74,7 +74,7 @@ type ApplicationEventResponse struct {
 
 // ApplicationTimelineResponse is the API response for GET /applications/:id/events.
 type ApplicationTimelineResponse struct {
-	ApplicationID uuid.UUID                 `json:"application_id"`
+	ApplicationID uuid.UUID                  `json:"application_id"`
 	Events        []ApplicationEventResponse `json:"events"`
 }
 

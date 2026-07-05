@@ -153,6 +153,7 @@ Return ONLY valid JSON.`
 	tmplData["JobTitle"] = jobTitle
 	tmplData["JobRequirements"] = jobRequirements
 
+	// #nosec G708 -- Templates come from application config (YAML), not user input. Local-first app.
 	systemBuf := new(strings.Builder)
 	systemTmpl, err := template.New("system").Parse(system)
 	if err != nil {
@@ -162,6 +163,7 @@ Return ONLY valid JSON.`
 		o.logger.Warn("system template execute error", zap.Error(err))
 	}
 
+	// #nosec G708 -- Templates come from application config (YAML), not user input. Local-first app.
 	userBuf := new(strings.Builder)
 	userTmpl, err := template.New("user").Parse(user)
 	if err != nil {
@@ -351,6 +353,7 @@ Requirements: {{.JobRequirements}}
 Return the cover letter text only, no JSON.`
 	}
 
+	// #nosec G708 -- Templates come from application config (YAML), not user input. Local-first app.
 	systemBuf := new(strings.Builder)
 	systemTmpl, err := template.New("system").Parse(system)
 	if err != nil {
@@ -360,6 +363,7 @@ Return the cover letter text only, no JSON.`
 		o.logger.Warn("system template execute error", zap.Error(err))
 	}
 
+	// #nosec G708 -- Templates come from application config (YAML), not user input. Local-first app.
 	userBuf := new(strings.Builder)
 	userTmpl, err := template.New("user").Parse(user)
 	if err != nil {
@@ -454,8 +458,8 @@ func (o *OllamaResumeTailor) TailorResume(ctx context.Context, resume *Resume, j
 	profile := buildProfileFromResume(resume)
 
 	data := map[string]any{
-		"ResumeContent":  profile,
-		"JobTitle":       jobTitle,
+		"ResumeContent":   profile,
+		"JobTitle":        jobTitle,
 		"JobRequirements": jobRequirements,
 		"JobDescription":  jobDescription,
 	}
@@ -567,6 +571,7 @@ Return ONLY valid JSON:
 	}
 
 	// systemBuf executes system template with profile data
+	// #nosec G708 -- Templates come from application config (YAML), not user input. Local-first app.
 	systemBuf := new(strings.Builder)
 	systemTmpl, err := template.New("system").Parse(system)
 	if err != nil {
@@ -577,6 +582,7 @@ Return ONLY valid JSON:
 	}
 
 	// userBuf executes user template
+	// #nosec G708 -- Templates come from application config (YAML), not user input. Local-first app.
 	userBuf := new(strings.Builder)
 	userTmpl, err := template.New("user").Parse(user)
 	if err != nil {

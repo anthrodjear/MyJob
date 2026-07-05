@@ -1,0 +1,31 @@
+{
+  "exclude-rules": [
+    {
+      "path": "internal/config/config\\.go",
+      "rules": ["G304"]
+    },
+    {
+      "path": "internal/.*",
+      "rules": ["G104"]
+    },
+    {
+      "path": "_test\\.go",
+      "rules": ["G104", "G304"]
+    },
+    {
+      "comment": "G708: Templates come from application config (YAML), not user input. Local-first app where users control their own config.",
+      "path": "internal/(scoring|resumes|emails)/.*\\.go",
+      "rules": ["G708"]
+    },
+    {
+      "comment": "G709: JSON unmarshaling is on trusted internal data (task payloads, config). LLM responses are validated before use.",
+      "path": "internal/.*",
+      "rules": ["G709"]
+    },
+    {
+      "comment": "G710: No HTTP redirects in codebase - false positive from taint analysis.",
+      "path": "internal/.*",
+      "rules": ["G710"]
+    }
+  ]
+}

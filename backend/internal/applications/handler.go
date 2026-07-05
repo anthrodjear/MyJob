@@ -40,11 +40,11 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 
 // listApplicationsQuery holds query parameters for listing applications.
 type listApplicationsQuery struct {
-	Status     string  `form:"status"`
-	JobID      string  `form:"job_id"`
-	PortalType string  `form:"portal_type"`
-	Limit      int     `form:"limit"`
-	Offset     int     `form:"offset"`
+	Status     string `form:"status"`
+	JobID      string `form:"job_id"`
+	PortalType string `form:"portal_type"`
+	Limit      int    `form:"limit"`
+	Offset     int    `form:"offset"`
 }
 
 // ListApplications handles GET /applications.

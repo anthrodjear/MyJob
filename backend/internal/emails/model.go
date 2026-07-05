@@ -5,7 +5,8 @@
 // (interview invite, rejection, offer, follow-up, spam, phishing, other).
 //
 // Schema: emails(id, application_id, message_id, from_address, to_address,
-//   subject, body, received_at, classification, is_read, reply_draft, created_at)
+//
+//	subject, body, received_at, classification, is_read, reply_draft, created_at)
 //
 // Flow:
 //  1. Worker receives email_check task

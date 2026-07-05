@@ -1,11 +1,12 @@
 // Handler contains HTTP handlers for the emails domain.
 //
 // Endpoints:
-//   POST   /emails                  → Store incoming email
-//   GET    /emails                  → List emails with filters
-//   GET    /emails/:id              → Get single email
-//   PATCH  /emails/:id              → Update read status or reply draft
-//   POST   /emails/:id/classify     → Re-classify email via LLM
+//
+//	POST   /emails                  → Store incoming email
+//	GET    /emails                  → List emails with filters
+//	GET    /emails/:id              → Get single email
+//	PATCH  /emails/:id              → Update read status or reply draft
+//	POST   /emails/:id/classify     → Re-classify email via LLM
 //
 // All endpoints require authentication (handled by middleware).
 package emails
@@ -69,16 +70,7 @@ func (h *Handler) Store(c *gin.Context) {
 		return
 	}
 
-	params := StoreEmailParams{
-		ApplicationID:  req.ApplicationID,
-		MessageID:      req.MessageID,
-		FromAddress:    req.FromAddress,
-		ToAddress:      req.ToAddress,
-		Subject:        req.Subject,
-		Body:           req.Body,
-		ReceivedAt:     req.ReceivedAt,
-		Classification: req.Classification,
-	}
+	params := StoreEmailParams(req)
 
 	id, _, err := h.service.Store(c.Request.Context(), params)
 	if err != nil {
@@ -275,9 +267,9 @@ func (h *Handler) Reclassify(c *gin.Context) {
 	}
 
 	httpresp.OK(c, ClassifyResponse{
-		EmailID:       id,
+		EmailID:        id,
 		Classification: result.Category,
-		Confidence:    result.Confidence,
-		Reasoning:     result.Reasoning,
+		Confidence:     result.Confidence,
+		Reasoning:      result.Reasoning,
 	})
 }

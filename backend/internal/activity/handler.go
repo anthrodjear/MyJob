@@ -1,8 +1,9 @@
 // Handler contains HTTP handlers for the activity domain.
 //
 // Endpoints:
-//   GET /activity-logs         → List activity logs with filters
-//   GET /activity-logs/:id     → Get single activity log
+//
+//	GET /activity-logs         → List activity logs with filters
+//	GET /activity-logs/:id     → Get single activity log
 //
 // Activity logs are read-only via HTTP — other domains write events
 // through Service.LogEvent(). The handler translates domain errors

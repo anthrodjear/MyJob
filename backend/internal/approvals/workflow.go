@@ -1,8 +1,8 @@
 // Workflow orchestrates approval-to-submission business flows.
 //
 // The workflow owns the complete lifecycle:
-//   1. Approve the approval request (state change)
-//   2. Dispatch application submission task (async work)
+//  1. Approve the approval request (state change)
+//  2. Dispatch application submission task (async work)
 //
 // This separation exists because:
 //   - The approve→submit flow is a business invariant, not HTTP logic

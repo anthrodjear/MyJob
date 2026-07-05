@@ -151,6 +151,7 @@ type Classifier struct {
 // The LLMClient is used for generation; the prompts pair holds the templates.
 // Pre-compiles the user prompt template for performance.
 func NewClassifier(logger *zap.Logger, llm LLMClient, prompts PromptPair) (*Classifier, error) {
+	// #nosec G708 -- Templates come from application config (YAML), not user input. Local-first app.
 	userPromptTmpl, err := template.New("user").Parse(prompts.User)
 	if err != nil {
 		return nil, fmt.Errorf("parse user prompt template: %w", err)
@@ -192,7 +193,8 @@ func (c *Classifier) classify(ctx context.Context, from, subject, body string) (
 	// Build prompt variables
 	truncatedBody := truncate(body, 2000)
 	if len(truncatedBody) < len(body) {
-		c.logger.Debug("truncated email body for classification",
+		c.logger.Debug(
+			"truncated email body for classification",
 			zap.Int("original_len", len(body)),
 			zap.Int("truncated_len", len(truncatedBody)),
 		)
@@ -221,7 +223,8 @@ func (c *Classifier) classify(ctx context.Context, from, subject, body string) (
 	// Parse structured output
 	result, err := parseClassifyOutput(output)
 	if err != nil {
-		c.logger.Warn("failed to parse LLM output",
+		c.logger.Warn(
+			"failed to parse LLM output",
 			zap.String("output", output),
 			zap.Error(err),
 		)
@@ -230,7 +233,8 @@ func (c *Classifier) classify(ctx context.Context, from, subject, body string) (
 
 	// Validate category
 	if !IsValidClassification(result.Category) {
-		c.logger.Warn("unknown classification from LLM",
+		c.logger.Warn(
+			"unknown classification from LLM",
 			zap.String("category", result.Category),
 		)
 		result.Category = ClassificationOther

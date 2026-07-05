@@ -6,17 +6,18 @@
 //   - Embedding generation trigger (via task queue)
 //
 // The embeddings table schema (from 001_initial.up.sql):
-//   CREATE TABLE embeddings (
-//     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-//     source_type VARCHAR(50) NOT NULL,
-//     source_id UUID NOT NULL,
-//     content TEXT NOT NULL,
-//     metadata JSONB,
-//     embedding vector(1024),
-//     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-//   );
-//   CREATE INDEX ON embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
-//   CREATE INDEX idx_embeddings_source ON embeddings(source_type, source_id);
+//
+//	CREATE TABLE embeddings (
+//	  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+//	  source_type VARCHAR(50) NOT NULL,
+//	  source_id UUID NOT NULL,
+//	  content TEXT NOT NULL,
+//	  metadata JSONB,
+//	  embedding vector(1024),
+//	  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+//	);
+//	CREATE INDEX ON embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+//	CREATE INDEX idx_embeddings_source ON embeddings(source_type, source_id);
 //
 // Source types (from tasks.EmbeddingPayload):
 //   - "job"          → jobs table
@@ -37,10 +38,10 @@ import (
 type SourceType string
 
 const (
-	SourceTypeJob          SourceType = "job"
-	SourceTypeResume       SourceType = "resume"
-	SourceTypeApplication  SourceType = "application"
-	SourceTypeCoverLetter  SourceType = "cover_letter"
+	SourceTypeJob         SourceType = "job"
+	SourceTypeResume      SourceType = "resume"
+	SourceTypeApplication SourceType = "application"
+	SourceTypeCoverLetter SourceType = "cover_letter"
 )
 
 // IsValidSourceType returns true if the source type is known.
@@ -91,9 +92,9 @@ type SearchResult struct {
 
 // SearchFilter defines filters for semantic search.
 type SearchFilter struct {
-	SourceType   SourceType
-	Limit        int     // default 10, max 50
-	Similarity   float64 // minimum similarity threshold (0-1), default 0.0
+	SourceType    SourceType
+	Limit         int           // default 10, max 50
+	Similarity    float64       // minimum similarity threshold (0-1), default 0.0
 	ExcludeSource *SourceFilter // exclude specific source
 }
 

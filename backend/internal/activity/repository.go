@@ -136,7 +136,6 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]Act
 	if filter.Offset > 0 {
 		args = append(args, filter.Offset)
 		query += fmt.Sprintf(" OFFSET $%d", argIdx)
-		argIdx++
 	}
 
 	var activities []ActivityLog

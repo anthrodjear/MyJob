@@ -20,8 +20,8 @@ import (
 	"backend/internal/auth"
 	"backend/internal/config"
 	"backend/internal/database"
-	"backend/internal/embeddings"
 	"backend/internal/emails"
+	"backend/internal/embeddings"
 	"backend/internal/interviews"
 	"backend/internal/jobs"
 	"backend/internal/profile"
@@ -31,16 +31,6 @@ import (
 	"backend/internal/systemconfig"
 	"backend/internal/tasks"
 )
-
-// getEnvDuration parses a duration from environment variable with a fallback.
-func getEnvDuration(key string, fallback time.Duration) time.Duration {
-	if value := os.Getenv(key); value != "" {
-		if d, err := time.ParseDuration(value); err == nil {
-			return d
-		}
-	}
-	return fallback
-}
 
 // toEmailPromptPair converts config.PromptPair to emails.PromptPair.
 func toEmailPromptPair(cfg config.PromptPair) emails.PromptPair {
@@ -60,7 +50,10 @@ func main() {
 	}
 
 	// Initialize logger
-	logger, _ := zap.NewProduction()
+	logger, err := zap.NewProduction()
+	if err != nil {
+		panic(fmt.Sprintf("failed to initialize logger: %v", err))
+	}
 	defer logger.Sync()
 
 	// Connect to PostgreSQL
@@ -186,12 +179,12 @@ func main() {
 
 	// Setup router with all routes
 	router := api.SetupRouter(api.RouterConfig{
-		AuthHandler:     authHandler,
-		AuthService:     authService,
-		IsSetupRequired: isSetupRequired,
-		CORSOrigins:     cfg.Server.CORSOrigins,
-		RateLimitConfig: cfg.RateLimit,
-		JobsHandler:     jobsHandler,
+		AuthHandler:         authHandler,
+		AuthService:         authService,
+		IsSetupRequired:     isSetupRequired,
+		CORSOrigins:         cfg.Server.CORSOrigins,
+		RateLimitConfig:     cfg.RateLimit,
+		JobsHandler:         jobsHandler,
 		ApplicationsHandler: appsHandler,
 		ResumesHandler:      resumesHandler,
 		ScoringHandler:      scoringHandler,

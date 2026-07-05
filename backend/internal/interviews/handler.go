@@ -10,12 +10,13 @@
 // between HTTP and the service layer.
 //
 // Routes:
-//   POST   /api/v1/interviews              → CreateInterview
-//   GET    /api/v1/interviews              → ListInterviews
-//   GET    /api/v1/interviews/:id          → GetInterview
-//   POST   /api/v1/interviews/:id/start    → StartInterview
-//   POST   /api/v1/interviews/:id/stop     → StopInterview
-//   POST   /internal/interviews/:id/events → HandleEvent (voice service only)
+//
+//	POST   /api/v1/interviews              → CreateInterview
+//	GET    /api/v1/interviews              → ListInterviews
+//	GET    /api/v1/interviews/:id          → GetInterview
+//	POST   /api/v1/interviews/:id/start    → StartInterview
+//	POST   /api/v1/interviews/:id/stop     → StopInterview
+//	POST   /internal/interviews/:id/events → HandleEvent (voice service only)
 package interviews
 
 import (

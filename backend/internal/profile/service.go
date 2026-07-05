@@ -97,12 +97,7 @@ func (s *Service) Update(ctx context.Context, req UpdateProfileRequest, clientVe
 		return nil, fmt.Errorf("update profile: %w", err)
 	}
 
-	newData := ProfileData{
-		Preferences: req.Preferences,
-		Skills:      req.Skills,
-		Education:   req.Education,
-		Links:       req.Links,
-	}
+	newData := ProfileData(req)
 
 	if err := newData.Validate(); err != nil {
 		return nil, fmt.Errorf("update profile: %w", err)

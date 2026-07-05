@@ -58,8 +58,5 @@ func LoadPromptsFromYAML(data []byte) PromptsConfig {
 }
 
 func toPromptPair(yp yamlPromptPair) PromptPair {
-	return PromptPair{
-		System: yp.System,
-		User:   yp.User,
-	}
+	return PromptPair(yp)
 }

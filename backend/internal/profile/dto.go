@@ -83,17 +83,17 @@ type PatchProfileRequest struct {
 // All fields are pointers so nil means "don't change" and non-nil means "set this".
 // This solves the bool/int zero-value ambiguity.
 type PatchPreferences struct {
-	TargetTitles    *[]string `json:"target_titles,omitempty"`
-	TargetLocations *[]string `json:"target_locations,omitempty"`
-	RemoteOnly      *bool     `json:"remote_only,omitempty"`
-	MinSalary       *int      `json:"min_salary,omitempty"`
-	MaxSalary       *int      `json:"max_salary,omitempty"`
-	WorkAuthorization *string `json:"work_authorization,omitempty"`
-	YearsExperience *int      `json:"years_experience,omitempty"`
-	ResumeTone      *string   `json:"resume_tone,omitempty"`
-	ResumeStyle     *string   `json:"resume_style,omitempty"`
-	AutoApplyThreshold *int   `json:"auto_apply_threshold,omitempty"`
-	CoverLetterStyle   *string `json:"cover_letter_style,omitempty"`
+	TargetTitles       *[]string `json:"target_titles,omitempty"`
+	TargetLocations    *[]string `json:"target_locations,omitempty"`
+	RemoteOnly         *bool     `json:"remote_only,omitempty"`
+	MinSalary          *int      `json:"min_salary,omitempty"`
+	MaxSalary          *int      `json:"max_salary,omitempty"`
+	WorkAuthorization  *string   `json:"work_authorization,omitempty"`
+	YearsExperience    *int      `json:"years_experience,omitempty"`
+	ResumeTone         *string   `json:"resume_tone,omitempty"`
+	ResumeStyle        *string   `json:"resume_style,omitempty"`
+	AutoApplyThreshold *int      `json:"auto_apply_threshold,omitempty"`
+	CoverLetterStyle   *string   `json:"cover_letter_style,omitempty"`
 }
 
 // PatchLinks is the links sub-object for PATCH requests.
@@ -123,11 +123,11 @@ type PatchLinks struct {
 //	  "updated_at": "2026-06-20T14:30:00Z"
 //	}
 type ProfileResponse struct {
-	ID        uuid.UUID             `json:"id"`
-	Data      ProfileData           `json:"data"`
-	Stats     ProfileStatsResponse  `json:"stats"`
-	CreatedAt time.Time             `json:"created_at"`
-	UpdatedAt time.Time             `json:"updated_at"`
+	ID        uuid.UUID            `json:"id"`
+	Data      ProfileData          `json:"data"`
+	Stats     ProfileStatsResponse `json:"stats"`
+	CreatedAt time.Time            `json:"created_at"`
+	UpdatedAt time.Time            `json:"updated_at"`
 }
 
 // ProfileStatsResponse is embedded in ProfileResponse.

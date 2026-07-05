@@ -190,46 +190,46 @@ func extractStrengthsAndGaps(reasoning string) ([]string, []string) {
 
 	// Strength keywords (positive signals)
 	strengthKeywords := map[string]string{
-		"strong":          "Strong match",
-		"excellent":       "Excellent fit",
-		"great":           "Great alignment",
-		"relevant":        "Relevant experience",
-		"matches":         "Good skill match",
-		"experienced":     "Experienced candidate",
-		"proficient":      "Proficient in required skills",
-		"skilled":         "Skilled match",
-		"qualified":       "Well qualified",
-		"ideal":           "Ideal candidate",
-		"perfect":         "Perfect fit",
-		"highly":          "Highly relevant",
-		"extensive":       "Extensive experience",
-		"deep":            "Deep expertise",
-		"expert":          "Expert level",
-		"senior":          "Senior experience",
-		"lead":            "Leadership experience",
-		"architect":       "Architecture skills",
-		"scale":           "Scalability experience",
-		"production":      "Production experience",
+		"strong":      "Strong match",
+		"excellent":   "Excellent fit",
+		"great":       "Great alignment",
+		"relevant":    "Relevant experience",
+		"matches":     "Good skill match",
+		"experienced": "Experienced candidate",
+		"proficient":  "Proficient in required skills",
+		"skilled":     "Skilled match",
+		"qualified":   "Well qualified",
+		"ideal":       "Ideal candidate",
+		"perfect":     "Perfect fit",
+		"highly":      "Highly relevant",
+		"extensive":   "Extensive experience",
+		"deep":        "Deep expertise",
+		"expert":      "Expert level",
+		"senior":      "Senior experience",
+		"lead":        "Leadership experience",
+		"architect":   "Architecture skills",
+		"scale":       "Scalability experience",
+		"production":  "Production experience",
 	}
 
 	// Gap keywords (negative signals)
 	gapKeywords := map[string]string{
-		"lack":            "Missing skill",
-		"missing":         "Missing requirement",
-		"no":              "Absent skill",
-		"without":         "Without required skill",
-		"limited":         "Limited experience",
-		"weak":            "Weak area",
-		"gap":             "Skill gap",
-		"insufficient":    "Insufficient experience",
-		"not":             "Missing qualification",
-		"unfamiliar":      "Unfamiliar technology",
-		"beginner":        "Junior level",
-		"junior":          "Junior experience",
-		"basic":           "Basic knowledge only",
-		"minimal":         "Minimal exposure",
-		"none":            "No experience",
-		"never":           "Never worked with",
+		"lack":         "Missing skill",
+		"missing":      "Missing requirement",
+		"no":           "Absent skill",
+		"without":      "Without required skill",
+		"limited":      "Limited experience",
+		"weak":         "Weak area",
+		"gap":          "Skill gap",
+		"insufficient": "Insufficient experience",
+		"not":          "Missing qualification",
+		"unfamiliar":   "Unfamiliar technology",
+		"beginner":     "Junior level",
+		"junior":       "Junior experience",
+		"basic":        "Basic knowledge only",
+		"minimal":      "Minimal exposure",
+		"none":         "No experience",
+		"never":        "Never worked with",
 	}
 
 	var strengths, gaps []string
@@ -269,9 +269,10 @@ func extractStrengthsAndGaps(reasoning string) ([]string, []string) {
 func calculateConfidence(score float64, source string) float64 {
 	// Higher confidence for LLM scores, lower for heuristic
 	base := 0.7
-	if source == "llm" {
+	switch source {
+	case "llm":
 		base = 0.85
-	} else if source == "hybrid" {
+	case "hybrid":
 		base = 0.9
 	}
 	// Adjust by score distance from thresholds

@@ -72,17 +72,14 @@ type ListFilter struct {
 func (f ListFilter) buildWhere() (string, []interface{}) {
 	var conditions []string
 	var args []interface{}
-	argIdx := 1
 
 	if f.Status != "" {
-		conditions = append(conditions, fmt.Sprintf("status = $%d", argIdx))
+		conditions = append(conditions, fmt.Sprintf("status = $%d", len(args)+1))
 		args = append(args, f.Status)
-		argIdx++
 	}
 	if f.ApplicationID != uuid.Nil {
-		conditions = append(conditions, fmt.Sprintf("application_id = $%d", argIdx))
+		conditions = append(conditions, fmt.Sprintf("application_id = $%d", len(args)+1))
 		args = append(args, f.ApplicationID)
-		argIdx++
 	}
 
 	if len(conditions) == 0 {

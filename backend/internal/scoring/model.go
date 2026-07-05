@@ -15,10 +15,10 @@ type ApprovalTier string
 
 // Tier constants for score-based approval.
 const (
-	TierReject    ApprovalTier = "reject" // score < ReviewThreshold
-	TierReview    ApprovalTier = "review" // score >= ReviewThreshold, < AutoThreshold
-	TierAuto      ApprovalTier = "auto"   // score >= AutoThreshold
-	NeutralScore  float64    = 50         // neutral score when no signal (e.g., no keywords)
+	TierReject   ApprovalTier = "reject" // score < ReviewThreshold
+	TierReview   ApprovalTier = "review" // score >= ReviewThreshold, < AutoThreshold
+	TierAuto     ApprovalTier = "auto"   // score >= AutoThreshold
+	NeutralScore float64      = 50       // neutral score when no signal (e.g., no keywords)
 )
 
 // Tier returns the approval tier for a given score and thresholds.

@@ -35,6 +35,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -173,7 +174,7 @@ func (r *Repository) GetOverride(ctx context.Context, key string) (*Override, er
 		WHERE key = $1
 	`, key)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
 		return nil, fmt.Errorf("systemconfig: get override: %w", err)

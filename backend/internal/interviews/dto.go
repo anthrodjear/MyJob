@@ -151,20 +151,20 @@ type InterviewEventRequest struct {
 //   - POST /api/v1/interviews/:id/start (started session)
 //   - POST /internal/interviews/:id/events (updated session)
 type InterviewResponse struct {
-	ID                uuid.UUID          `json:"id"`
-	ApplicationID     uuid.UUID          `json:"application_id"`
-	Mode              string             `json:"mode"`
-	Status            string             `json:"status"`
-	ExternalSessionID *string            `json:"external_session_id,omitempty"`
-	Provider          string             `json:"provider"`
-	Model             string             `json:"model"`
-	Transcript        []TranscriptEntry  `json:"transcript"`
-	Score             *float64           `json:"score,omitempty"`
-	Feedback          json.RawMessage    `json:"feedback,omitempty"`
-	StartedAt         *time.Time         `json:"started_at,omitempty"`
-	EndedAt           *time.Time         `json:"ended_at,omitempty"`
-	CreatedAt         time.Time          `json:"created_at"`
-	UpdatedAt         time.Time          `json:"updated_at"`
+	ID                uuid.UUID         `json:"id"`
+	ApplicationID     uuid.UUID         `json:"application_id"`
+	Mode              string            `json:"mode"`
+	Status            string            `json:"status"`
+	ExternalSessionID *string           `json:"external_session_id,omitempty"`
+	Provider          string            `json:"provider"`
+	Model             string            `json:"model"`
+	Transcript        []TranscriptEntry `json:"transcript"`
+	Score             *float64          `json:"score,omitempty"`
+	Feedback          json.RawMessage   `json:"feedback,omitempty"`
+	StartedAt         *time.Time        `json:"started_at,omitempty"`
+	EndedAt           *time.Time        `json:"ended_at,omitempty"`
+	CreatedAt         time.Time         `json:"created_at"`
+	UpdatedAt         time.Time         `json:"updated_at"`
 }
 
 // InterviewListResponse is the API response for listing interview sessions.
