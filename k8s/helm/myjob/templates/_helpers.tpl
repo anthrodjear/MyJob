@@ -21,28 +21,44 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 API image name
 */}}
 {{- define "myjob.api.image" -}}
-{{ .Values.global.imageRegistry }}/{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}
+{{- if .Values.global.imageRegistry -}}
+{{- .Values.global.imageRegistry }}/{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}
+{{- else -}}
+{{- .Values.api.image.repository }}:{{ .Values.api.image.tag }}
+{{- end -}}
 {{- end }}
 
 {{/*
 Worker image name
 */}}
 {{- define "myjob.worker.image" -}}
-{{ .Values.global.imageRegistry }}/{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}
+{{- if .Values.global.imageRegistry -}}
+{{- .Values.global.imageRegistry }}/{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}
+{{- else -}}
+{{- .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}
+{{- end -}}
 {{- end }}
 
 {{/*
 Browser Agent image name
 */}}
 {{- define "myjob.browserAgent.image" -}}
-{{ .Values.global.imageRegistry }}/{{ .Values.browserAgent.image.repository }}:{{ .Values.browserAgent.image.tag }}
+{{- if .Values.global.imageRegistry -}}
+{{- .Values.global.imageRegistry }}/{{ .Values.browserAgent.image.repository }}:{{ .Values.browserAgent.image.tag }}
+{{- else -}}
+{{- .Values.browserAgent.image.repository }}:{{ .Values.browserAgent.image.tag }}
+{{- end -}}
 {{- end }}
 
 {{/*
 Frontend image name
 */}}
 {{- define "myjob.frontend.image" -}}
-{{ .Values.global.imageRegistry }}/{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}
+{{- if .Values.global.imageRegistry -}}
+{{- .Values.global.imageRegistry }}/{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}
+{{- else -}}
+{{- .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}
+{{- end -}}
 {{- end }}
 
 {{/*
