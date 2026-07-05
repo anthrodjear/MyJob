@@ -1,0 +1,56 @@
+# .github/workflows/test-runner.yml
+# Test self-hosted runner connectivity
+
+name: Test Runner
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: self-hosted
+    steps:
+      - name: Test connection
+        run: |
+          echo "✅ Hello from self-hosted runner!"
+          echo "Hostname: $(hostname)"
+          echo "User: $(whoami)"
+          echo "PWD: $(pwd)"
+          echo "Date: $(date)"
+
+      - name: Check Docker
+        run: |
+          echo "=== Docker Version ==="
+          docker --version
+          docker compose version
+          echo ""
+          echo "=== Running Containers ==="
+          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+      - name: Check Go
+        run: |
+          if command -v go &> /dev/null; then
+            echo "✅ Go: $(go version)"
+          else
+            echo "⚠️ Go not installed"
+          fi
+
+      - name: Check Node
+        run: |
+          if command -v node &> /dev/null; then
+            echo "✅ Node: $(node --version)"
+            echo "✅ npm: $(npm --version)"
+          else
+            echo "⚠️ Node not installed"
+          fi
+
+      - name: Test deployment directory
+        run: |
+          if [ -d ~/MyJob ]; then
+            echo "✅ ~/MyJob exists"
+            cd ~/MyJob
+            echo "Branch: $(git branch --show-current)"
+            echo "Last commit: $(git log --oneline -1)"
+          else
+            echo "⚠️ ~/MyJob not found — clone repo first"
+          fi
