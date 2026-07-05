@@ -153,7 +153,7 @@ Return ONLY valid JSON.`
 	tmplData["JobTitle"] = jobTitle
 	tmplData["JobRequirements"] = jobRequirements
 
-	//nolint:gosec // G708: Templates come from application config (YAML), not user input. Local-first app.
+	// #nosec G708 -- Templates come from application config (YAML), not user input. Local-first app.
 	systemBuf := new(strings.Builder)
 	systemTmpl, err := template.New("system").Parse(system)
 	if err != nil {
@@ -163,7 +163,7 @@ Return ONLY valid JSON.`
 		o.logger.Warn("system template execute error", zap.Error(err))
 	}
 
-	//nolint:gosec // G708: Templates come from application config (YAML), not user input. Local-first app.
+	// #nosec G708 -- Templates come from application config (YAML), not user input. Local-first app.
 	userBuf := new(strings.Builder)
 	userTmpl, err := template.New("user").Parse(user)
 	if err != nil {
@@ -353,7 +353,7 @@ Requirements: {{.JobRequirements}}
 Return the cover letter text only, no JSON.`
 	}
 
-	//nolint:gosec // G708: Templates come from application config (YAML), not user input. Local-first app.
+	// #nosec G708 -- Templates come from application config (YAML), not user input. Local-first app.
 	systemBuf := new(strings.Builder)
 	systemTmpl, err := template.New("system").Parse(system)
 	if err != nil {
@@ -363,7 +363,7 @@ Return the cover letter text only, no JSON.`
 		o.logger.Warn("system template execute error", zap.Error(err))
 	}
 
-	//nolint:gosec // G708: Templates come from application config (YAML), not user input. Local-first app.
+	// #nosec G708 -- Templates come from application config (YAML), not user input. Local-first app.
 	userBuf := new(strings.Builder)
 	userTmpl, err := template.New("user").Parse(user)
 	if err != nil {
@@ -571,7 +571,7 @@ Return ONLY valid JSON:
 	}
 
 	// systemBuf executes system template with profile data
-	//nolint:gosec // G708: Templates come from application config (YAML), not user input. Local-first app.
+	// #nosec G708 -- Templates come from application config (YAML), not user input. Local-first app.
 	systemBuf := new(strings.Builder)
 	systemTmpl, err := template.New("system").Parse(system)
 	if err != nil {
@@ -582,7 +582,7 @@ Return ONLY valid JSON:
 	}
 
 	// userBuf executes user template
-	//nolint:gosec // G708: Templates come from application config (YAML), not user input. Local-first app.
+	// #nosec G708 -- Templates come from application config (YAML), not user input. Local-first app.
 	userBuf := new(strings.Builder)
 	userTmpl, err := template.New("user").Parse(user)
 	if err != nil {

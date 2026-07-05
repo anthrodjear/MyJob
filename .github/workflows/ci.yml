@@ -116,7 +116,7 @@ jobs:
         run: go install github.com/securego/gosec/v2/cmd/gosec@latest
       - name: Run gosec
         working-directory: backend
-        run: $(go env GOPATH)/bin/gosec -config .gosec.json ./...
+        run: $(go env GOPATH)/bin/gosec -conf .gosec.json ./...
       - name: Run govulncheck
         working-directory: backend
         run: |
