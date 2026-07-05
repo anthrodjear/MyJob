@@ -151,6 +151,7 @@ type Classifier struct {
 // The LLMClient is used for generation; the prompts pair holds the templates.
 // Pre-compiles the user prompt template for performance.
 func NewClassifier(logger *zap.Logger, llm LLMClient, prompts PromptPair) (*Classifier, error) {
+	//nolint:gosec // G708: Templates come from application config (YAML), not user input. Local-first app.
 	userPromptTmpl, err := template.New("user").Parse(prompts.User)
 	if err != nil {
 		return nil, fmt.Errorf("parse user prompt template: %w", err)

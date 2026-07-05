@@ -239,6 +239,7 @@ Return ONLY valid JSON. Do not wrap in markdown. Do not explain your answer.
 	}
 
 	// Execute system template
+	//nolint:gosec // G708: Templates come from application config (YAML), not user input. Local-first app.
 	systemBuf := new(strings.Builder)
 	systemTmpl, err := template.New("system").Parse(system)
 	if err != nil {
@@ -249,6 +250,7 @@ Return ONLY valid JSON. Do not wrap in markdown. Do not explain your answer.
 	}
 
 	// Execute user template
+	//nolint:gosec // G708: Templates come from application config (YAML), not user input. Local-first app.
 	userBuf := new(strings.Builder)
 	userTmpl, err := template.New("user").Parse(user)
 	if err != nil {
