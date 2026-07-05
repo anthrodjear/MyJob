@@ -109,10 +109,15 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
           cache-dependency-path: backend/go.sum
+      - name: Prepare Go modules
+        working-directory: backend
+        run: go mod download
+      - name: Install gosec
+        working-directory: backend
+        run: go install github.com/securego/gosec/v2/cmd/gosec@latest
       - name: Run gosec
-        uses: securego/gosec@v2.22.0
-        with:
-          args: ./backend/...
+        working-directory: backend
+        run: $GOPATH/bin/gosec -config .gosec.yaml ./...
       - name: Run govulncheck
         working-directory: backend
         run: |

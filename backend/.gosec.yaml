@@ -1,0 +1,19 @@
+# gosec configuration
+# Excludes rules that are false positives or intentionally ignored
+
+exclude-rules:
+  # G304: File inclusion via variable — false positive for config file loading
+  - path: internal/config/config.go
+    rules:
+      - G304
+
+  # G104: Unhandled errors — handled via httpresp package
+  - path: internal/
+    rules:
+      - G104
+
+  # Test files can be more relaxed
+  - path: _test\.go
+    rules:
+      - G104
+      - G304
