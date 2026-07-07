@@ -15,6 +15,7 @@
  * - `<form>` with proper labels
  * - Error announced via `role="alert"`
  * - Auto-focus on password input
+ * - Password visibility toggle with aria-label
  */
 
 "use client";
@@ -24,6 +25,8 @@ import { useRouter } from "next/navigation";
 import { useLogin } from "@/hooks/useAuth";
 import { getSetupStatus } from "@/lib/api/auth";
 import { Button } from "@/components/shared/Button";
+import { Input } from "@/components/shared/Input";
+import { Eye, EyeOff, Lock, AlertCircle } from "lucide-react";
 
 /**
  * Map API error codes to user-friendly messages.
@@ -49,6 +52,7 @@ export default function LoginPage() {
   const router = useRouter();
   const loginMutation = useLogin();
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkingSetup, setCheckingSetup] = useState(true);
 
@@ -98,74 +102,106 @@ export default function LoginPage() {
     });
   };
 
-  // Show loading while checking setup status
+  // Show loading spinner while checking setup status
   if (checkingSetup) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-bg-primary">
+      <main className="flex min-h-screen items-center justify-center bg-bg-secondary">
         <div className="text-center">
-          <p className="text-sm text-text-secondary">Loading…</p>
+          <svg
+            className="mx-auto h-8 w-8 animate-spin text-primary"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+          </svg>
+          <p className="mt-3 text-sm text-text-secondary">Loading…</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-bg-primary">
-      <div className="w-full max-w-sm space-y-8 px-4">
+    <main className="flex min-h-screen items-center justify-center bg-bg-secondary">
+      <div className="w-full max-w-sm space-y-6 px-4">
         {/* Brand */}
         <div className="text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-light">
+            <Lock className="h-6 w-6 text-primary" aria-hidden="true" />
+          </div>
           <h1 className="text-3xl font-bold text-primary">MyJob</h1>
-          <p className="mt-2 text-sm text-text-secondary">
+          <p className="mt-1 text-sm text-text-secondary">
             AI Job Search Agent
           </p>
         </div>
 
-        {/* Login form */}
-        <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-text-primary"
-            >
-              Password
-            </label>
-            <input
+        {/* Login card */}
+        <div className="rounded-lg border border-border bg-bg-secondary p-6 shadow-sm">
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            {/* Error message */}
+            {error != null && (
+              <div
+                role="alert"
+                className="flex items-start gap-2 rounded-md bg-danger-light px-3 py-2 text-sm text-danger-dark"
+              >
+                <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {/* Password input with visibility toggle */}
+            <Input
               id="password"
-              type="password"
+              label="Password"
+              type={showPassword ? "text" : "password"}
               autoComplete="current-password"
               required
               autoFocus
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={loginMutation.isPending}
-              className="mt-1 block w-full rounded-md border border-border bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
               placeholder="Enter your password"
-              aria-describedby={error ? "login-error" : undefined}
+              rightIcon={
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="cursor-pointer text-text-tertiary hover:text-text-secondary focus:outline-none"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              }
             />
-          </div>
 
-          {/* Error message */}
-          {error != null && (
-            <div
-              id="login-error"
-              role="alert"
-              className="rounded-md bg-danger-light px-3 py-2 text-sm text-danger-dark"
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              loading={loginMutation.isPending}
+              loadingText="Signing in…"
+              className="w-full"
             >
-              {error}
-            </div>
-          )}
-
-          <Button
-            type="submit"
-            variant="primary"
-            size="lg"
-            loading={loginMutation.isPending}
-            loadingText="Signing in…"
-            className="w-full"
-          >
-            Sign In
-          </Button>
-        </form>
+              Sign In
+            </Button>
+          </form>
+        </div>
 
         {/* Help text */}
         <p className="text-center text-xs text-text-tertiary">
