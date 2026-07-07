@@ -4,14 +4,24 @@
 # 7 services: api, worker, frontend, browser-agent, postgres, redis, livekit
 # Ollama runs on the host machine (http://localhost:11434)
 #
-# Usage:
-#   docker compose up -d            # Start all services
+# Quick start (zero-config):
+#   docker compose up -d            # Starts with dev defaults
+#   Open http://localhost:3000      # Follow the /setup wizard
+#
+# Full start (with .env overrides):
+#   cp .env.example .env            # Optional: customize settings
+#   docker compose up -d            # Uses .env values where set
+#
+# Other commands:
 #   docker compose up -d postgres redis  # Start infra only
 #   docker compose logs -f api      # Follow API logs
 #   docker compose exec api ./migrate.sh  # Run migrations
 #
-# Requires: .env file (copy from .env.example)
-# Requires: Ollama running locally on port 11434
+# Defaults (no .env needed):
+#   AUTH_JWT_SECRET = auto-generated dev secret (change for production)
+#   AUTH_PASSWORD_HASH = empty (set via /setup wizard)
+#   POSTGRES_PASSWORD = myjob_dev
+#   LLM_PROVIDER = ollama (local, no API key needed)
 
 
 services:
@@ -93,10 +103,10 @@ services:
     environment:
       DATABASE_URL: postgres://myjob:${POSTGRES_PASSWORD:-myjob_dev}@postgres:5432/myjob?sslmode=disable
       REDIS_URL: redis://redis:6379
-      AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH}
-      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH:-}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-dev-only-jwt-secret-change-in-production-32ch}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       LIVEKIT_WS_URL: ws://livekit:7880
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
@@ -139,10 +149,10 @@ services:
     environment:
       DATABASE_URL: postgres://myjob:${POSTGRES_PASSWORD:-myjob_dev}@postgres:5432/myjob?sslmode=disable
       REDIS_URL: redis://redis:6379
-      AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH}
-      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH:-}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-dev-only-jwt-secret-change-in-production-32ch}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       BROWSER_AGENT_URL: http://browser-agent:3000
       LIVEKIT_WS_URL: ws://livekit:7880
