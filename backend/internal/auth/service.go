@@ -371,14 +371,29 @@ func (s *Service) CompleteSetup(ctx context.Context, username, email, password s
 	return nil
 }
 
+// IsOnboardingCompleted returns true if onboarding has been completed.
+func (s *Service) IsOnboardingCompleted(ctx context.Context) (bool, error) {
+	completed, err := s.repo.IsOnboardingCompleted(ctx)
+	if err != nil {
+		return false, fmt.Errorf("auth: is onboarding completed: %w", err)
+	}
+	return completed, nil
+}
+
 // CompleteOnboarding marks onboarding as finished.
 func (s *Service) CompleteOnboarding(ctx context.Context) error {
-	return s.repo.SetOnboardingCompleted(ctx, time.Now())
+	if err := s.repo.SetOnboardingCompleted(ctx, time.Now()); err != nil {
+		return fmt.Errorf("auth: complete onboarding: %w", err)
+	}
+	return nil
 }
 
 // UpdateOnboardingStep tracks progress for resume capability.
 func (s *Service) UpdateOnboardingStep(ctx context.Context, step string) error {
-	return s.repo.UpdateOnboardingStep(ctx, step)
+	if err := s.repo.UpdateOnboardingStep(ctx, step); err != nil {
+		return fmt.Errorf("auth: update onboarding step: %w", err)
+	}
+	return nil
 }
 
 // SaveOnboardingConfig persists all onboarding config overrides.

@@ -107,6 +107,11 @@ type OnboardingConfigResponse struct {
 	Message string `json:"message"`
 }
 
+// LogoutResponse is returned on successful logout.
+type LogoutResponse struct {
+	Message string `json:"message"`
+}
+
 // --- Refresh Token DTOs ---
 
 // RefreshRequest is the payload for POST /auth/refresh.

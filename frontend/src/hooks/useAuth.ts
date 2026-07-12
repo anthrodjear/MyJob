@@ -1,14 +1,14 @@
 /**
  * TanStack Query hooks for authentication.
  *
- * Provides useMutation hooks for login, refresh, and password change.
+ * Provides useMutation hooks for login, refresh, password change, and logout.
  * Server Components should use the API client directly;
  * Client Components use these hooks.
  */
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
-import { login, refreshAccessToken, changePassword } from "@/lib/api/auth";
+import { useEffect, useState } from "react";
+import { login, refreshAccessToken, changePassword, logout as logoutApi } from "@/lib/api/auth";
 import { clearAuthTokens, getAuthToken, getTokenExpiry } from "@/lib/auth";
 
 /** Query keys for auth — consistent cache invalidation. */
@@ -16,6 +16,16 @@ export const authKeys = {
   all: ["auth"] as const,
   profile: () => [...authKeys.all, "profile"] as const,
 };
+
+/**
+ * Internal helper: force logout when refresh token is invalid.
+ * Clears local state and redirects to login.
+ */
+function forceLogout(): void {
+  clearAuthTokens();
+  // Full page reload to clear all in-memory state
+  window.location.href = "/login";
+}
 
 /**
  * Login mutation — authenticates and stores the JWT + refresh token.
@@ -49,6 +59,7 @@ export function useLogin() {
  * Refresh access token mutation.
  *
  * Uses the stored refresh token to get new tokens.
+ * On failure: clears tokens and redirects to login (refresh token invalid/expired).
  *
  * @example
  *   const refreshMutation = useRefreshToken();
@@ -63,6 +74,11 @@ export function useRefreshToken() {
     mutationFn: () => refreshAccessToken(),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: authKeys.profile() });
+    },
+    onError: () => {
+      // Refresh token is invalid/expired — force re-authentication
+      queryClient.clear();
+      forceLogout();
     },
   });
 }
@@ -93,25 +109,36 @@ export function useChangePassword() {
 }
 
 /**
- * Logout — clears tokens and invalidates all queries.
+ * Logout mutation — revokes refresh tokens and clears local state.
  *
- * Not a mutation (no backend call needed — token is stateless).
- * Increments session version on backend to invalidate all tokens,
- * but for a local app, clearing localStorage is sufficient.
+ * Calls backend to revoke all refresh tokens, then clears local state.
+ * If the backend call fails, local tokens are still cleared (best-effort).
+ * Returns mutation object with isPending for loading state.
  *
  * @example
- *   const logout = useLogout();
- *   logout();
+ *   const logoutMutation = useLogout();
+ *   logoutMutation.mutate();
+ *   // or check logoutMutation.isPending for button loading state
  */
 export function useLogout() {
   const queryClient = useQueryClient();
 
-  return () => {
-    clearAuthTokens();
-    queryClient.clear();
-    // Redirect to login
-    window.location.href = "/login";
-  };
+  return useMutation({
+    mutationFn: async () => {
+      // Best-effort server-side revocation
+      try {
+        await logoutApi();
+      } catch {
+        // Backend may be unreachable — still clear local state
+      }
+    },
+    onSettled: () => {
+      clearAuthTokens();
+      queryClient.clear();
+      // Full page reload to clear all in-memory state
+      window.location.href = "/login";
+    },
+  });
 }
 
 /**
@@ -119,17 +146,17 @@ export function useLogout() {
  * Sets up an interval to check and refresh tokens periodically.
  *
  * @param intervalMs - How often to check/refresh (default: 5 minutes)
- * @returns Object with the last refresh result
+ * @returns Object with refresh function and reactive isRefreshing state
  *
  * @example
  *   // In a layout or provider component
- *   useTokenRefresher({ intervalMs: 5 * 60 * 1000 }); // Every 5 minutes
+ *   const { isRefreshing } = useTokenRefresher({ intervalMs: 5 * 60 * 1000 });
  */
 export function useTokenRefresher({
   intervalMs = 5 * 60 * 1000,
 }: { intervalMs?: number } = {}) {
-  const { mutate: refresh } = useRefreshToken();
-  const refreshInProgress = useRef(false);
+  const refreshMutation = useRefreshToken();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     // Skip if interval is not positive
@@ -142,22 +169,20 @@ export function useTokenRefresher({
       if (token != null && expiry != null) {
         const nowSeconds = Math.floor(Date.now() / 1000);
         // Refresh if expiring within 2 minutes and no refresh in progress
-        if (nowSeconds >= expiry - 120 && !refreshInProgress.current) {
-          refreshInProgress.current = true;
-          refresh(undefined, {
-            onSettled: () => {
-              refreshInProgress.current = false;
-            },
+        if (nowSeconds >= expiry - 120 && !isRefreshing) {
+          setIsRefreshing(true);
+          refreshMutation.mutate(undefined, {
+            onSettled: () => setIsRefreshing(false),
           });
         }
       }
     }, intervalMs);
 
     return () => clearInterval(id);
-  }, [intervalMs, refresh]);
+  }, [intervalMs, refreshMutation, isRefreshing]);
 
   return {
-    refresh,
-    isRefreshing: refreshInProgress.current,
+    refresh: refreshMutation.mutate,
+    isRefreshing,
   };
 }

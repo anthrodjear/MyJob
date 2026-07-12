@@ -23,23 +23,6 @@ func NewHandler(service *Service, logger *zap.Logger) *Handler {
 	}
 }
 
-// RegisterRoutes registers auth routes on the router group.
-func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
-	auth := rg.Group("/auth")
-	{
-		auth.POST("/login", h.Login)
-		auth.POST("/change-password", h.ChangePassword)
-		auth.GET("/setup/status", h.SetupStatus)
-		auth.POST("/setup", h.CompleteSetup)
-		auth.POST("/setup/test-llm", h.TestLLMKey)
-		auth.POST("/setup/test-voice", h.TestVoiceConfig)
-		auth.POST("/setup/test-email", h.TestEmailConfig)
-		auth.POST("/setup/config", h.SaveOnboardingConfig)
-		auth.POST("/setup/onboarding-step", h.UpdateOnboardingStep)
-		auth.POST("/setup/complete-onboarding", h.CompleteOnboarding)
-	}
-}
-
 // Login handles POST /auth/login.
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
@@ -98,7 +81,20 @@ func (h *Handler) SetupStatus(c *gin.Context) {
 		httpresp.InternalError(c)
 		return
 	}
+
 	httpresp.OK(c, resp)
+}
+
+// Logout handles POST /auth/logout.
+// Revokes all refresh tokens and increments session version.
+func (h *Handler) Logout(c *gin.Context) {
+	if err := h.service.Logout(c.Request.Context()); err != nil {
+		h.logger.Error("logout error", zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, LogoutResponse{Message: "logged out"})
 }
 
 // CompleteSetup handles POST /auth/setup.

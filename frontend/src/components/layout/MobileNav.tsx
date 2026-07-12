@@ -80,7 +80,7 @@ export function MobileNav() {
             type="button"
             onClick={() => {
               setOpen(false);
-              logout();
+              logout.mutate();
             }}
             className="flex w-full items-center gap-3 border-t border-border px-6 py-3 text-sm font-medium text-text-secondary hover:bg-bg-tertiary"
           >

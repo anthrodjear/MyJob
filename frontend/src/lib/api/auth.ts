@@ -5,6 +5,7 @@
  * - POST /auth/login → { access_token, refresh_token, expires_at }
  * - POST /auth/refresh → { access_token, refresh_token, expires_at }
  * - POST /auth/change-password → { message }
+ * - POST /auth/logout → { message }
  * - GET /auth/setup/status → { setup_required, step }
  * - POST /auth/setup → { message }
  * - POST /auth/setup/test-llm → { valid }
@@ -36,8 +37,8 @@ export interface LoginResponse {
   expires_at: number;
 }
 
-/** Response from POST /auth/change-password. */
-export interface ChangePasswordResponse {
+/** Response from POST /auth/change-password and POST /auth/logout. */
+export interface MessageResponse {
   message: string;
 }
 
@@ -116,13 +117,34 @@ export async function refreshAccessToken(): Promise<LoginResponse> {
 export async function changePassword(
   currentPassword: string,
   newPassword: string,
-): Promise<ChangePasswordResponse> {
-  const resp = await apiPost<ChangePasswordResponse>("auth/change-password", {
+): Promise<MessageResponse> {
+  const resp = await apiPost<MessageResponse>("auth/change-password", {
     current_password: currentPassword,
     new_password: newPassword,
   });
   if (resp == null) {
     throw new ApiError(500, "EMPTY_RESPONSE", "Password change failed: no response from server");
+  }
+  return resp;
+}
+
+/**
+ * Logout — revoke all refresh tokens for the current user on the server.
+ *
+ * Call this before clearing local tokens to ensure the refresh token
+ * cannot be reused. The access token is stateless and expires on its own.
+ *
+ * @returns Confirmation message
+ * @throws ApiError on server error (client should still clear local tokens)
+ *
+ * @example
+ *   await logout();
+ *   clearAuthTokens(); // Always clear local state even if server call fails
+ */
+export async function logout(): Promise<MessageResponse> {
+  const resp = await apiPost<MessageResponse>("auth/logout", {});
+  if (resp == null) {
+    throw new ApiError(500, "EMPTY_RESPONSE", "Logout failed: no response from server");
   }
   return resp;
 }
