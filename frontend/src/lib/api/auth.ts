@@ -2,7 +2,8 @@
  * Auth API functions — login, password management, and onboarding.
  *
  * Backend endpoints:
- * - POST /auth/login → { access_token, expires_at }
+ * - POST /auth/login → { access_token, refresh_token, expires_at }
+ * - POST /auth/refresh → { access_token, refresh_token, expires_at }
  * - POST /auth/change-password → { message }
  * - GET /auth/setup/status → { setup_required, step }
  * - POST /auth/setup → { message }
@@ -19,15 +20,19 @@
  * @example
  *   import { login } from "@/lib/api/auth";
  *   const resp = await login("my-password");
- *   // resp.access_token is stored, all subsequent apiFetch calls include it
+ *   // resp.access_token is stored, all subsequent apiFetch calls use it
  */
 
-import { apiGet, apiPost } from "./client";
-import { setAuthToken } from "@/lib/auth";
+import { apiGet, apiPost, ApiError } from "./client";
+import { setAuthTokens, getRefreshToken } from "@/lib/auth";
 
-/** Response from POST /auth/login. */
+/**
+ * Response from POST /auth/login and POST /auth/refresh.
+ * Snake_case fields match the backend contract.
+ */
 export interface LoginResponse {
   access_token: string;
+  refresh_token: string;
   expires_at: number;
 }
 
@@ -37,23 +42,63 @@ export interface ChangePasswordResponse {
 }
 
 /**
- * Authenticate with the backend and store the JWT.
+ * Authenticate with the backend and store the JWT + refresh token.
  *
  * @param password - User's password (single-user local app)
- * @returns Login response with access_token and expiry
+ * @returns Login response with tokens and expiry
  * @throws ApiError on invalid credentials or server error
  *
  * @example
- *   const { access_token } = await login("my-password");
- *   // Token is now stored in localStorage — all apiFetch calls use it
+ *   const { access_token, refresh_token } = await login("my-password");
+ *   // Tokens are now stored in localStorage — all apiFetch calls use the access token
  */
 export async function login(password: string): Promise<LoginResponse> {
   const resp = await apiPost<LoginResponse>("auth/login", { password });
   if (resp == null) {
-    throw new Error("Login failed: no response from server");
+    throw new ApiError(500, "EMPTY_RESPONSE", "Login failed: no response from server");
   }
-  // Store token for subsequent API calls
-  setAuthToken(resp.access_token);
+  // Store both tokens for subsequent API calls
+  setAuthTokens({
+    accessToken: resp.access_token,
+    refreshToken: resp.refresh_token,
+    expiresAt: resp.expires_at,
+  });
+  return resp;
+}
+
+/**
+ * Refresh the access token using the stored refresh token.
+ *
+ * @deprecated This function is for manual refresh only. The API client (client.ts)
+ * handles refresh automatically on 401. Use apiFetchWithRefresh for automatic retry.
+ *
+ * @returns New token pair
+ * @throws ApiError if refresh token is invalid or expired
+ *
+ * @example
+ *   const { access_token, refresh_token } = await refreshAccessToken();
+ *   // New tokens are stored automatically
+ */
+export async function refreshAccessToken(): Promise<LoginResponse> {
+  const refreshToken = getRefreshToken();
+  if (refreshToken == null) {
+    throw new ApiError(401, "NO_REFRESH_TOKEN", "No refresh token available");
+  }
+
+  const resp = await apiPost<LoginResponse>(
+    "auth/refresh",
+    { refresh_token: refreshToken },
+    { skipAuth: true }, // Refresh endpoint only needs the refresh token
+  );
+  if (resp == null) {
+    throw new ApiError(500, "EMPTY_RESPONSE", "Refresh failed: no response from server");
+  }
+  // Store new tokens
+  setAuthTokens({
+    accessToken: resp.access_token,
+    refreshToken: resp.refresh_token,
+    expiresAt: resp.expires_at,
+  });
   return resp;
 }
 
@@ -77,7 +122,7 @@ export async function changePassword(
     new_password: newPassword,
   });
   if (resp == null) {
-    throw new Error("Password change failed: no response from server");
+    throw new ApiError(500, "EMPTY_RESPONSE", "Password change failed: no response from server");
   }
   return resp;
 }
@@ -104,13 +149,16 @@ export interface SetupResponse {
 export async function getSetupStatus(): Promise<SetupStatusResponse> {
   const resp = await apiGet<SetupStatusResponse>("auth/setup/status");
   if (resp == null) {
-    throw new Error("Setup status check failed: no response from server");
+    throw new ApiError(500, "EMPTY_RESPONSE", "Setup status check failed: no response from server");
   }
   return resp;
 }
 
 /**
  * Complete the first-boot setup by creating the admin user.
+ *
+ * NOTE: This is a local-first app — all communication is over localhost/loopback.
+ * Do not use this pattern for remote deployments without HTTPS enforcement.
  *
  * @param username - Display name (min 3 chars)
  * @param email - Email address
@@ -129,7 +177,7 @@ export async function completeSetup(
     password,
   });
   if (resp == null) {
-    throw new Error("Setup failed: no response from server");
+    throw new ApiError(500, "EMPTY_RESPONSE", "Setup failed: no response from server");
   }
   return resp;
 }
@@ -179,7 +227,7 @@ export async function testLLMKey(
     api_key: apiKey,
   });
   if (resp == null) {
-    throw new Error("LLM test failed: no response from server");
+    throw new ApiError(500, "EMPTY_RESPONSE", "LLM test failed: no response from server");
   }
   return resp;
 }
@@ -204,7 +252,7 @@ export async function testVoiceConfig(
     api_secret: apiSecret,
   });
   if (resp == null) {
-    throw new Error("Voice test failed: no response from server");
+    throw new ApiError(500, "EMPTY_RESPONSE", "Voice test failed: no response from server");
   }
   return resp;
 }
@@ -229,7 +277,7 @@ export async function testEmailConfig(
     client_secret: clientSecret,
   });
   if (resp == null) {
-    throw new Error("Email test failed: no response from server");
+    throw new ApiError(500, "EMPTY_RESPONSE", "Email test failed: no response from server");
   }
   return resp;
 }
@@ -246,7 +294,7 @@ export async function saveOnboardingConfig(
 ): Promise<OnboardingResponse> {
   const resp = await apiPost<OnboardingResponse>("auth/setup/config", config);
   if (resp == null) {
-    throw new Error("Config save failed: no response from server");
+    throw new ApiError(500, "EMPTY_RESPONSE", "Config save failed: no response from server");
   }
   return resp;
 }
@@ -266,7 +314,7 @@ export async function updateOnboardingStep(
     { step },
   );
   if (resp == null) {
-    throw new Error("Step update failed: no response from server");
+    throw new ApiError(500, "EMPTY_RESPONSE", "Step update failed: no response from server");
   }
   return resp;
 }
@@ -283,7 +331,7 @@ export async function completeOnboarding(): Promise<OnboardingResponse> {
     {},
   );
   if (resp == null) {
-    throw new Error("Onboarding complete failed: no response from server");
+    throw new ApiError(500, "EMPTY_RESPONSE", "Onboarding complete failed: no response from server");
   }
   return resp;
 }

@@ -5,9 +5,16 @@
  *
  * Flow:
  * 1. User enters password
- * 2. POST /auth/login → { access_token, expires_at }
- * 3. Token stored in localStorage
+ * 2. POST /auth/login → { access_token, refresh_token, expires_at }
+ * 3. Tokens stored in localStorage (access + refresh)
  * 4. Redirect to /dashboard
+ *
+ * UX improvements:
+ * - Password strength indicator
+ * - Clear error messages
+ * - Loading states with accessible feedback
+ * - Auto-focus on password input
+ * - Password visibility toggle with aria-label
  *
  * Accessibility:
  * - `<main>` landmark
@@ -20,17 +27,63 @@
 
 "use client";
 
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useLogin } from "@/hooks/useAuth";
 import { getSetupStatus } from "@/lib/api/auth";
 import { Button } from "@/components/shared/Button";
 import { Input } from "@/components/shared/Input";
-import { Eye, EyeOff, Lock, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Lock, AlertCircle, CheckCircle, Shield, ShieldAlert } from "lucide-react";
+
+/** Password strength levels. */
+type PasswordStrength = "weak" | "fair" | "good" | "strong";
+
+/** Ordered strength levels for iteration. */
+const STRENGTH_LEVELS: PasswordStrength[] = ["weak", "fair", "good", "strong"];
+
+/** Color and label for each strength level. */
+const STRENGTH_CONFIG: Record<PasswordStrength, { color: string; label: string; icon: React.ReactNode }> = {
+  weak: { color: "text-danger", label: "Weak", icon: <ShieldAlert className="h-3 w-3" /> },
+  fair: { color: "text-warning", label: "Fair", icon: <Shield className="h-3 w-3" /> },
+  good: { color: "text-primary", label: "Good", icon: <Shield className="h-3 w-3" /> },
+  strong: { color: "text-success", label: "Strong", icon: <CheckCircle className="h-3 w-3" /> },
+};
+
+/**
+ * Calculate password strength based on common criteria.
+ * Returns a strength level from "weak" to "strong".
+ */
+function calculatePasswordStrength(password: string): PasswordStrength {
+  // Trim whitespace for consistent scoring
+  const trimmed = password.trim();
+  if (trimmed.length === 0) return "weak";
+
+  let score = 0;
+
+  // Length
+  if (trimmed.length >= 8) score++;
+  if (trimmed.length >= 12) score++;
+  if (trimmed.length >= 16) score++;
+
+  // Character variety
+  if (/[a-z]/.test(trimmed)) score++;
+  if (/[A-Z]/.test(trimmed)) score++;
+  if (/[0-9]/.test(trimmed)) score++;
+  if (/[^a-zA-Z0-9]/.test(trimmed)) score++;
+
+  // Penalize common patterns
+  if (/(.)\1{2,}/.test(trimmed)) score--; // Repeated characters
+  if (/^(?:password|admin|123456|qwerty|letmein)/i.test(trimmed)) score -= 2;
+
+  if (score <= 2) return "weak";
+  if (score <= 4) return "fair";
+  if (score <= 5) return "good";
+  return "strong";
+}
 
 /**
  * Map API error codes to user-friendly messages.
- * Never expose raw error.message to users.
+ * Never expose raw error messages to users.
  */
 function getUserMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -38,11 +91,17 @@ function getUserMessage(error: unknown): string {
     if (msg.includes("invalid_credentials") || msg.includes("invalid credentials")) {
       return "Incorrect password. Please try again.";
     }
+    if (msg.includes("invalid_refresh_token") || msg.includes("refresh token")) {
+      return "Your session has expired. Please sign in again.";
+    }
     if (msg.includes("network") || msg.includes("fetch")) {
       return "Cannot reach the server. Is the backend running?";
     }
     if (msg.includes("timeout")) {
       return "Server took too long to respond. Please try again.";
+    }
+    if (msg.includes("401") || msg.includes("unauthorized")) {
+      return "Session expired. Please sign in again.";
     }
   }
   return "Something went wrong. Please try again.";
@@ -55,6 +114,11 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkingSetup, setCheckingSetup] = useState(true);
+  const [touched, setTouched] = useState(false);
+
+  // Password strength (show after user has touched the field)
+  const strength = calculatePasswordStrength(password);
+  const showStrength = touched;
 
   // Check setup status on mount — redirect to /setup if required
   useEffect(() => {
@@ -83,24 +147,30 @@ export default function LoginPage() {
     };
   }, [router]);
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError(null);
+  const handleSubmit = useCallback(
+    (e: FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      setError(null);
+      setTouched(true);
 
-    if (password.trim().length === 0) {
-      setError("Password is required.");
-      return;
-    }
+      const trimmedPassword = password.trim();
+      if (trimmedPassword.length === 0) {
+        setError("Password is required.");
+        return;
+      }
 
-    loginMutation.mutate(password, {
-      onSuccess: () => {
-        router.push("/dashboard");
-      },
-      onError: (err) => {
-        setError(getUserMessage(err));
-      },
-    });
-  };
+      // Send trimmed password to backend (consistent with strength calculation)
+      loginMutation.mutate(trimmedPassword, {
+        onSuccess: () => {
+          router.push("/dashboard");
+        },
+        onError: (err) => {
+          setError(getUserMessage(err));
+        },
+      });
+    },
+    [password, loginMutation, router],
+  );
 
   // Show loading spinner while checking setup status
   if (checkingSetup) {
@@ -134,6 +204,8 @@ export default function LoginPage() {
     );
   }
 
+  const strengthConfig = STRENGTH_CONFIG[strength];
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-bg-secondary">
       <div className="w-full max-w-sm space-y-6 px-4">
@@ -143,9 +215,7 @@ export default function LoginPage() {
             <Lock className="h-6 w-6 text-primary" aria-hidden="true" />
           </div>
           <h1 className="text-3xl font-bold text-primary">MyJob</h1>
-          <p className="mt-1 text-sm text-text-secondary">
-            AI Job Search Agent
-          </p>
+          <p className="mt-1 text-sm text-text-secondary">AI Job Search Agent</p>
         </div>
 
         {/* Login card */}
@@ -172,6 +242,7 @@ export default function LoginPage() {
               autoFocus
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onBlur={() => setTouched(true)}
               disabled={loginMutation.isPending}
               placeholder="Enter your password"
               rightIcon={
@@ -188,8 +259,33 @@ export default function LoginPage() {
                   )}
                 </button>
               }
+              helperText={
+                showStrength && (
+                  <div className="mt-2 space-y-1.5">
+                    {/* Strength bar */}
+                    <div className="flex gap-1" role="progressbar" aria-valuenow={STRENGTH_LEVELS.indexOf(strength) + 1} aria-valuemin={1} aria-valuemax={4}>
+                      {STRENGTH_LEVELS.map((level, index) => (
+                        <div
+                          key={level}
+                          className={`h-1.5 flex-1 rounded transition-colors ${
+                            index <= STRENGTH_LEVELS.indexOf(strength)
+                              ? STRENGTH_CONFIG[level].color.replace("text-", "bg-")
+                              : "bg-border"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    {/* Strength label — sole source of screen reader feedback */}
+                    <p className={`text-xs font-medium ${strengthConfig.color}`} aria-live="polite">
+                      {strengthConfig.icon}
+                      Password strength: {strengthConfig.label}
+                    </p>
+                  </div>
+                )
+              }
             />
 
+            {/* Sign in button */}
             <Button
               type="submit"
               variant="primary"

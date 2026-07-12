@@ -92,19 +92,27 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 	// API v1 group
 	v1 := r.Group("/api/v1")
 	{
-// Public auth routes (no JWT) - with stricter rate limiting
-	authGroup := v1.Group("/auth")
-	authGroup.Use(middleware.RateLimit(config.RateLimitConfig{
-		RequestsPerMinute: cfg.AuthRateLimitConfig.RequestsPerMinute,
-		Burst:             cfg.AuthRateLimitConfig.Burst,
-	}, cfg.Logger))
-	{
+		// Public auth routes (no JWT) - with stricter rate limiting
+		authGroup := v1.Group("/auth")
+		authGroup.Use(middleware.RateLimit(config.RateLimitConfig{
+			RequestsPerMinute: cfg.AuthRateLimitConfig.RequestsPerMinute,
+			Burst:             cfg.AuthRateLimitConfig.Burst,
+		}, cfg.Logger))
+		{
 			authGroup.POST("/login", cfg.AuthHandler.Login)
 			authGroup.POST("/refresh", cfg.AuthHandler.Refresh)
 
 			// Setup routes — public, no JWT needed
 			authGroup.GET("/setup/status", cfg.AuthHandler.SetupStatus)
 			authGroup.POST("/setup", cfg.AuthHandler.CompleteSetup)
+
+			// Onboarding routes — public (setup wizard)
+			authGroup.POST("/setup/test-llm", cfg.AuthHandler.TestLLMKey)
+			authGroup.POST("/setup/test-voice", cfg.AuthHandler.TestVoiceConfig)
+			authGroup.POST("/setup/test-email", cfg.AuthHandler.TestEmailConfig)
+			authGroup.POST("/setup/config", cfg.AuthHandler.SaveOnboardingConfig)
+			authGroup.POST("/setup/onboarding-step", cfg.AuthHandler.UpdateOnboardingStep)
+			authGroup.POST("/setup/complete-onboarding", cfg.AuthHandler.CompleteOnboarding)
 		}
 
 		// Protected routes (require JWT)
