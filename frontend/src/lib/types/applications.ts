@@ -58,3 +58,14 @@ export interface ApplicationListParams {
   limit?: number;
   offset?: number;
 }
+
+/**
+ * Response shape from GET /applications.
+ * Backend returns { applications, total, limit, offset }.
+ */
+export interface ApplicationListResponse {
+  applications: Application[];
+  total: number;
+  limit: number;
+  offset: number;
+}

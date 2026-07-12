@@ -50,7 +50,7 @@ export function ApprovalsPageClient() {
     [router, pathname, searchParams],
   );
 
-  const { data, isLoading, error, refetch } = useApprovals({
+  const { data, isLoading } = useApprovals({
     status: statusFilter === "all" ? undefined : statusFilter,
     limit: PAGE_SIZE,
     offset,
@@ -111,17 +111,6 @@ export function ApprovalsPageClient() {
     },
     [router],
   );
-
-  if (error) {
-    return (
-      <div className="py-12 text-center" aria-live="assertive">
-        <p className="text-sm text-danger">Failed to load approvals. Please try again.</p>
-        <Button variant="secondary" size="sm" className="mt-4" onClick={() => refetch()}>
-          Retry
-        </Button>
-      </div>
-    );
-  }
 
   const approvals = data?.approvals ?? [];
   const total = data?.total ?? 0;

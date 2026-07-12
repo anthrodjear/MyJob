@@ -56,7 +56,7 @@ export function ApplicationsPageClient() {
     [router, pathname, searchParams],
   );
 
-  const { data, isLoading, error, refetch } = useApplications({
+  const { data, isLoading } = useApplications({
     status: statusFilter === "all" ? undefined : statusFilter,
     limit: PAGE_SIZE,
     offset,
@@ -89,17 +89,6 @@ export function ApplicationsPageClient() {
     },
     [setParam],
   );
-
-  if (error) {
-    return (
-      <div className="py-12 text-center" aria-live="assertive">
-        <p className="text-sm text-danger">Failed to load applications. Please try again.</p>
-        <Button variant="secondary" size="sm" className="mt-4" onClick={() => refetch()}>
-          Retry
-        </Button>
-      </div>
-    );
-  }
 
   const applications = data?.applications ?? [];
   const total = data?.total ?? 0;

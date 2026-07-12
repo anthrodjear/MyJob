@@ -14,7 +14,7 @@ import {
   approveApproval,
   rejectApproval,
 } from "@/lib/api/approvals";
-import type { ApprovalListParams } from "@/lib/types/approvals";
+import type { ApprovalListParams, ApprovalListResponse } from "@/lib/types/approvals";
 
 /** Stable stringify for query keys — sorts keys for consistent references. */
 function stableStringify(obj: Record<string, unknown>): string {
@@ -31,6 +31,9 @@ export const approvalsKeys = {
   detail: (id: string) => [...approvalsKeys.details(), id] as const,
 };
 
+/** Empty approval list response for graceful degradation. */
+const emptyApprovals: ApprovalListResponse = { approvals: [], total: 0, limit: 0, offset: 0 };
+
 /**
  * Hook to fetch paginated approval list with filters.
  *
@@ -43,7 +46,7 @@ export function useApprovals(params: ApprovalListParams = {}) {
     queryFn: () => fetchApprovals(params),
     staleTime: 30_000,
     gcTime: 5 * 60_000,
-    placeholderData: (previous) => previous,
+    placeholderData: emptyApprovals,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30_000),
   });

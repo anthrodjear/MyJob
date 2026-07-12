@@ -573,7 +573,7 @@ export default function SetupPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-bg-primary">
+    <main className="flex min-h-screen items-center justify-center bg-bg-secondary">
       <div className="w-full max-w-lg space-y-6 px-4">
         {/* Brand */}
         <div className="text-center">

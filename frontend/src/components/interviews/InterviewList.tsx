@@ -3,6 +3,7 @@
  *
  * Handles loading, empty, and list states.
  * Renders interviews in a vertical stack using InterviewCard for individual display.
+ * Uses SkeletonWrapper to enforce min/max display times and prevent pop-ins.
  *
  * @example
  *   <InterviewList interviews={sessions} isLoading={false} onSelect={handleSelect} />
@@ -13,7 +14,7 @@
 import { Mic } from "lucide-react";
 import { InterviewCard } from "./InterviewCard";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { Skeleton } from "@/components/shared/LoadingSkeleton";
+import { InterviewCardSkeleton, SkeletonWrapper } from "@/components/shared/LoadingSkeleton";
 import type { InterviewSession } from "@/lib/types/interviews";
 
 interface InterviewListProps {
@@ -25,55 +26,51 @@ interface InterviewListProps {
   onSelect?: (interview: InterviewSession) => void;
 }
 
-/** Skeleton placeholder for a single interview card during loading. */
-function SkeletonCard() {
+/** Skeleton placeholder matching the list layout. */
+function InterviewListSkeleton() {
   return (
-    <div className="rounded-lg border p-4">
-      <div className="flex items-start gap-4">
-        <Skeleton className="h-5 w-5 shrink-0 rounded" />
-        <div className="flex-1 space-y-2">
-          <div className="flex gap-2">
-            <Skeleton className="h-5 w-16 rounded-full" />
-            <Skeleton className="h-4 w-12" />
-          </div>
-          <div className="flex gap-4">
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-3 w-24" />
-          </div>
-        </div>
+    <div aria-busy="true" aria-label="Loading interviews">
+      <span className="sr-only" aria-live="polite">Loading interviews…</span>
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <InterviewCardSkeleton key={i} />
+        ))}
       </div>
     </div>
   );
 }
 
-export function InterviewList({ interviews, isLoading, onSelect }: InterviewListProps) {
-  if (isLoading) {
-    return (
-      <div className="space-y-3" aria-busy="true" aria-label="Loading interviews">
-        {Array.from({ length: 4 }, (_, i) => (
-          <SkeletonCard key={i} />
-        ))}
-      </div>
-    );
-  }
-
-  if (interviews.length === 0) {
-    return (
-      <EmptyState
-        icon={<Mic className="h-12 w-12" />}
-        title="No interviews yet"
-        description="Start an interview session from an application."
-      />
-    );
-  }
-
+export function InterviewList({ interviews, isLoading = false, onSelect }: InterviewListProps) {
+  // Use SkeletonWrapper to enforce min/max display times and prevent pop-ins
   return (
-    <div className="space-y-3" role="list" aria-label="Interview sessions">
-      {interviews.map((interview) => (
-        <div key={interview.id} role="listitem">
-          <InterviewCard interview={interview} onClick={() => onSelect?.(interview)} />
-        </div>
-      ))}
-    </div>
+    <SkeletonWrapper
+      isLoading={isLoading}
+      skeleton={<InterviewListSkeleton />}
+      minDisplayMs={300}
+      maxDisplayMs={5000}
+      ariaLiveRegion="Interviews loaded"
+    >
+      <div className="space-y-3" role="list" aria-label="Interview sessions">
+        {/* Empty state */}
+        {interviews.length === 0 && !isLoading && (
+          <EmptyState
+            icon={<Mic className="h-12 w-12" />}
+            title="No interviews yet"
+            description="Start an interview session from an application."
+          />
+        )}
+
+        {/* Interviews list */}
+        {interviews.length > 0 && (
+          <>
+            {interviews.map((interview) => (
+              <div key={interview.id} role="listitem">
+                <InterviewCard interview={interview} onClick={() => onSelect?.(interview)} />
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    </SkeletonWrapper>
   );
 }
