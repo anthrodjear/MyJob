@@ -30,11 +30,12 @@ jobs:
     steps:
       - run: echo "CI passed"
 
-  deploy:
+deploy:
     needs: validate
     runs-on: self-hosted
     timeout-minutes: 45
     env:
+      KUBECONFIG: /home/dark/.kube/config
       TAG: ${{ github.sha }}
       ENV: ${{ github.event.inputs.environment || 'staging' }}
     steps:
@@ -291,6 +292,8 @@ jobs:
     if: failure()
     runs-on: self-hosted
     timeout-minutes: 10
+    env:
+      KUBECONFIG: /home/dark/.kube/config
     steps:
       - name: Rollback Helm
         run: |

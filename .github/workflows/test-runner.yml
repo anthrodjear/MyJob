@@ -9,6 +9,8 @@ on:
 jobs:
   test:
     runs-on: self-hosted
+    env:
+      KUBECONFIG: /home/dark/.kube/config
     steps:
       - name: Test connection
         run: |
