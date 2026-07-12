@@ -1,0 +1,17 @@
+$kind: http-request
+name: Test LLM Key
+method: POST
+url: '{{baseUrl}}/api/v1/auth/setup/test-llm'
+order: 3000
+auth:
+  type: noauth
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "provider": "openai",
+      "api_key": "sk-..."
+    }

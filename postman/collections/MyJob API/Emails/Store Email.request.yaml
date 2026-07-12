@@ -1,0 +1,18 @@
+$kind: http-request
+name: Store Email
+method: POST
+url: '{{baseUrl}}/api/v1/emails'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "message_id": "msg-123",
+      "subject": "Application Update",
+      "from": "recruiter@company.com",
+      "body": "We received your application...",
+      "received_at": "2026-07-12T10:00:00Z"
+    }

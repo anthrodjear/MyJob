@@ -1,0 +1,8 @@
+$kind: http-request
+name: Delete Config Override
+method: DELETE
+url: '{{baseUrl}}/api/v1/system/config/{{configKey}}'
+order: 3000
+pathVariables:
+  - key: configKey
+    value: '{{configKey}}'

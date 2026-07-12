@@ -1,0 +1,18 @@
+$kind: http-request
+name: Update Email
+method: PATCH
+url: '{{baseUrl}}/api/v1/emails/{{emailId}}'
+order: 4000
+pathVariables:
+  - key: emailId
+    value: '{{emailId}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "is_read": true,
+      "reply_draft": "Thank you for reaching out..."
+    }

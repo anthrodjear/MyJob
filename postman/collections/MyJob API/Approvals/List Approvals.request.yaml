@@ -1,0 +1,16 @@
+$kind: http-request
+name: List Approvals
+method: GET
+url: '{{baseUrl}}/api/v1/approvals'
+order: 1000
+queryParams:
+  - key: status
+    value: ''
+    disabled: true
+  - key: application_id
+    value: ''
+    disabled: true
+  - key: limit
+    value: '50'
+  - key: offset
+    value: '0'

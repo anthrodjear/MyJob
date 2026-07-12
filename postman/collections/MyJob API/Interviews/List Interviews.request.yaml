@@ -1,0 +1,19 @@
+$kind: http-request
+name: List Interviews
+method: GET
+url: '{{baseUrl}}/api/v1/interviews'
+order: 2000
+queryParams:
+  - key: application_id
+    value: ''
+    disabled: true
+  - key: status
+    value: ''
+    disabled: true
+  - key: mode
+    value: ''
+    disabled: true
+  - key: limit
+    value: '20'
+  - key: offset
+    value: '0'

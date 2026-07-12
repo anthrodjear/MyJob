@@ -1,0 +1,8 @@
+$kind: http-request
+name: Delete Embedding
+method: DELETE
+url: '{{baseUrl}}/api/v1/rag/embeddings/{{embeddingId}}'
+order: 4000
+pathVariables:
+  - key: embeddingId
+    value: '{{embeddingId}}'

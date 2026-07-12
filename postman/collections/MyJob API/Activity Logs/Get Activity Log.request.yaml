@@ -1,0 +1,8 @@
+$kind: http-request
+name: Get Activity Log
+method: GET
+url: '{{baseUrl}}/api/v1/activity-logs/{{activityId}}'
+order: 2000
+pathVariables:
+  - key: activityId
+    value: '{{activityId}}'

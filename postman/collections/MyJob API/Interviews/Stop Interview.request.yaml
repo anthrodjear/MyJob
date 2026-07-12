@@ -1,0 +1,17 @@
+$kind: http-request
+name: Stop Interview
+method: POST
+url: '{{baseUrl}}/api/v1/interviews/{{interviewId}}/stop'
+order: 5000
+pathVariables:
+  - key: interviewId
+    value: '{{interviewId}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "reason": "completed"
+    }

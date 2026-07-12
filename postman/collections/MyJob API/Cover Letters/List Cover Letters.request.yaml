@@ -1,0 +1,10 @@
+$kind: http-request
+name: List Cover Letters
+method: GET
+url: '{{baseUrl}}/api/v1/cover-letters'
+order: 1000
+queryParams:
+  - key: limit
+    value: '20'
+  - key: offset
+    value: '0'

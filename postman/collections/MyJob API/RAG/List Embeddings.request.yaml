@@ -1,0 +1,13 @@
+$kind: http-request
+name: List Embeddings
+method: GET
+url: '{{baseUrl}}/api/v1/rag/embeddings'
+order: 2000
+queryParams:
+  - key: source_type
+    value: ''
+    disabled: true
+  - key: limit
+    value: '50'
+  - key: offset
+    value: '0'

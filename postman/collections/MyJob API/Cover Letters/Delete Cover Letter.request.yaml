@@ -1,0 +1,8 @@
+$kind: http-request
+name: Delete Cover Letter
+method: DELETE
+url: '{{baseUrl}}/api/v1/cover-letters/{{coverLetterId}}'
+order: 6000
+pathVariables:
+  - key: coverLetterId
+    value: '{{coverLetterId}}'

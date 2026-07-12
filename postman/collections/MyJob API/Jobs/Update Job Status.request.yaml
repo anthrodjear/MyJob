@@ -1,0 +1,17 @@
+$kind: http-request
+name: Update Job Status
+method: PATCH
+url: '{{baseUrl}}/api/v1/jobs/{{jobId}}'
+order: 3000
+pathVariables:
+  - key: jobId
+    value: '{{jobId}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "status": "matched"
+    }

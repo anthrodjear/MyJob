@@ -1,0 +1,20 @@
+$kind: http-request
+name: Update Resume
+method: PUT
+url: '{{baseUrl}}/api/v1/resumes/{{resumeId}}'
+order: 4000
+pathVariables:
+  - key: resumeId
+    value: '{{resumeId}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Updated Resume",
+      "specialization": "Full Stack",
+      "template_path": "templates/resumes/base.tex",
+      "focus_skills": ["Go", "React", "PostgreSQL"]
+    }

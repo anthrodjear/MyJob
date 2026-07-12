@@ -1,0 +1,8 @@
+$kind: http-request
+name: Get Cover Letter
+method: GET
+url: '{{baseUrl}}/api/v1/cover-letters/{{coverLetterId}}'
+order: 2000
+pathVariables:
+  - key: coverLetterId
+    value: '{{coverLetterId}}'

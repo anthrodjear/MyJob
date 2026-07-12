@@ -1,0 +1,17 @@
+$kind: http-request
+name: Update Cover Letter Content
+method: PUT
+url: '{{baseUrl}}/api/v1/cover-letters/{{coverLetterId}}/content'
+order: 5000
+pathVariables:
+  - key: coverLetterId
+    value: '{{coverLetterId}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "content": "Dear Hiring Manager, I am writing to express..."
+    }

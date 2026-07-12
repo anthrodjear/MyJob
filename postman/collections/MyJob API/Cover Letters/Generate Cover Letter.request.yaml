@@ -1,0 +1,20 @@
+$kind: http-request
+name: Generate Cover Letter
+method: POST
+url: '{{baseUrl}}/api/v1/cover-letters/{{coverLetterId}}/generate'
+order: 4000
+pathVariables:
+  - key: coverLetterId
+    value: '{{coverLetterId}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "job_title": "Senior Backend Engineer",
+      "job_requirements": "5+ years Go...",
+      "job_description": "We are looking for...",
+      "resume_id": "{{resumeId}}"
+    }

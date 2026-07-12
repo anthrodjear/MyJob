@@ -1,0 +1,8 @@
+$kind: http-request
+name: Get Job
+method: GET
+url: '{{baseUrl}}/api/v1/jobs/{{jobId}}'
+order: 2000
+pathVariables:
+  - key: jobId
+    value: '{{jobId}}'

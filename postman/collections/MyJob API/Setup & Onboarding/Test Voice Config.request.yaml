@@ -1,0 +1,18 @@
+$kind: http-request
+name: Test Voice Config
+method: POST
+url: '{{baseUrl}}/api/v1/auth/setup/test-voice'
+order: 4000
+auth:
+  type: noauth
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "url": "wss://livekit.example.com",
+      "api_key": "your_key",
+      "api_secret": "your_secret"
+    }
