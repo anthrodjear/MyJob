@@ -13,19 +13,19 @@ import (
 )
 
 type Config struct {
-	Server          ServerConfig
-	Database        DatabaseConfig
-	Redis           RedisConfig
-	Auth            AuthConfig
-	LLM             LLMConfig
-	Voice           VoiceConfig
-	Email           EmailConfig
-	Queue           QueueConfig
-	Scoring         ScoringConfig
-	Prompts         PromptsConfig
-	RateLimit       RateLimitConfig
-	AuthRateLimit   AuthRateLimitConfig
-	Environment     string
+	Server        ServerConfig
+	Database      DatabaseConfig
+	Redis         RedisConfig
+	Auth          AuthConfig
+	LLM           LLMConfig
+	Voice         VoiceConfig
+	Email         EmailConfig
+	Queue         QueueConfig
+	Scoring       ScoringConfig
+	Prompts       PromptsConfig
+	RateLimit     RateLimitConfig
+	AuthRateLimit AuthRateLimitConfig
+	Environment   string
 }
 
 type ServerConfig struct {
@@ -134,11 +134,11 @@ type PromptPair struct {
 }
 
 type AuthConfig struct {
-	PasswordHash        string        // bcrypt hash of the single user password
-	JWTSecret           string        // HMAC signing secret for JWT
-	JWTExpiry           time.Duration // Token validity duration
-	RefreshTokenExpiry  time.Duration // Refresh token validity duration (default: 7 days)
-	BCryptCost          int           // bcrypt cost factor (default: 12, min: 10)
+	PasswordHash       string        // bcrypt hash of the single user password
+	JWTSecret          string        // HMAC signing secret for JWT
+	JWTExpiry          time.Duration // Token validity duration
+	RefreshTokenExpiry time.Duration // Refresh token validity duration (default: 7 days)
+	BCryptCost         int           // bcrypt cost factor (default: 12, min: 10)
 }
 
 // IsProduction returns true if running in production environment.

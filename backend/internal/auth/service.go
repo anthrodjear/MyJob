@@ -22,16 +22,16 @@ import (
 )
 
 var (
-	ErrInvalidCredentials      = errors.New("auth: invalid credentials")
-	ErrTokenInvalid            = errors.New("auth: token invalid")
-	ErrTokenExpired            = errors.New("auth: token expired")
-	ErrUserNotFound            = errors.New("auth: user not found")
-	ErrSessionInvalidated      = errors.New("auth: session invalidated")
-	ErrPasswordSame            = errors.New("auth: new password must differ from current password")
-	ErrSetupAlreadyComplete    = errors.New("auth: setup already complete — users exist")
-	ErrRefreshTokenInvalid     = errors.New("auth: refresh token invalid")
-	ErrRefreshTokenExpired     = errors.New("auth: refresh token expired")
-	ErrRefreshTokenRevoked     = errors.New("auth: refresh token revoked")
+	ErrInvalidCredentials   = errors.New("auth: invalid credentials")
+	ErrTokenInvalid         = errors.New("auth: token invalid")
+	ErrTokenExpired         = errors.New("auth: token expired")
+	ErrUserNotFound         = errors.New("auth: user not found")
+	ErrSessionInvalidated   = errors.New("auth: session invalidated")
+	ErrPasswordSame         = errors.New("auth: new password must differ from current password")
+	ErrSetupAlreadyComplete = errors.New("auth: setup already complete — users exist")
+	ErrRefreshTokenInvalid  = errors.New("auth: refresh token invalid")
+	ErrRefreshTokenExpired  = errors.New("auth: refresh token expired")
+	ErrRefreshTokenRevoked  = errors.New("auth: refresh token revoked")
 )
 
 // Service handles authentication business logic.

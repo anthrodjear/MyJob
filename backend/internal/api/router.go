@@ -26,25 +26,25 @@ import (
 
 // RouterConfig holds dependencies for router setup.
 type RouterConfig struct {
-	AuthHandler            *auth.Handler
-	AuthService            *auth.Service
-	IsSetupRequired        func() bool // setup check function
-	IsOnboardingCompleted  func() bool // onboarding completion check function
-	CORSOrigins            []string
-	RateLimitConfig        config.RateLimitConfig
-	AuthRateLimitConfig    config.AuthRateLimitConfig
-	JobsHandler            *jobs.Handler
-	ApplicationsHandler    *applications.Handler
-	ResumesHandler         *resumes.Handler
-	ScoringHandler         *scoring.Handler
-	InterviewsHandler      *interviews.Handler
-	ProfileHandler         *profile.Handler
-	ApprovalsHandler       *approvals.Handler
-	RAGHandler             *rag.Handler
-	EmailsHandler          *emails.Handler
-	ActivityHandler        *activity.Handler
-	SystemConfigHandler    *systemconfig.Handler
-	Logger                 *zap.Logger
+	AuthHandler           *auth.Handler
+	AuthService           *auth.Service
+	IsSetupRequired       func() bool // setup check function
+	IsOnboardingCompleted func() bool // onboarding completion check function
+	CORSOrigins           []string
+	RateLimitConfig       config.RateLimitConfig
+	AuthRateLimitConfig   config.AuthRateLimitConfig
+	JobsHandler           *jobs.Handler
+	ApplicationsHandler   *applications.Handler
+	ResumesHandler        *resumes.Handler
+	ScoringHandler        *scoring.Handler
+	InterviewsHandler     *interviews.Handler
+	ProfileHandler        *profile.Handler
+	ApprovalsHandler      *approvals.Handler
+	RAGHandler            *rag.Handler
+	EmailsHandler         *emails.Handler
+	ActivityHandler       *activity.Handler
+	SystemConfigHandler   *systemconfig.Handler
+	Logger                *zap.Logger
 }
 
 // SetupRouter creates and configures the Gin router.
