@@ -87,7 +87,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to create auth repository", zap.Error(err))
 	}
-	authService := auth.NewService(authRepo, cfg.Auth, systemConfigService)
+	authService := auth.NewService(authRepo, cfg.Auth, systemConfigService, logger)
 	authHandler := auth.NewHandler(authService, logger)
 
 	// Setup check function — closure over authRepo

@@ -19,3 +19,14 @@ type User struct {
 	CreatedAt             time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt             time.Time  `db:"updated_at" json:"updated_at"`
 }
+
+// RefreshToken represents a stored refresh token (SHA-256 hash, not plaintext).
+type RefreshToken struct {
+	ID        string     `db:"id" json:"id"`
+	UserID    string     `db:"user_id" json:"-"`
+	TokenHash string     `db:"token_hash" json:"-"` // never expose hash
+	ExpiresAt time.Time  `db:"expires_at" json:"expires_at"`
+	CreatedAt time.Time  `db:"created_at" json:"created_at"`
+	RevokedAt *time.Time `db:"revoked_at" json:"revoked_at,omitempty"`
+	UpdatedAt time.Time  `db:"updated_at" json:"updated_at"`
+}

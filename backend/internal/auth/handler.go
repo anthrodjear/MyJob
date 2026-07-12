@@ -224,3 +224,25 @@ func (h *Handler) CompleteOnboarding(c *gin.Context) {
 
 	httpresp.OK(c, OnboardingConfigResponse{Message: "onboarding completed"})
 }
+
+// Refresh handles POST /auth/refresh.
+func (h *Handler) Refresh(c *gin.Context) {
+	var req RefreshRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpresp.BadRequest(c, "INVALID_REQUEST", "invalid request body")
+		return
+	}
+
+	resp, err := h.service.Refresh(c.Request.Context(), req.RefreshToken)
+	if err != nil {
+		if errors.Is(err, ErrRefreshTokenInvalid) || errors.Is(err, ErrRefreshTokenExpired) || errors.Is(err, ErrRefreshTokenRevoked) {
+			httpresp.Unauthorized(c, "INVALID_REFRESH_TOKEN", "refresh token is invalid or expired")
+			return
+		}
+		h.logger.Error("refresh token error", zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, resp)
+}

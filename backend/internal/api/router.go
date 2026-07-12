@@ -31,6 +31,7 @@ type RouterConfig struct {
 	IsSetupRequired     func() bool // setup check function
 	CORSOrigins         []string
 	RateLimitConfig     config.RateLimitConfig
+	AuthRateLimitConfig config.AuthRateLimitConfig
 	JobsHandler         *jobs.Handler
 	ApplicationsHandler *applications.Handler
 	ResumesHandler      *resumes.Handler
@@ -91,10 +92,15 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 	// API v1 group
 	v1 := r.Group("/api/v1")
 	{
-		// Public auth routes (no JWT)
-		authGroup := v1.Group("/auth")
-		{
+// Public auth routes (no JWT) - with stricter rate limiting
+	authGroup := v1.Group("/auth")
+	authGroup.Use(middleware.RateLimit(config.RateLimitConfig{
+		RequestsPerMinute: cfg.AuthRateLimitConfig.RequestsPerMinute,
+		Burst:             cfg.AuthRateLimitConfig.Burst,
+	}, cfg.Logger))
+	{
 			authGroup.POST("/login", cfg.AuthHandler.Login)
+			authGroup.POST("/refresh", cfg.AuthHandler.Refresh)
 
 			// Setup routes — public, no JWT needed
 			authGroup.GET("/setup/status", cfg.AuthHandler.SetupStatus)
