@@ -30,22 +30,16 @@ interface AuthGuardProps {
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
-  const [token, setToken] = useState<string | null | undefined>(undefined);
-  const [authChecked, setAuthChecked] = useState(false);
+  const [token] = useState<string | null>(() => getAuthToken());
 
+  // Redirect to login if no token after initial check
   useEffect(() => {
-    setToken(getAuthToken());
-    setAuthChecked(true);
-  }, []);
-
-  // Redirect to login only after auth has been checked.
-  useEffect(() => {
-    if (authChecked && token === null) {
+    if (token === null) {
       router.replace("/login");
     }
-  }, [authChecked, token, router]);
+  }, [token, router]);
 
-  if (!authChecked || token === null) {
+  if (token === null) {
     return (
       <div
         className="flex min-h-screen items-center justify-center bg-bg-secondary"
