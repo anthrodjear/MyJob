@@ -4,7 +4,10 @@
 help:
 	@echo "AI Job Search Agent - Commands:"
 	@echo ""
-	@echo "  Setup & Start:"
+	@echo "  Quick Start (zero-config):"
+	@echo "  docker compose up -d         # Just works — configure via /setup wizard"
+	@echo ""
+	@echo "  Setup & Start (with .env):"
 	@echo "  make setup       - First-time setup (create .env, start infra, run migrations)"
 	@echo "  make start       - Start all services (auto-generates .env if missing)"
 	@echo "  make stop        - Stop all services"
@@ -50,7 +53,7 @@ help:
 	@echo "  Utils:"
 	@echo "  make hash-password PASSWORD=yourpass - Generate bcrypt hash for AUTH_PASSWORD_HASH"
 
-# First-time setup
+# First-time setup (optional — docker compose works without it)
 setup:
 	@bash scripts/setup-env.sh
 	@echo ""
