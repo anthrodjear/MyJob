@@ -128,6 +128,11 @@ func main() {
 	defer asynqClient.Close()
 	dispatcher := tasks.NewDispatcher(asynqClient, logger)
 
+	// Initialize tasks domain
+	tasksRepo := tasks.NewRepository(postgres.DB)
+	tasksService := tasks.NewService(tasksRepo)
+	tasksHandler := tasks.NewHandler(tasksService, logger)
+
 	// Initialize jobs domain
 	jobsRepo := jobs.NewRepository(postgres.DB)
 	jobsService := jobs.NewService(jobsRepo, dispatcher, cfg.Scoring)
@@ -219,6 +224,7 @@ func main() {
 		RAGHandler:            ragHandler,
 		EmailsHandler:         emailsHandler,
 		ActivityHandler:       activityHandler,
+		TasksHandler:          tasksHandler,
 		SystemConfigHandler:   systemConfigHandler,
 		Logger:                logger,
 	})

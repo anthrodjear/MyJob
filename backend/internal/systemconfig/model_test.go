@@ -85,8 +85,8 @@ func TestValidateOverrideKey(t *testing.T) {
 		{name: "trailing dot", key: "scoring.", wantErr: "empty segment at position 1"},
 		{name: "leading dot", key: ".scoring", wantErr: "empty segment at position 0"},
 		{name: "double dot", key: "scoring..mode", wantErr: "empty segment at position 1"},
-		{name: "underscore rejected", key: "scoring.auto_threshold", wantErr: "contains invalid character"},
-		{name: "underscore in multi", key: "rate_limits.rpm", wantErr: "contains invalid character"},
+		{name: "underscore valid", key: "scoring.auto_threshold", wantErr: ""},
+		{name: "underscore in multi valid", key: "rate_limits.rpm", wantErr: ""},
 		{name: "slash not a dot separator", key: "scoring/mode", wantErr: "at least 2 segments"},
 	}
 

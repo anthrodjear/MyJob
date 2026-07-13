@@ -430,7 +430,7 @@ func ValidateOverrideKey(key string) error {
 			return fmt.Errorf("systemconfig: override key has empty segment at position %d: %q", i, key)
 		}
 		for _, c := range seg {
-			if (c < 'a' || c > 'z') && (c < '0' || c > '9') {
+			if (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '_' {
 				return fmt.Errorf("systemconfig: override key segment %q contains invalid character %q in key %q", seg, string(c), key)
 			}
 		}

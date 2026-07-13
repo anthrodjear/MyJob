@@ -119,3 +119,12 @@ func (h *Handler) ListTasks(c *gin.Context) {
 
 	httpresp.OK(c, resp)
 }
+
+// RegisterRoutes registers task routes on the router group.
+func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
+	tasks := rg.Group("/tasks")
+	{
+		tasks.GET("", h.ListTasks)
+		tasks.GET("/:id", h.GetTask)
+	}
+}
