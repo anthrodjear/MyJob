@@ -31,7 +31,15 @@
 package rag
 
 import (
+	"database/sql/driver"
+	"encoding/json"
+	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/google/uuid"
+
+	"backend/internal/pgvector"
 )
 
 // SourceType identifies the originating entity type for an embedding.
@@ -61,13 +69,13 @@ func IsValidSourceType(st SourceType) bool {
 // Embedding represents a stored embedding vector with metadata.
 // Schema: embeddings(id, source_type, source_id, content, metadata, embedding, created_at)
 type Embedding struct {
-	ID         uuid.UUID  `db:"id"`
-	SourceType SourceType `db:"source_type"`
-	SourceID   uuid.UUID  `db:"source_id"`
-	Content    string     `db:"content"`
-	Metadata   *Metadata  `db:"metadata"`
-	Embedding  []float32  `db:"embedding"`
-	CreatedAt  string     `db:"created_at"`
+	ID         uuid.UUID       `db:"id"`
+	SourceType SourceType      `db:"source_type"`
+	SourceID   uuid.UUID       `db:"source_id"`
+	Content    string          `db:"content"`
+	Metadata   *Metadata       `db:"metadata"`
+	Embedding  EmbeddingVector `db:"embedding"`
+	CreatedAt  string          `db:"created_at"`
 }
 
 // Metadata is the JSONB metadata stored with embeddings.
@@ -81,6 +89,84 @@ type Metadata struct {
 	TotalChunks int `json:"total_chunks,omitempty"`
 	// URL of the source (for jobs)
 	URL string `json:"url,omitempty"`
+}
+
+// Value implements driver.Valuer for JSONB storage.
+// Returns nil for nil Metadata (stored as SQL NULL).
+func (m *Metadata) Value() (driver.Value, error) {
+	if m == nil {
+		return nil, nil
+	}
+	return json.Marshal(m)
+}
+
+// Scan implements sql.Scanner for JSONB retrieval.
+// Handles both []byte and string sources from PostgreSQL.
+func (m *Metadata) Scan(src interface{}) error {
+	if src == nil {
+		return nil
+	}
+	var data []byte
+	switch v := src.(type) {
+	case []byte:
+		data = v
+	case string:
+		data = []byte(v)
+	default:
+		return fmt.Errorf("rag: scan metadata: unsupported type %T", src)
+	}
+	if len(data) == 0 {
+		return nil
+	}
+	return json.Unmarshal(data, m)
+}
+
+// EmbeddingVector wraps []float32 for pgvector database compatibility.
+// Implements driver.Valuer and sql.Scanner for use with sqlx + lib/pq.
+type EmbeddingVector []float32
+
+// Value implements driver.Valuer for pgvector embedding storage.
+// Returns the pgvector literal format "[0.100000,0.200000,...]" for non-nil vectors.
+func (v EmbeddingVector) Value() (driver.Value, error) {
+	if v == nil {
+		return nil, nil
+	}
+	return pgvector.FormatVector(v), nil
+}
+
+// Scan implements sql.Scanner for pgvector embedding retrieval.
+// Parses the pgvector literal format "[0.100000,0.200000,...]" back to []float32.
+func (v *EmbeddingVector) Scan(src interface{}) error {
+	if src == nil {
+		*v = nil
+		return nil
+	}
+	var data []byte
+	switch s := src.(type) {
+	case []byte:
+		data = s
+	case string:
+		data = []byte(s)
+	default:
+		return fmt.Errorf("rag: scan embedding vector: unsupported type %T", src)
+	}
+	raw := strings.TrimSpace(string(data))
+	raw = strings.Trim(raw, "[]")
+	if raw == "" {
+		*v = EmbeddingVector{}
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	vec := make(EmbeddingVector, len(parts))
+	for i, p := range parts {
+		f, err := strconv.ParseFloat(strings.TrimSpace(p), 32)
+		if err != nil {
+			return fmt.Errorf("rag: parse embedding element %d: %w", i, err)
+		}
+		vec[i] = float32(f)
+	}
+	*v = vec
+	return nil
 }
 
 // SearchResult is a single result from semantic search.
