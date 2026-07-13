@@ -63,6 +63,12 @@ func main() {
 	}
 	defer postgres.Close()
 
+	// Run database migrations
+	if err := database.RunMigrations(cfg.Database.URL); err != nil {
+		logger.Fatal("Failed to run database migrations", zap.Error(err))
+	}
+	logger.Info("Database migrations applied")
+
 	// Connect to Redis
 	redis, err := database.NewRedisClient(cfg.Redis.URL, logger)
 	if err != nil {
