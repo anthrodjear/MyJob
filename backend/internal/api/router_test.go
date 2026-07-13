@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -38,7 +39,7 @@ func TestSetupRouter_HealthEndpoint(t *testing.T) {
 
 	// Test health endpoint
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/health", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/health", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -63,7 +64,7 @@ func TestSetupRouter_VersionEndpoint(t *testing.T) {
 	r := SetupRouter(cfg)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/version", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/version", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -125,7 +126,7 @@ func TestSetupRouter_CORSConfig(t *testing.T) {
 
 	// Test CORS preflight
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodOptions, "/api/v1/auth/login", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodOptions, "/api/v1/auth/login", nil)
 	req.Header.Set("Origin", "http://localhost:3000")
 	req.Header.Set("Access-Control-Request-Method", "POST")
 	r.ServeHTTP(w, req)
