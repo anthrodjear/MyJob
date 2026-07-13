@@ -14,10 +14,10 @@ import (
 
 func TestCreateTaskRequest_JSONDeserialization(t *testing.T) {
 	tests := []struct {
-		name      string
-		json      string
-		wantType  string
-		wantErr   bool
+		name     string
+		json     string
+		wantType string
+		wantErr  bool
 	}{
 		{
 			name:     "valid type",

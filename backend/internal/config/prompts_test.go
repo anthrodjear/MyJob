@@ -83,7 +83,7 @@ prompts:
 			expected: PromptsConfig{},
 		},
 		{
-			name: "nil data returns empty config",
+			name:     "nil data returns empty config",
 			yamlData: nil,
 			expected: PromptsConfig{},
 		},
@@ -146,8 +146,8 @@ prompts:
 
 func TestToPromptPair(t *testing.T) {
 	tests := []struct {
-		name  string
-		input yamlPromptPair
+		name     string
+		input    yamlPromptPair
 		expected PromptPair
 	}{
 		{

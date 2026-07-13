@@ -8,34 +8,34 @@ import (
 
 func TestLoginRequest_Binding(t *testing.T) {
 	tests := []struct {
-		name        string
-		password    string
-		shouldPass  bool
+		name       string
+		password   string
+		shouldPass bool
 	}{
 		{
-			name:        "valid password",
-			password:    "password123",
-			shouldPass:  true,
+			name:       "valid password",
+			password:   "password123",
+			shouldPass: true,
 		},
 		{
-			name:        "empty password",
-			password:    "",
-			shouldPass:  false,
+			name:       "empty password",
+			password:   "",
+			shouldPass: false,
 		},
 		{
-			name:        "password at max length",
-			password:    "a" + string(make([]byte, 71)), // 72 chars
-			shouldPass:  true,
+			name:       "password at max length",
+			password:   "a" + string(make([]byte, 71)), // 72 chars
+			shouldPass: true,
 		},
 		{
-			name:        "password exceeds max length",
-			password:    "a" + string(make([]byte, 72)), // 73 chars
-			shouldPass:  false,
+			name:       "password exceeds max length",
+			password:   "a" + string(make([]byte, 72)), // 73 chars
+			shouldPass: false,
 		},
 		{
-			name:        "password with special chars",
-			password:    "P@ssw0rd!#$%",
-			shouldPass:  true,
+			name:       "password with special chars",
+			password:   "P@ssw0rd!#$%",
+			shouldPass: true,
 		},
 	}
 
@@ -108,66 +108,66 @@ func TestChangePasswordRequest_Validation(t *testing.T) {
 
 func TestSetupRequest_Validation(t *testing.T) {
 	tests := []struct {
-		name     string
-		username string
-		email    string
-		password string
+		name       string
+		username   string
+		email      string
+		password   string
 		shouldPass bool
 	}{
 		{
-			name:     "valid setup request",
-			username: "johndoe",
-			email:    "john@example.com",
-			password: "password123",
+			name:       "valid setup request",
+			username:   "johndoe",
+			email:      "john@example.com",
+			password:   "password123",
 			shouldPass: true,
 		},
 		{
-			name:     "username too short",
-			username: "ab",
-			email:    "john@example.com",
-			password: "password123",
+			name:       "username too short",
+			username:   "ab",
+			email:      "john@example.com",
+			password:   "password123",
 			shouldPass: false,
 		},
 		{
-			name:     "username at max length",
-			username: "a" + string(make([]byte, 99)),
-			email:    "john@example.com",
-			password: "password123",
+			name:       "username at max length",
+			username:   "a" + string(make([]byte, 99)),
+			email:      "john@example.com",
+			password:   "password123",
 			shouldPass: true,
 		},
 		{
-			name:     "username exceeds max length",
-			username: "a" + string(make([]byte, 100)),
-			email:    "john@example.com",
-			password: "password123",
+			name:       "username exceeds max length",
+			username:   "a" + string(make([]byte, 100)),
+			email:      "john@example.com",
+			password:   "password123",
 			shouldPass: false,
 		},
 		{
-			name:     "invalid email",
-			username: "johndoe",
-			email:    "not-an-email",
-			password: "password123",
+			name:       "invalid email",
+			username:   "johndoe",
+			email:      "not-an-email",
+			password:   "password123",
 			shouldPass: false,
 		},
 		{
-			name:     "password too short",
-			username: "johndoe",
-			email:    "john@example.com",
-			password: "short",
+			name:       "password too short",
+			username:   "johndoe",
+			email:      "john@example.com",
+			password:   "short",
 			shouldPass: false,
 		},
 		{
-			name:     "password at max length",
-			username: "johndoe",
-			email:    "john@example.com",
-			password: "a" + string(make([]byte, 71)),
+			name:       "password at max length",
+			username:   "johndoe",
+			email:      "john@example.com",
+			password:   "a" + string(make([]byte, 71)),
 			shouldPass: true,
 		},
 		{
-			name:     "password exceeds max length",
-			username: "johndoe",
-			email:    "john@example.com",
-			password: "a" + string(make([]byte, 72)),
+			name:       "password exceeds max length",
+			username:   "johndoe",
+			email:      "john@example.com",
+			password:   "a" + string(make([]byte, 72)),
 			shouldPass: false,
 		},
 	}
@@ -188,39 +188,39 @@ func TestSetupRequest_Validation(t *testing.T) {
 
 func TestTestLLMRequest_Validation(t *testing.T) {
 	tests := []struct {
-		name      string
-		provider  string
-		apiKey    string
+		name       string
+		provider   string
+		apiKey     string
 		shouldPass bool
 	}{
 		{
-			name:      "valid OpenAI provider",
-			provider:  "openai",
-			apiKey:    "sk-test123",
+			name:       "valid OpenAI provider",
+			provider:   "openai",
+			apiKey:     "sk-test123",
 			shouldPass: true,
 		},
 		{
-			name:      "valid Anthropic provider",
-			provider:  "anthropic",
-			apiKey:    "sk-ant-test123",
+			name:       "valid Anthropic provider",
+			provider:   "anthropic",
+			apiKey:     "sk-ant-test123",
 			shouldPass: true,
 		},
 		{
-			name:      "invalid provider",
-			provider:  "invalid",
-			apiKey:    "test",
+			name:       "invalid provider",
+			provider:   "invalid",
+			apiKey:     "test",
 			shouldPass: false,
 		},
 		{
-			name:      "empty provider",
-			provider:  "",
-			apiKey:    "test",
+			name:       "empty provider",
+			provider:   "",
+			apiKey:     "test",
 			shouldPass: false,
 		},
 		{
-			name:      "empty API key",
-			provider:  "openai",
-			apiKey:    "",
+			name:       "empty API key",
+			provider:   "openai",
+			apiKey:     "",
 			shouldPass: false,
 		},
 	}
@@ -295,38 +295,38 @@ func TestOnboardingConfigRequest_Fields(t *testing.T) {
 
 func TestOnboardingStepRequest_Validation(t *testing.T) {
 	tests := []struct {
-		name      string
-		step      string
+		name       string
+		step       string
 		shouldPass bool
 	}{
 		{
-			name:      "valid llm step",
-			step:      "llm",
+			name:       "valid llm step",
+			step:       "llm",
 			shouldPass: true,
 		},
 		{
-			name:      "valid voice step",
-			step:      "voice",
+			name:       "valid voice step",
+			step:       "voice",
 			shouldPass: true,
 		},
 		{
-			name:      "valid preferences step",
-			step:      "preferences",
+			name:       "valid preferences step",
+			step:       "preferences",
 			shouldPass: true,
 		},
 		{
-			name:      "valid complete step",
-			step:      "complete",
+			name:       "valid complete step",
+			step:       "complete",
 			shouldPass: true,
 		},
 		{
-			name:      "invalid step",
-			step:      "invalid",
+			name:       "invalid step",
+			step:       "invalid",
 			shouldPass: false,
 		},
 		{
-			name:      "empty step",
-			step:      "",
+			name:       "empty step",
+			step:       "",
 			shouldPass: false,
 		},
 	}
@@ -341,24 +341,24 @@ func TestOnboardingStepRequest_Validation(t *testing.T) {
 
 func TestRefreshRequest_Validation(t *testing.T) {
 	tests := []struct {
-		name        string
+		name         string
 		refreshToken string
-		shouldPass  bool
+		shouldPass   bool
 	}{
 		{
-			name:        "valid refresh token (64 chars)",
+			name:         "valid refresh token (64 chars)",
 			refreshToken: "a" + string(make([]byte, 63)), // 64 chars
-			shouldPass:  true,
+			shouldPass:   true,
 		},
 		{
-			name:        "refresh token too short",
+			name:         "refresh token too short",
 			refreshToken: "short",
-			shouldPass:  false,
+			shouldPass:   false,
 		},
 		{
-			name:        "refresh token exactly 64 chars",
+			name:         "refresh token exactly 64 chars",
 			refreshToken: "a" + string(make([]byte, 63)),
-			shouldPass:  true,
+			shouldPass:   true,
 		},
 	}
 

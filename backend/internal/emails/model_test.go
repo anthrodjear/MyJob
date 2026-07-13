@@ -32,7 +32,7 @@ func TestDomainErrors(t *testing.T) {
 
 func TestClassificationConstants(t *testing.T) {
 	tests := []struct {
-		name  string
+		name     string
 		constant string
 		expected string
 	}{

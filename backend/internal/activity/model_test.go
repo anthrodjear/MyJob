@@ -17,9 +17,9 @@ import (
 
 func TestEventTypeConstants(t *testing.T) {
 	tests := []struct {
-		name   string
+		name     string
 		constant string
-		want   string
+		want     string
 	}{
 		{"EventJobDiscovered", EventJobDiscovered, "job_discovered"},
 		{"EventJobScored", EventJobScored, "job_scored"},
@@ -158,9 +158,9 @@ func TestActivityLog_Populated(t *testing.T) {
 
 func TestDetailsValue(t *testing.T) {
 	tests := []struct {
-		name    string
-		details Details
-		wantNil bool
+		name     string
+		details  Details
+		wantNil  bool
 		wantJSON string
 	}{
 		{
@@ -169,21 +169,21 @@ func TestDetailsValue(t *testing.T) {
 			wantNil: true,
 		},
 		{
-			name:    "empty map",
-			details: Details{},
-			wantNil: false,
+			name:     "empty map",
+			details:  Details{},
+			wantNil:  false,
 			wantJSON: `{}`,
 		},
 		{
-			name:    "string value",
-			details: Details{"key": "value"},
-			wantNil: false,
+			name:     "string value",
+			details:  Details{"key": "value"},
+			wantNil:  false,
 			wantJSON: `{"key":"value"}`,
 		},
 		{
-			name:    "numeric value",
-			details: Details{"score": float64(0.95)},
-			wantNil: false,
+			name:     "numeric value",
+			details:  Details{"score": float64(0.95)},
+			wantNil:  false,
 			wantJSON: `{"score":0.95}`,
 		},
 		{
@@ -231,11 +231,11 @@ func TestDetailsValue(t *testing.T) {
 
 func TestDetailsScan(t *testing.T) {
 	tests := []struct {
-		name      string
-		src       any
-		wantNil   bool
-		want      Details
-		wantErr   bool
+		name        string
+		src         any
+		wantNil     bool
+		want        Details
+		wantErr     bool
 		errContains string
 	}{
 		{
@@ -264,21 +264,21 @@ func TestDetailsScan(t *testing.T) {
 			wantNil: true,
 		},
 		{
-			name:      "unsupported type int",
-			src:       42,
-			wantErr:   true,
+			name:        "unsupported type int",
+			src:         42,
+			wantErr:     true,
 			errContains: "unsupported type int",
 		},
 		{
-			name:      "unsupported type bool",
-			src:       true,
-			wantErr:   true,
+			name:        "unsupported type bool",
+			src:         true,
+			wantErr:     true,
 			errContains: "unsupported type bool",
 		},
 		{
-			name:      "invalid JSON",
-			src:       []byte(`{invalid}`),
-			wantErr:   true,
+			name:        "invalid JSON",
+			src:         []byte(`{invalid}`),
+			wantErr:     true,
 			errContains: "unmarshal",
 		},
 		{

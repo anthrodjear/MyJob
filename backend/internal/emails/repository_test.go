@@ -97,7 +97,7 @@ func TestRepository_GetByID_Success(t *testing.T) {
 	rows := sqlmock.NewRows(emailColNames)
 	addEmailRow(rows, email)
 
-	mock.ExpectQuery(regexp.QuoteMeta(selectPrefix+" WHERE id = $1")).
+	mock.ExpectQuery(regexp.QuoteMeta(selectPrefix + " WHERE id = $1")).
 		WithArgs(email.ID).
 		WillReturnRows(rows)
 
@@ -124,7 +124,7 @@ func TestRepository_GetByID_ErrNotFound(t *testing.T) {
 
 	id := uuid.New()
 
-	mock.ExpectQuery(regexp.QuoteMeta(selectPrefix+" WHERE id = $1")).
+	mock.ExpectQuery(regexp.QuoteMeta(selectPrefix + " WHERE id = $1")).
 		WithArgs(id).
 		WillReturnError(sql.ErrNoRows)
 
@@ -139,7 +139,7 @@ func TestRepository_GetByID_DatabaseError(t *testing.T) {
 
 	id := uuid.New()
 
-	mock.ExpectQuery(regexp.QuoteMeta(selectPrefix+" WHERE id = $1")).
+	mock.ExpectQuery(regexp.QuoteMeta(selectPrefix + " WHERE id = $1")).
 		WithArgs(id).
 		WillReturnError(sql.ErrConnDone)
 
@@ -162,7 +162,7 @@ func TestRepository_GetByID_NullableFields(t *testing.T) {
 		nil, nil, nil, now, nil, false, nil, now,
 	)
 
-	mock.ExpectQuery(regexp.QuoteMeta(selectPrefix+" WHERE id = $1")).
+	mock.ExpectQuery(regexp.QuoteMeta(selectPrefix + " WHERE id = $1")).
 		WithArgs(id).
 		WillReturnRows(rows)
 
@@ -193,7 +193,7 @@ func TestRepository_GetByMessageID_Success(t *testing.T) {
 	rows := sqlmock.NewRows(emailColNames)
 	addEmailRow(rows, email)
 
-	mock.ExpectQuery(regexp.QuoteMeta(selectPrefix+" WHERE message_id = $1")).
+	mock.ExpectQuery(regexp.QuoteMeta(selectPrefix + " WHERE message_id = $1")).
 		WithArgs(email.MessageID).
 		WillReturnRows(rows)
 
@@ -209,7 +209,7 @@ func TestRepository_GetByMessageID_ErrNotFound(t *testing.T) {
 	mock, repo, cleanup := newMockRepo(t)
 	defer cleanup()
 
-	mock.ExpectQuery(regexp.QuoteMeta(selectPrefix+" WHERE message_id = $1")).
+	mock.ExpectQuery(regexp.QuoteMeta(selectPrefix + " WHERE message_id = $1")).
 		WithArgs("nonexistent").
 		WillReturnError(sql.ErrNoRows)
 
@@ -222,7 +222,7 @@ func TestRepository_GetByMessageID_DatabaseError(t *testing.T) {
 	mock, repo, cleanup := newMockRepo(t)
 	defer cleanup()
 
-	mock.ExpectQuery(regexp.QuoteMeta(selectPrefix+" WHERE message_id = $1")).
+	mock.ExpectQuery(regexp.QuoteMeta(selectPrefix + " WHERE message_id = $1")).
 		WithArgs("msg-001").
 		WillReturnError(sql.ErrConnDone)
 

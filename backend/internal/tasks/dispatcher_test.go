@@ -71,9 +71,9 @@ func TestTaskConfig_NoExtraneousTypes(t *testing.T) {
 
 func TestTaskConfig_Values(t *testing.T) {
 	tests := []struct {
-		typ           string
-		wantRetries   int
-		wantTimeout   time.Duration
+		typ         string
+		wantRetries int
+		wantTimeout time.Duration
 	}{
 		{typ: TypeJobDiscovery, wantRetries: 3, wantTimeout: 5 * time.Minute},
 		{typ: TypeJobScoring, wantRetries: 3, wantTimeout: 2 * time.Minute},
@@ -343,8 +343,8 @@ func TestDispatch_CancelledContextOnEachMethod(t *testing.T) {
 	cancel()
 
 	tests := []struct {
-		name    string
-		typ     string
+		name     string
+		typ      string
 		dispatch func(d *Dispatcher, ctx context.Context) (string, error)
 	}{
 		{
@@ -389,9 +389,9 @@ func TestDispatch_ZeroValuePayloads(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name    string
-		typ     string
-		payload interface{}
+		name     string
+		typ      string
+		payload  interface{}
 		dispatch func(d *Dispatcher, ctx context.Context) (string, error)
 	}{
 		{

@@ -45,30 +45,30 @@ func makeJobRows(jobs ...*Job) *sqlmock.Rows {
 	rows := sqlmock.NewRows(selectColumns())
 	for _, j := range jobs {
 		rows.AddRow(
-			j.ID.String(),              // id
-			j.SourceID.String(),         // source_id
-			j.ExternalID,                // external_id
-			j.Title,                     // title
-			j.Company,                   // company
-			j.Location,                  // location
-			j.RemoteType,                // remote_type
-			int64(j.SalaryMin),          // salary_min
-			int64(j.SalaryMax),          // salary_max
-			j.SalaryCurrency,            // salary_currency
-			j.Description,               // description
-			j.Requirements,              // requirements
-			j.URL,                       // url
-			j.ApplicationURL,            // application_url
-			j.CompanyURL,                // company_url
-			j.Source,                    // source
-			j.PostedAt,                  // posted_at
-			j.ScrapedAt,                 // scraped_at
-			j.MatchScore,                // match_score
-			[]byte(j.MatchDetails),      // match_details
-			j.Status,                    // status
-			j.CreatedAt,                 // created_at
-			j.UpdatedAt,                 // updated_at
-			j.SourceName,                // source_name
+			j.ID.String(),          // id
+			j.SourceID.String(),    // source_id
+			j.ExternalID,           // external_id
+			j.Title,                // title
+			j.Company,              // company
+			j.Location,             // location
+			j.RemoteType,           // remote_type
+			int64(j.SalaryMin),     // salary_min
+			int64(j.SalaryMax),     // salary_max
+			j.SalaryCurrency,       // salary_currency
+			j.Description,          // description
+			j.Requirements,         // requirements
+			j.URL,                  // url
+			j.ApplicationURL,       // application_url
+			j.CompanyURL,           // company_url
+			j.Source,               // source
+			j.PostedAt,             // posted_at
+			j.ScrapedAt,            // scraped_at
+			j.MatchScore,           // match_score
+			[]byte(j.MatchDetails), // match_details
+			j.Status,               // status
+			j.CreatedAt,            // created_at
+			j.UpdatedAt,            // updated_at
+			j.SourceName,           // source_name
 		)
 	}
 	return rows
@@ -875,5 +875,3 @@ func TestListFilterBuildWhere(t *testing.T) {
 		})
 	}
 }
-
-

@@ -330,11 +330,11 @@ func TestInterviewSession_Fields(t *testing.T) {
 		ExternalSessionID: &extID,
 		Provider:          "openai_realtime",
 		Model:             "gpt-4o-realtime-preview",
-		Transcript: []TranscriptEntry{
+		Transcript: Transcript{
 			{ID: uuid.New(), Speaker: SpeakerAI, Content: "Hello", Timestamp: now},
 		},
-		Score:    &score,
-		Feedback: feedback,
+		Score:     &score,
+		Feedback:  feedback,
 		StartedAt: &startedAt,
 		EndedAt:   &endedAt,
 		CreatedAt: now,
@@ -401,9 +401,9 @@ func TestInterviewSession_DBTags(t *testing.T) {
 
 func TestInterviewSession_TransitionTo_Valid(t *testing.T) {
 	tests := []struct {
-		name    string
-		from    string
-		to      string
+		name string
+		from string
+		to   string
 	}{
 		{"pending → starting", StatusPending, StatusStarting},
 		{"pending → failed", StatusPending, StatusFailed},
@@ -428,9 +428,9 @@ func TestInterviewSession_TransitionTo_Valid(t *testing.T) {
 
 func TestInterviewSession_TransitionTo_Invalid(t *testing.T) {
 	tests := []struct {
-		name    string
-		from    string
-		to      string
+		name string
+		from string
+		to   string
 	}{
 		{"pending → active (skip starting)", StatusPending, StatusActive},
 		{"pending → completed (skip all)", StatusPending, StatusCompleted},
@@ -566,7 +566,7 @@ func TestInterviewSession_JSONRoundTrip(t *testing.T) {
 		ExternalSessionID: &extID,
 		Provider:          "elevenlabs",
 		Model:             "eleven_multilingual_v2",
-		Transcript: []TranscriptEntry{
+		Transcript: Transcript{
 			{
 				ID:        uuid.New(),
 				Speaker:   SpeakerCandidate,
@@ -610,8 +610,8 @@ func TestInterviewSession_JSONRoundTrip(t *testing.T) {
 func TestInterviewSession_JSONOmitEmpty(t *testing.T) {
 	// Zero-value session should omit empty pointer fields
 	session := InterviewSession{
-		ID:    uuid.New(),
-		Mode:  ModeAssist,
+		ID:     uuid.New(),
+		Mode:   ModeAssist,
 		Status: StatusPending,
 	}
 
@@ -638,7 +638,7 @@ func TestNewSessionDefaults(t *testing.T) {
 		Status:        StatusPending,
 		Provider:      "",
 		Model:         "",
-		Transcript:    []TranscriptEntry{},
+		Transcript:    Transcript{},
 	}
 
 	assert.Equal(t, StatusPending, session.Status)

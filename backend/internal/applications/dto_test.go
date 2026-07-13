@@ -164,7 +164,7 @@ func TestApplicationStatsResponse(t *testing.T) {
 		stats := ApplicationStatsResponse{
 			Total: 5,
 			ByStatus: map[string]int64{
-				StatusDraft:  2,
+				StatusDraft:   2,
 				StatusApplied: 3,
 			},
 			ByTier: map[string]int64{

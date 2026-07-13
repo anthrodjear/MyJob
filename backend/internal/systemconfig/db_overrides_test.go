@@ -1183,7 +1183,7 @@ func TestApplyDBOverrides_AllValid(t *testing.T) {
 	overrides := map[string]json.RawMessage{
 		"scoring.auto_threshold":           json.RawMessage(`85`),
 		"scoring.mode":                     json.RawMessage(`"heuristic"`),
-		"llm.primary.model":               json.RawMessage(`"gpt-4o-mini"`),
+		"llm.primary.model":                json.RawMessage(`"gpt-4o-mini"`),
 		"email.check_interval":             json.RawMessage(`"15m"`),
 		"automation.queue.concurrency":     json.RawMessage(`12`),
 		"approval_tiers.auto_apply.notify": json.RawMessage(`false`),
@@ -1235,11 +1235,11 @@ func TestApplyDBOverrides_MixedValidAndInvalid(t *testing.T) {
 	cfg := newScoringConfig()
 
 	overrides := map[string]json.RawMessage{
-		"scoring.auto_threshold":       json.RawMessage(`75`),           // valid
-		"scoring.mode":                 json.RawMessage(`42`),            // invalid
-		"llm.primary.model":            json.RawMessage(`"claude-3.5"`), // valid
-		"nonexistent.prefix.key":       json.RawMessage(`1`),            // unknown prefix
-		"approval_tiers.auto_apply.log": json.RawMessage(`true`),        // valid
+		"scoring.auto_threshold":        json.RawMessage(`75`),           // valid
+		"scoring.mode":                  json.RawMessage(`42`),           // invalid
+		"llm.primary.model":             json.RawMessage(`"claude-3.5"`), // valid
+		"nonexistent.prefix.key":        json.RawMessage(`1`),            // unknown prefix
+		"approval_tiers.auto_apply.log": json.RawMessage(`true`),         // valid
 	}
 
 	r.applyDBOverrides(cfg, overrides)

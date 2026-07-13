@@ -270,5 +270,3 @@ func TestEffectiveConfigResponse_WithVersion(t *testing.T) {
 	assert.True(t, hasVersion, "version should be present when non-empty")
 	assert.Equal(t, "sha256:abc123def456", raw["version"])
 }
-
-

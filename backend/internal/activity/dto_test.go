@@ -143,9 +143,9 @@ func TestToListFilter(t *testing.T) {
 				Offset: 5,
 			},
 			want: ListFilter{
-				EntityID:  uuid.Nil,
-				Limit:     25,
-				Offset:    5,
+				EntityID: uuid.Nil,
+				Limit:    25,
+				Offset:   5,
 			},
 		},
 		{

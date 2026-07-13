@@ -89,9 +89,9 @@ func TestRepository_seedIfNeeded(t *testing.T) {
 
 func TestRepository_loadUser(t *testing.T) {
 	tests := []struct {
-		name        string
-		setupMock   func(mock sqlmock.Sqlmock)
-		expectError bool
+		name         string
+		setupMock    func(mock sqlmock.Sqlmock)
+		expectError  bool
 		expectedUser *User
 	}{
 		{
@@ -126,7 +126,7 @@ func TestRepository_loadUser(t *testing.T) {
 				mock.ExpectQuery(`SELECT id, username, email, password_hash, session_version,`).
 					WillReturnError(sql.ErrNoRows)
 			},
-			expectError: true,
+			expectError:  true,
 			expectedUser: nil,
 		},
 		{
@@ -135,7 +135,7 @@ func TestRepository_loadUser(t *testing.T) {
 				mock.ExpectQuery(`SELECT id, username, email, password_hash, session_version,`).
 					WillReturnError(errors.New("db error"))
 			},
-			expectError: true,
+			expectError:  true,
 			expectedUser: nil,
 		},
 	}
@@ -180,13 +180,13 @@ func TestRepository_GetUser(t *testing.T) {
 	t.Run("user loaded", func(t *testing.T) {
 		now := time.Now()
 		user := &User{
-			ID:           "local-user",
-			Username:     "testuser",
-			Email:        "test@example.com",
-			PasswordHash: "hash",
+			ID:             "local-user",
+			Username:       "testuser",
+			Email:          "test@example.com",
+			PasswordHash:   "hash",
 			SessionVersion: 1,
-			CreatedAt:    now,
-			UpdatedAt:    now,
+			CreatedAt:      now,
+			UpdatedAt:      now,
 		}
 
 		repo := &Repository{
@@ -259,7 +259,7 @@ func TestRepository_UpdatePasswordHash(t *testing.T) {
 		{
 			name:    "successful update",
 			newHash: "$2a$12$newhash",
-setupMock: func(mock sqlmock.Sqlmock) {
+			setupMock: func(mock sqlmock.Sqlmock) {
 				// UPDATE query
 				mock.ExpectExec(`UPDATE users`).
 					WithArgs("$2a$12$newhash", sqlmock.AnyArg(), sqlmock.AnyArg()).
@@ -362,7 +362,7 @@ func TestRepository_UpdateLastLogin(t *testing.T) {
 			tt.setupMock(mock)
 
 			repo := &Repository{
-				db: sqlxDB,
+				db:   sqlxDB,
 				user: &User{},
 			}
 
@@ -415,7 +415,7 @@ func TestRepository_IncrementSessionVersion(t *testing.T) {
 			tt.setupMock(mock)
 
 			repo := &Repository{
-				db: sqlxDB,
+				db:   sqlxDB,
 				user: &User{},
 			}
 

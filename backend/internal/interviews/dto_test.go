@@ -328,7 +328,7 @@ func TestInterviewResponse(t *testing.T) {
 		ExternalSessionID: &extID,
 		Provider:          "openai_realtime",
 		Model:             "gpt-4o-realtime-preview",
-		Transcript: []TranscriptEntry{
+		Transcript: Transcript{
 			{ID: uuid.New(), Speaker: SpeakerAI, Content: "Hello", Timestamp: now},
 		},
 		Score:     &score,
@@ -366,7 +366,7 @@ func TestInterviewResponse_NilPointers(t *testing.T) {
 
 func TestInterviewResponse_EmptyTranscript(t *testing.T) {
 	resp := InterviewResponse{
-		Transcript: []TranscriptEntry{},
+		Transcript: Transcript{},
 	}
 	assert.Empty(t, resp.Transcript)
 	assert.NotNil(t, resp.Transcript)
@@ -374,10 +374,10 @@ func TestInterviewResponse_EmptyTranscript(t *testing.T) {
 
 func TestInterviewResponse_JSONOmitEmpty(t *testing.T) {
 	resp := InterviewResponse{
-		ID:    uuid.New(),
-		Mode:  ModeAutonomous,
-		Status: StatusPending,
-		Transcript: []TranscriptEntry{},
+		ID:         uuid.New(),
+		Mode:       ModeAutonomous,
+		Status:     StatusPending,
+		Transcript: Transcript{},
 	}
 
 	data, err := json.Marshal(resp)
@@ -473,7 +473,7 @@ func TestToResponse(t *testing.T) {
 		ExternalSessionID: nil,
 		Provider:          "",
 		Model:             "",
-		Transcript:        []TranscriptEntry{},
+		Transcript:        Transcript{},
 		Score:             nil,
 		Feedback:          nil,
 		StartedAt:         nil,
@@ -516,7 +516,7 @@ func TestToResponse_WithAllFields(t *testing.T) {
 		ExternalSessionID: &extID,
 		Provider:          "elevenlabs",
 		Model:             "eleven_turbo_v2",
-		Transcript: []TranscriptEntry{
+		Transcript: Transcript{
 			{
 				ID:        uuid.New(),
 				Speaker:   SpeakerCandidate,
@@ -553,8 +553,8 @@ func TestToResponse_WithAllFields(t *testing.T) {
 func TestToResponse_NilPointers(t *testing.T) {
 	// All optional pointer fields in the session should map to nil in the response
 	session := &InterviewSession{
-		ID:    uuid.New(),
-		Mode:  ModeAssist,
+		ID:     uuid.New(),
+		Mode:   ModeAssist,
 		Status: StatusPending,
 	}
 
@@ -612,8 +612,8 @@ func TestToResponse_Immutability(t *testing.T) {
 
 func TestInterviewResponse_JSONTags(t *testing.T) {
 	resp := InterviewResponse{
-		ID:    uuid.New(),
-		Mode:  ModeAssist,
+		ID:     uuid.New(),
+		Mode:   ModeAssist,
 		Status: StatusActive,
 	}
 

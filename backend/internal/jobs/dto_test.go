@@ -61,19 +61,19 @@ func TestJobResponse(t *testing.T) {
 	details := json.RawMessage(`{"score":90}`)
 
 	resp := JobResponse{
-		ID:             id,
-		SourceID:       uuid.New(),
-		Title:          "Engineer",
-		Company:        "Acme",
-		Location:       "Remote",
-		SalaryMin:      100000,
-		SalaryMax:      150000,
-		MatchScore:     90.5,
-		MatchDetails:   details,
-		Status:         StatusDiscovered,
-		ScrapedAt:      now,
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		ID:           id,
+		SourceID:     uuid.New(),
+		Title:        "Engineer",
+		Company:      "Acme",
+		Location:     "Remote",
+		SalaryMin:    100000,
+		SalaryMax:    150000,
+		MatchScore:   90.5,
+		MatchDetails: details,
+		Status:       StatusDiscovered,
+		ScrapedAt:    now,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 
 	assert.Equal(t, id, resp.ID)
@@ -141,15 +141,15 @@ func TestJobToResponse(t *testing.T) {
 	details := json.RawMessage(`{"score":85}`)
 
 	job := &Job{
-		ID:         id,
-		Title:      "Engineer",
-		Company:    "Acme",
-		MatchScore: 85.0,
+		ID:           id,
+		Title:        "Engineer",
+		Company:      "Acme",
+		MatchScore:   85.0,
 		MatchDetails: details,
-		Status:     StatusDiscovered,
-		ScrapedAt:  now,
-		CreatedAt:  now,
-		UpdatedAt:  now,
+		Status:       StatusDiscovered,
+		ScrapedAt:    now,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 
 	resp := ToResponse(job)

@@ -418,5 +418,3 @@ func TestPostgresRepository_PersistScore_ContextCancelled(t *testing.T) {
 	err := repo.PersistScore(context.Background(), jobID, 60.0, "review", details, "notes", "model", "source")
 	assert.ErrorIs(t, err, context.Canceled)
 }
-
-

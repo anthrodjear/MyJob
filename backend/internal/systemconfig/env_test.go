@@ -221,12 +221,12 @@ func TestApplyEnvOverrides_EmptyEnvVars(t *testing.T) {
 
 func TestApplyEnvOverrides_InvalidIntValues(t *testing.T) {
 	setEnv(t, "SCORING_AUTO_THRESHOLD", "not-a-number")
-	setEnv(t, "SCORING_HYBRID_REJECT_MARGIN", "12.5")    // float, not int
-	setEnv(t, "RATE_LIMIT_RPM", "1e2")                     // scientific, not int
+	setEnv(t, "SCORING_HYBRID_REJECT_MARGIN", "12.5") // float, not int
+	setEnv(t, "RATE_LIMIT_RPM", "1e2")                // scientific, not int
 
 	r := newTestResolver()
 	cfg := newTestConfig()
-	cfg.Scoring.AutoThreshold = 50  // set a baseline
+	cfg.Scoring.AutoThreshold = 50 // set a baseline
 	cfg.Scoring.HybridRejectMargin = 10
 	cfg.RateLimits.RPM = 30
 
