@@ -6,6 +6,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"regexp"
+	"strconv"
 	"testing"
 	"time"
 
@@ -164,7 +165,7 @@ func listSelectQueryWithLimit(limit int) string {
 }
 
 func itoa(i int) string {
-	return regexp.MustCompile(`\d+`).FindString(regexp.MustCompile(`^\-?\d+$`).ReplaceAllStringFunc("", func(s string) string { return s }))
+	return strconv.Itoa(i)
 }
 
 // ---------------------------------------------------------------------------
@@ -1190,11 +1191,11 @@ func TestRepository_GetByID_NilOptionalFields(t *testing.T) {
 		nil, // ExternalSessionID
 		session.Provider,
 		session.Model,
-		nil,           // transcript ([]TranscriptEntry - slice, nil is fine)
-		nil,           // score (*float64 - nil is fine)
+		nil,            // transcript ([]TranscriptEntry - slice, nil is fine)
+		nil,            // score (*float64 - nil is fine)
 		[]byte("null"), // feedback (json.RawMessage can't scan nil)
-		nil,           // started_at
-		nil,           // ended_at
+		nil,            // started_at
+		nil,            // ended_at
 		session.CreatedAt,
 		session.UpdatedAt,
 	)
