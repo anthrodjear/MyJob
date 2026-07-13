@@ -104,23 +104,56 @@ func (r *Repository) GetUser(_ context.Context) (*User, error) {
 }
 
 // GetPasswordHash returns the bcrypt hash for login verification.
-func (r *Repository) GetPasswordHash(_ context.Context) (string, error) {
+func (r *Repository) GetPasswordHash(ctx context.Context) (string, error) {
 	r.mu.RLock()
-	defer r.mu.RUnlock()
-	if r.user == nil {
-		return "", fmt.Errorf("auth: user not loaded")
+	if r.user != nil {
+		hash := r.user.PasswordHash
+		r.mu.RUnlock()
+		return hash, nil
 	}
-	return r.user.PasswordHash, nil
+	r.mu.RUnlock()
+
+	// Cache miss - load from DB with write lock
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// Double-check after acquiring write lock
+	if r.user != nil {
+		return r.user.PasswordHash, nil
+	}
+
+	user, err := r.loadUser(ctx)
+	if err != nil {
+		return "", fmt.Errorf("auth: get password hash: %w", err)
+	}
+	r.user = user
+	return user.PasswordHash, nil
 }
 
 // GetSessionVersion returns the current session version.
-func (r *Repository) GetSessionVersion(_ context.Context) (int, error) {
+func (r *Repository) GetSessionVersion(ctx context.Context) (int, error) {
 	r.mu.RLock()
-	defer r.mu.RUnlock()
-	if r.user == nil {
-		return 0, fmt.Errorf("auth: user not loaded")
+	if r.user != nil {
+		ver := r.user.SessionVersion
+		r.mu.RUnlock()
+		return ver, nil
 	}
-	return r.user.SessionVersion, nil
+	r.mu.RUnlock()
+
+	// Cache miss - load from DB with write lock
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.user != nil {
+		return r.user.SessionVersion, nil
+	}
+
+	user, err := r.loadUser(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("auth: get session version: %w", err)
+	}
+	r.user = user
+	return user.SessionVersion, nil
 }
 
 // UpdatePasswordHash updates the password hash and increments session version.
@@ -293,10 +326,6 @@ func (r *Repository) UpdateOnboardingStep(ctx context.Context, step string) erro
 	}
 	return nil
 }
-
-// --- Refresh Token Methods ---
-
-// CreateRefreshToken stores a new refresh token hash in the database.
 func (r *Repository) CreateRefreshToken(ctx context.Context, id, userID, tokenHash string, expiresAt time.Time) error {
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, created_at, updated_at)
