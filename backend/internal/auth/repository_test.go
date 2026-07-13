@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"regexp"
 	"testing"
 	"time"
 
@@ -220,12 +221,33 @@ func TestRepository_GetPasswordHash(t *testing.T) {
 		assert.Equal(t, "hashed-password", hash)
 	})
 
-	t.Run("user not loaded", func(t *testing.T) {
-		repo := &Repository{user: nil}
+	t.Run("user not loaded - falls back to DB", func(t *testing.T) {
+		// Create a mock repo with a mock DB
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
 
-		_, err := repo.GetPasswordHash(context.Background())
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "user not loaded")
+		sqlxDB := sqlx.NewDb(mockDB, "postgres")
+		repo := &Repository{
+			db:   sqlxDB,
+			user: nil,
+		}
+
+		mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT id, username, email, password_hash, session_version, last_login_at,
+		       password_changed_at, onboarding_completed_at, onboarding_step,
+		       created_at, updated_at
+		FROM users WHERE id = 'local-user'
+	`)).WillReturnRows(sqlmock.NewRows([]string{
+			"id", "username", "email", "password_hash", "session_version",
+			"last_login_at", "password_changed_at", "onboarding_completed_at", "onboarding_step",
+			"created_at", "updated_at",
+		}).AddRow("local-user", "test", "test@example.com", "db-hashed-password", 1,
+			nil, time.Now(), time.Now(), time.Now(), time.Now(), time.Now()))
+
+		hash, err := repo.GetPasswordHash(context.Background())
+		require.NoError(t, err)
+		assert.Equal(t, "db-hashed-password", hash)
 	})
 }
 
@@ -240,12 +262,32 @@ func TestRepository_GetSessionVersion(t *testing.T) {
 		assert.Equal(t, 5, version)
 	})
 
-	t.Run("user not loaded", func(t *testing.T) {
-		repo := &Repository{user: nil}
+	t.Run("user not loaded - falls back to DB", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
 
-		_, err := repo.GetSessionVersion(context.Background())
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "user not loaded")
+		sqlxDB := sqlx.NewDb(mockDB, "postgres")
+		repo := &Repository{
+			db:   sqlxDB,
+			user: nil,
+		}
+
+		mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT id, username, email, password_hash, session_version, last_login_at,
+		       password_changed_at, onboarding_completed_at, onboarding_step,
+		       created_at, updated_at
+		FROM users WHERE id = 'local-user'
+	`)).WillReturnRows(sqlmock.NewRows([]string{
+			"id", "username", "email", "password_hash", "session_version",
+			"last_login_at", "password_changed_at", "onboarding_completed_at", "onboarding_step",
+			"created_at", "updated_at",
+		}).AddRow("local-user", "test", "test@example.com", "db-hashed-password", 3,
+			nil, time.Now(), time.Now(), time.Now(), time.Now(), time.Now()))
+
+		version, err := repo.GetSessionVersion(context.Background())
+		require.NoError(t, err)
+		assert.Equal(t, 3, version)
 	})
 }
 
