@@ -22,6 +22,7 @@ import (
 	"backend/internal/resumes"
 	"backend/internal/scoring"
 	"backend/internal/systemconfig"
+	"backend/internal/tasks"
 )
 
 // RouterConfig holds dependencies for router setup.
@@ -43,6 +44,7 @@ type RouterConfig struct {
 	RAGHandler            *rag.Handler
 	EmailsHandler         *emails.Handler
 	ActivityHandler       *activity.Handler
+	TasksHandler          *tasks.Handler
 	SystemConfigHandler   *systemconfig.Handler
 	Logger                *zap.Logger
 }
@@ -144,6 +146,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			cfg.RAGHandler.RegisterRoutes(protected)
 			cfg.EmailsHandler.RegisterRoutes(protected)
 			cfg.ActivityHandler.RegisterRoutes(protected)
+			cfg.TasksHandler.RegisterRoutes(protected)
 			cfg.SystemConfigHandler.RegisterRoutes(protected)
 		}
 	}
