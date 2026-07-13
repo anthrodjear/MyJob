@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"backend/internal/config"
@@ -169,9 +170,9 @@ func TestOllamaEmbeddingClient_Embed_ContextCancelled(t *testing.T) {
 }
 
 func TestOllamaEmbeddingClient_EmbedBatch_Success(t *testing.T) {
-	callCount := 0
+	var callCount int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		callCount++
+		atomic.AddInt32(&callCount, 1)
 		var req ollamaEmbedRequest
 		json.NewDecoder(r.Body).Decode(&req)
 
@@ -198,7 +199,7 @@ func TestOllamaEmbeddingClient_EmbedBatch_Success(t *testing.T) {
 	assert.Equal(t, []float32{1.0, 2.0}, vecs[0])
 	assert.Equal(t, []float32{3.0, 4.0}, vecs[1])
 	assert.Equal(t, []float32{5.0, 6.0}, vecs[2])
-	assert.Equal(t, 3, callCount)
+	assert.Equal(t, int32(3), atomic.LoadInt32(&callCount))
 }
 
 func TestOllamaEmbeddingClient_EmbedBatch_Empty(t *testing.T) {

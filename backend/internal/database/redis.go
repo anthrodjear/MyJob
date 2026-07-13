@@ -31,7 +31,9 @@ func NewRedisClient(redisURL string, logger *zap.Logger) (*RedisClient, error) {
 		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
 	}
 
-	logger.Info("Connected to Redis")
+	if logger != nil {
+		logger.Info("Connected to Redis")
+	}
 
 	return &RedisClient{
 		Client: client,

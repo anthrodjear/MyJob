@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 // TestRedisClient_Integration tests require a running Redis instance.
@@ -89,7 +90,7 @@ func TestRedisClient_ParseURL_EdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewRedisClient(tt.url, nil)
+			_, err := NewRedisClient(tt.url, zap.NewNop())
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
