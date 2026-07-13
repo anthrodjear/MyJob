@@ -14,39 +14,48 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Set the path where Playwright installs browsers *during build*
+ENV PLAYWRIGHT_BROWSERS_PATH=/app/.local-browsers
+RUN npx playwright install chromium
+
 # Build TypeScript
 RUN npm run build
+
 
 # Runtime stage
 FROM node:20-alpine
 
-# Install Playwright system dependencies only (browser binary comes from npm)
+# Install Playwright system dependencies
 RUN apk add --no-cache \
-    chromium \
     nss \
     freetype \
     harfbuzz \
-    ttf-freefont
+    ttf-freefont \
+    chromium
 
 # Add non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
 
-# Copy package files and built code
-COPY --from=builder --chown=appuser:appgroup /app/package*.json ./
-COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
+# Copy package files first
+COPY --chown=appuser:appgroup package*.json ./
 
-# Install production dependencies only
+# Install production dependencies only (before copying built code/browsers)
 RUN npm ci --omit=dev && npm cache clean --force
 
-# Playwright browsers are installed as a production dependency
-# Ensure Chromium binary is available for Playwright
-ENV PLAYWRIGHT_BROWSERS_PATH=0
+# Copy built application code
+COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
+
+# Copy the exact Playwright browsers downloaded in the builder stage
+COPY --from=builder --chown=appuser:appgroup /app/.local-browsers /app/.local-browsers
+
+# Point Playwright to the correct, absolute path of the copied browsers
+ENV PLAYWRIGHT_BROWSERS_PATH=/app/.local-browsers
+ENV NODE_ENV=production
 
 USER appuser
 
 EXPOSE 3000
-ENV NODE_ENV=production
 
 CMD ["npm", "start"]
