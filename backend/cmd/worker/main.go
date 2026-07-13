@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/hibiken/asynq"
 	"go.uber.org/zap"
@@ -41,9 +43,16 @@ func main() {
 
 	redis, err := database.NewRedisClient(cfg.Redis.URL, logger)
 	if err != nil {
-		logger.Fatal("Failed to connect to Redis", zap.Error(err))
+		logger.Fatal("Failed to create Redis client", zap.Error(err))
 	}
 	defer redis.Close()
+
+	// Test Redis connection
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := redis.Connect(ctx); err != nil {
+		logger.Fatal("Failed to connect to Redis", zap.Error(err))
+	}
 
 	// --- Domain initialization ---
 	scoringRepo := scoring.NewRepository(postgres.DB)

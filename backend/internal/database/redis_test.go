@@ -59,17 +59,17 @@ func TestRedisClient_ParseURL_EdgeCases(t *testing.T) {
 		{
 			name:        "valid redis URL",
 			url:         "redis://localhost:6379",
-			expectError: true, // will fail on connection, but parsing succeeds
+			expectError: false, // URL parsing succeeds; connection happens in Ping()
 		},
 		{
 			name:        "redis URL with password",
 			url:         "redis://:password@localhost:6379",
-			expectError: true,
+			expectError: false,
 		},
 		{
 			name:        "redis URL with DB number",
 			url:         "redis://localhost:6379/2",
-			expectError: true,
+			expectError: false,
 		},
 		{
 			name:        "invalid URL",

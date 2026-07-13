@@ -66,9 +66,16 @@ func main() {
 	// Connect to Redis
 	redis, err := database.NewRedisClient(cfg.Redis.URL, logger)
 	if err != nil {
-		logger.Fatal("Failed to connect to Redis", zap.Error(err))
+		logger.Fatal("Failed to create Redis client", zap.Error(err))
 	}
 	defer redis.Close()
+
+	// Test Redis connection
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := redis.Connect(ctx); err != nil {
+		logger.Fatal("Failed to connect to Redis", zap.Error(err))
+	}
 
 	// Initialize system config (needed by auth service for onboarding)
 	configPath := os.Getenv("CONFIG_PATH")
@@ -233,7 +240,7 @@ func main() {
 
 	logger.Info("Shutting down server...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
