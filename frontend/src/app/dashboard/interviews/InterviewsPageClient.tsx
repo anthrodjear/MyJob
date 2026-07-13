@@ -44,7 +44,7 @@ export function InterviewsPageClient() {
 
   const [selectedInterview, setSelectedInterview] = useState<InterviewSession | null>(null);
 
-  const { data, isLoading } = useInterviews({
+  const { data, isLoading, isPlaceholderData } = useInterviews({
     status: status ?? undefined,
     limit,
     offset,
@@ -110,7 +110,7 @@ export function InterviewsPageClient() {
         </Select>
       </div>
 
-      <div aria-live="polite" aria-atomic="true" aria-busy={isLoading}>
+      <div aria-live="polite" aria-atomic="true" aria-busy={isLoading && !isPlaceholderData}>
         {data?.total != null && (
           <p className="text-sm text-muted-foreground mb-4">
             {data.total} {data.total === 1 ? "session" : "sessions"}
@@ -120,7 +120,7 @@ export function InterviewsPageClient() {
 
       <InterviewList
         interviews={interviews}
-        isLoading={isLoading}
+        isLoading={isLoading && !isPlaceholderData}
         onSelect={handleSelect}
       />
     </div>

@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchTasks, fetchTask } from "@/lib/api/tasks";
 import { POLL_INTERVAL } from "@/lib/constants";
 import type { TaskListParams } from "@/lib/api/tasks";
+import type { TaskListResponse } from "@/lib/types/tasks";
 
 /** Stable stringify for query keys — sorts keys for consistent references. Assumes flat objects. */
 function stableStringify(obj: Record<string, unknown>): string {
@@ -28,11 +29,16 @@ export const tasksKeys = {
   detail: (id: string) => [...tasksKeys.details(), id] as const,
 };
 
+/** Empty task list response for graceful degradation. */
+const emptyTasks: TaskListResponse = { tasks: [], total: 0 };
+
 /**
  * Fetch tasks with polling for real-time updates.
  *
  * Polls every 5 seconds when there are active (pending/running) tasks.
  * Stops polling when all tasks are terminal (completed/failed/cancelled).
+ *
+ * Uses placeholderData for graceful degradation — shows empty state instead of error.
  *
  * @param params - Status, type, limit, offset filters
  */
@@ -40,6 +46,7 @@ export function useTasks(params: TaskListParams = {}) {
   return useQuery({
     queryKey: tasksKeys.list(params),
     queryFn: () => fetchTasks(params),
+    placeholderData: emptyTasks,
     refetchInterval: (query) => {
       // Stop polling if query errored
       if (query.state.error != null) return false;

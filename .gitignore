@@ -25,6 +25,9 @@ docs/
 .agents/
 .opencode/
 
+# Postman local workspace config
+.postman/
+
 # User profile (personal data)
 profile/
 

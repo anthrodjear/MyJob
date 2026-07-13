@@ -20,7 +20,7 @@
  * - Auto-focus on first input of each step
  */
 
-import { useState, useCallback, type FormEvent } from "react";
+import { useState, useCallback, useEffect, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -29,6 +29,7 @@ import {
   saveOnboardingConfig,
   updateOnboardingStep,
   completeOnboarding,
+  getSetupStatus,
 } from "@/lib/api/auth";
 import { Button } from "@/components/shared/Button";
 import { SetupStepLLMKeys } from "@/components/setup/SetupStepLLMKeys";
@@ -122,6 +123,29 @@ function getUserMessage(error: unknown): string {
 
 export default function SetupPage() {
   const router = useRouter();
+
+  // Check setup status on mount — redirect to /login if setup already complete
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkSetup() {
+      try {
+        const status = await getSetupStatus();
+        if (!cancelled && !status.setup_required) {
+          // Setup already complete (user exists) — redirect to login
+          router.replace("/login");
+        }
+      } catch {
+        // If we can't reach the server, let the user try to set up
+        // The backend will return 403 if setup is required
+      }
+    }
+
+    void checkSetup();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   // Current step state
   const [currentStep, setCurrentStep] = useState<StepId>("account");
@@ -483,6 +507,18 @@ export default function SetupPage() {
                 className="rounded-md bg-danger-light px-3 py-2 text-sm text-danger-dark"
               >
                 {error}
+                {error.toLowerCase().includes("admin account already exists") && (
+                  <p className="mt-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => router.replace("/login")}
+                    >
+                      Go to Login
+                    </Button>
+                  </p>
+                )}
               </div>
             )}
 
@@ -573,7 +609,7 @@ export default function SetupPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-bg-primary">
+    <main className="flex min-h-screen items-center justify-center bg-bg-secondary">
       <div className="w-full max-w-lg space-y-6 px-4">
         {/* Brand */}
         <div className="text-center">

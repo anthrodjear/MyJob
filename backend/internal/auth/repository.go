@@ -293,3 +293,72 @@ func (r *Repository) UpdateOnboardingStep(ctx context.Context, step string) erro
 	}
 	return nil
 }
+
+// --- Refresh Token Methods ---
+
+// CreateRefreshToken stores a new refresh token hash in the database.
+func (r *Repository) CreateRefreshToken(ctx context.Context, id, userID, tokenHash string, expiresAt time.Time) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $5)
+	`, id, userID, tokenHash, expiresAt, time.Now())
+	if err != nil {
+		return fmt.Errorf("auth: create refresh token: %w", err)
+	}
+	return nil
+}
+
+// GetRefreshTokenByHash retrieves a refresh token by its SHA-256 hash.
+func (r *Repository) GetRefreshTokenByHash(ctx context.Context, tokenHash string) (*RefreshToken, error) {
+	var token RefreshToken
+	err := r.db.GetContext(ctx, &token, `
+		SELECT id, user_id, token_hash, expires_at, created_at, revoked_at, updated_at
+		FROM refresh_tokens
+		WHERE token_hash = $1
+	`, tokenHash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("auth: refresh token not found")
+		}
+		return nil, fmt.Errorf("auth: get refresh token: %w", err)
+	}
+	return &token, nil
+}
+
+// RevokeRefreshToken marks a refresh token as revoked.
+func (r *Repository) RevokeRefreshToken(ctx context.Context, id string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE refresh_tokens
+		SET revoked_at = $1, updated_at = $1
+		WHERE id = $2 AND revoked_at IS NULL
+	`, time.Now(), id)
+	if err != nil {
+		return fmt.Errorf("auth: revoke refresh token: %w", err)
+	}
+	return nil
+}
+
+// RevokeAllRefreshTokens revokes all active refresh tokens for a user (logout everywhere).
+func (r *Repository) RevokeAllRefreshTokens(ctx context.Context, userID string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE refresh_tokens
+		SET revoked_at = $1, updated_at = $1
+		WHERE user_id = $2 AND revoked_at IS NULL
+	`, time.Now(), userID)
+	if err != nil {
+		return fmt.Errorf("auth: revoke all refresh tokens: %w", err)
+	}
+	return nil
+}
+
+// DeleteExpiredRefreshTokens removes expired and revoked refresh tokens from the database.
+func (r *Repository) DeleteExpiredRefreshTokens(ctx context.Context) (int64, error) {
+	result, err := r.db.ExecContext(ctx, `
+		DELETE FROM refresh_tokens
+		WHERE expires_at < $1 OR revoked_at IS NOT NULL
+	`, time.Now())
+	if err != nil {
+		return 0, fmt.Errorf("auth: delete expired refresh tokens: %w", err)
+	}
+	return result.RowsAffected()
+}

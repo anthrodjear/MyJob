@@ -1,0 +1,7 @@
+$kind: http-request
+name: Get Version
+method: GET
+url: '{{baseUrl}}/version'
+order: 2000
+auth:
+  type: noauth

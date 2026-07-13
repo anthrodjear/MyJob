@@ -1,0 +1,15 @@
+$kind: http-request
+name: Create Interview
+method: POST
+url: '{{baseUrl}}/api/v1/interviews'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "application_id": "{{applicationId}}",
+      "mode": "practice"
+    }

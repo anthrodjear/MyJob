@@ -1,0 +1,8 @@
+$kind: http-request
+name: Get Application Timeline
+method: GET
+url: '{{baseUrl}}/api/v1/applications/{{applicationId}}/events'
+order: 7000
+pathVariables:
+  - key: applicationId
+    value: '{{applicationId}}'

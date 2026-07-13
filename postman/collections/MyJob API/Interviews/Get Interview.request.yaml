@@ -1,0 +1,8 @@
+$kind: http-request
+name: Get Interview
+method: GET
+url: '{{baseUrl}}/api/v1/interviews/{{interviewId}}'
+order: 3000
+pathVariables:
+  - key: interviewId
+    value: '{{interviewId}}'

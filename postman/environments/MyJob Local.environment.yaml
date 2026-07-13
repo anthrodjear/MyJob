@@ -1,0 +1,33 @@
+name: MyJob Local
+values:
+  - key: baseUrl
+    value: 'http://localhost:8080'
+  - key: accessToken
+    value: ''
+  - key: refreshToken
+    value: ''
+  - key: jobId
+    value: ''
+  - key: applicationId
+    value: ''
+  - key: resumeId
+    value: ''
+  - key: coverLetterId
+    value: ''
+  - key: interviewId
+    value: ''
+  - key: approvalId
+    value: ''
+  - key: embeddingId
+    value: ''
+  - key: emailId
+    value: ''
+  - key: activityId
+    value: ''
+  - key: sourceId
+    value: ''
+  - key: configKey
+    value: scoring.auto_threshold
+  - key: version
+    value: '1'
+color: 120

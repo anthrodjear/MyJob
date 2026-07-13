@@ -2,7 +2,7 @@
  * Input — reusable text input with label, error, and optional icon.
  *
  * Provides consistent styling across all forms.
- * Supports password visibility toggle, left/right icons, and error states.
+ * Supports left/right icons (interactive or decorative), error states, and helper text.
  *
  * No `"use client"` — pure presentational, works in Server Components.
  * (Only becomes client when used with useState in consuming components.)
@@ -11,6 +11,7 @@
  *   <Input label="Password" type="password" error="Required" />
  *   <Input label="Search" leftIcon={<Search />} placeholder="Type to search…" />
  *   <Input label="API Key" rightIcon={<Key />} />
+ *   <Input label="Password" rightIcon={<button onClick={toggle}><Eye /></button>} />
  */
 
 import { type ComponentPropsWithRef, type ReactNode, useId } from "react";
@@ -19,16 +20,18 @@ import { cn } from "@/lib/utils";
 interface InputProps extends Omit<ComponentPropsWithRef<"input">, "size"> {
   /** Visible label above the input. */
   label?: string;
-  /** Error message displayed below the input. Also styles the border red. */
-  error?: string;
-  /** Helper text displayed below the input (hidden when error is present). */
-  helperText?: string;
+  /** Error message displayed below the input. Also styles the border red. Accepts ReactNode for custom content. */
+  error?: ReactNode;
+  /** Helper text displayed below the input (hidden when error is present). Accepts ReactNode for custom content. */
+  helperText?: ReactNode;
   /** Icon rendered inside the left edge of the input. */
   leftIcon?: ReactNode;
-  /** Icon rendered inside the right edge of the input (before password toggle). */
+  /** Icon rendered inside the right edge of the input (can be interactive, e.g., password toggle button). */
   rightIcon?: ReactNode;
   /** Input size. Default: "md". */
   size?: "sm" | "md" | "lg";
+  /** Additional classes applied to the input element (not the wrapper). */
+  inputClassName?: string;
 }
 
 /**
@@ -57,6 +60,7 @@ export function Input({
   rightIcon,
   size = "md",
   className,
+  inputClassName,
   id: idProp,
   required,
   disabled,
@@ -119,17 +123,19 @@ export function Input({
             sizeStyles[size],
             // Left icon padding
             leftIcon != null && "pl-9",
-            // Right icon padding (when rightIcon is present and not interactive)
+            // Right icon padding (when rightIcon is present)
             rightIcon != null && "pr-9",
             // Error state
             hasError
               ? "border-danger focus-visible:border-danger focus-visible:ring-danger"
               : "border-border focus-visible:border-primary focus-visible:ring-primary",
+            // Custom input classes
+            inputClassName,
           )}
           {...props}
         />
 
-        {/* Right icon */}
+        {/* Right icon — can be interactive (e.g., password toggle button) */}
         {rightIcon != null && (
           <div className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary">
             {rightIcon}
@@ -139,18 +145,18 @@ export function Input({
 
       {/* Error message */}
       {hasError && (
-        <p id={errorId} className="mt-1 text-sm text-danger" role="alert">
+        <div id={errorId} className="mt-1 text-sm text-danger" role="alert">
           {error}
-        </p>
+        </div>
       )}
 
       {/* Helper text (hidden when error is shown) */}
       {helperText != null &&
         helperText !== "" &&
         !hasError && (
-          <p id={helperId} className="mt-1 text-sm text-text-tertiary">
+          <div id={helperId} className="mt-1 text-sm text-text-tertiary">
             {helperText}
-          </p>
+          </div>
         )}
     </div>
   );

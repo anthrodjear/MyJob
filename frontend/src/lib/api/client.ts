@@ -19,6 +19,7 @@
  */
 
 import { API_PREFIX } from "@/lib/constants";
+import { getAuthToken as getStoredAuthToken, getRefreshToken, setAuthTokens, clearAuthTokens } from "@/lib/auth";
 
 /**
  * Get the backend URL based on execution context.
@@ -50,6 +51,17 @@ export class ApiError extends Error {
   ) {
     super(message);
     this.name = "ApiError";
+  }
+}
+
+/**
+ * Thrown when token refresh fails and the user must re-login.
+ * Distinct from ApiError(401) to differentiate "request expired" from "refresh also failed".
+ */
+export class RefreshFailedError extends ApiError {
+  constructor(message = "Session expired. Please log in again.") {
+    super(401, "REFRESH_FAILED", message);
+    this.name = "RefreshFailedError";
   }
 }
 
@@ -92,10 +104,131 @@ function getAuthToken(): string | null {
     return authTokenProvider();
   }
   // Default: localStorage (client-side only)
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("token");
+  return getStoredAuthToken();
+}
+
+/**
+ * Shared refresh promise — all concurrent 401 waiters share the same Promise.
+ * Prevents multiple simultaneous refresh attempts.
+ */
+let refreshPromise: Promise<RefreshResult> | null = null;
+
+/**
+ * Result of a token refresh attempt.
+ */
+interface RefreshResult {
+  /** New access token, or null if refresh failed. */
+  token: string | null;
+  /** Whether the failure was permanent (token definitively invalid). */
+  permanent: boolean;
+}
+
+/**
+ * Refresh the access token using the stored refresh token.
+ * Returns the new access token, or null if refresh fails.
+ * Concurrent callers share the same refresh attempt.
+ */
+async function refreshToken(): Promise<RefreshResult> {
+  // If a refresh is already in-flight, wait for it
+  if (refreshPromise != null) {
+    return refreshPromise;
   }
-  return null;
+
+  refreshPromise = (async () => {
+    try {
+      const storedRefreshToken = getRefreshToken();
+      if (storedRefreshToken == null) {
+        return { token: null, permanent: true };
+      }
+
+      const res = await fetch(
+        new URL(`${API_PREFIX}/auth/refresh`, BACKEND_URL).toString(),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: storedRefreshToken }),
+          cache: "no-store",
+        }
+      );
+
+      if (!res.ok) {
+        // 401/403 = token definitively invalid (permanent)
+        // 5xx = server error (transient, don't clear tokens)
+        const permanent = res.status < 500;
+        return { token: null, permanent };
+      }
+
+      const data = (await res.json()) as {
+        access_token: string;
+        refresh_token: string;
+        expires_at: number;
+      };
+
+      // Store new tokens
+      setAuthTokens({
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+        expiresAt: data.expires_at,
+      });
+
+      return { token: data.access_token, permanent: false };
+    } catch {
+      // Network error = transient
+      return { token: null, permanent: false };
+    }
+  })();
+
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
+}
+
+/**
+ * Wrapper around apiFetch that automatically refreshes tokens on 401.
+ * Use this for all API calls that require authentication.
+ *
+ * On 401: attempts token refresh, retries original request once.
+ * On permanent refresh failure (401/403): clears tokens and throws RefreshFailedError.
+ * On transient refresh failure (5xx): throws RefreshFailedError without clearing tokens.
+ */
+export async function apiFetchWithRefresh<T>(
+  path: string,
+  options?: RequestInit,
+): Promise<T | undefined> {
+  const token = getAuthToken();
+
+  try {
+    return await apiFetch<T>(path, {
+      ...options,
+      headers: {
+        ...options?.headers,
+        ...(token != null ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+  } catch (error) {
+    // Only retry on 401 Unauthorized
+    if (error instanceof ApiError && error.status === 401) {
+      const result = await refreshToken();
+      if (result.token != null) {
+        // Retry the original request with the new token
+        return apiFetch<T>(path, {
+          ...options,
+          headers: {
+            ...options?.headers,
+            Authorization: `Bearer ${result.token}`,
+          },
+        });
+      }
+      // Refresh failed — only clear tokens on permanent failure (token invalid)
+      if (result.permanent) {
+        clearAuthTokens();
+      }
+      throw new RefreshFailedError();
+    }
+    throw error;
+  }
 }
 
 /**
@@ -117,19 +250,19 @@ async function safeJsonParse(res: Response): Promise<unknown> {
  * Handles:
  * - URL construction (new URL prevents double slashes)
  * - JSON Content-Type header (preserves existing if already set)
- * - Auth token injection via configurable provider
+ * - Auth token injection via configurable provider (skippable for public endpoints)
  * - Error response parsing with text fallback for non-JSON errors
  * - 204 No Content and non-JSON responses (returns undefined)
  * - 30s timeout via AbortController (skipped if caller provides signal)
  *
  * @param path - API path (e.g., "jobs", "applications/123")
- * @param options - Standard RequestInit options
+ * @param options - Standard RequestInit options + skipAuth flag
  * @returns Parsed JSON response, or undefined for 204/non-JSON responses
  * @throws ApiError on non-2xx responses
  */
 export async function apiFetch<T>(
   path: string,
-  options?: RequestInit,
+  options?: RequestInit & { skipAuth?: boolean },
 ): Promise<T | undefined> {
   // new URL() prevents double slashes from misconfigured env vars
   const url = new URL(`${API_PREFIX}/${path}`, BACKEND_URL);
@@ -140,10 +273,12 @@ export async function apiFetch<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  // Inject auth token via configurable provider
-  const token = getAuthToken();
-  if (token != null) {
-    headers.set("Authorization", `Bearer ${token}`);
+  // Inject auth token via configurable provider (skip if skipAuth is true)
+  if (options?.skipAuth !== true) {
+    const token = getAuthToken();
+    if (token != null) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
   }
 
   // Only create timeout if caller didn't provide their own signal.
@@ -163,19 +298,20 @@ export async function apiFetch<T>(
     });
 
     if (!res.ok) {
-      // Try JSON first (standard backend error envelope),
-      // fall back to raw text for non-JSON errors (nginx HTML, plain text)
+      // Read body as text first, then try JSON parse
+      // This avoids double-consuming the body stream
+      const rawBody = await res.text().catch(() => "");
       let body: {
         error?: { code?: string; message?: string };
         raw?: string;
       } | null = null;
-      let rawBody = "";
 
-      try {
-        body = await res.json();
-      } catch {
-        rawBody = await res.text().catch(() => "");
-        body = { raw: rawBody };
+      if (rawBody.length > 0) {
+        try {
+          body = JSON.parse(rawBody) as typeof body;
+        } catch {
+          body = { raw: rawBody };
+        }
       }
 
       const code = body?.error?.code ?? "UNKNOWN_ERROR";
@@ -227,7 +363,7 @@ export function apiGet<T>(
 export function apiPost<T>(
   path: string,
   data?: unknown,
-  options?: RequestInit,
+  options?: RequestInit & { skipAuth?: boolean },
 ): Promise<T | undefined> {
   return apiFetch<T>(path, {
     ...options,
@@ -289,4 +425,97 @@ export function apiDelete<T = void>(
   options?: RequestInit,
 ): Promise<T | undefined> {
   return apiFetch<T>(path, { ...options, method: "DELETE" });
+}
+
+/**
+ * GET request helper WITH automatic token refresh.
+ * Use this for all authenticated GET requests.
+ *
+ * @param path - API path (e.g., "jobs", "jobs?status=applied")
+ * @param options - Optional RequestInit overrides (headers, signal, etc.)
+ * @returns Parsed JSON response, or undefined for 204/non-JSON responses
+ */
+export function apiGetWithRefresh<T>(
+  path: string,
+  options?: RequestInit,
+): Promise<T | undefined> {
+  return apiFetchWithRefresh<T>(path, { ...options, method: "GET" });
+}
+
+/**
+ * POST request helper WITH automatic token refresh.
+ * Use this for all authenticated POST requests.
+ *
+ * @param path - API path (e.g., "jobs/123/approve")
+ * @param data - Request body (auto-serialized to JSON). Pass undefined to skip body.
+ * @param options - Optional RequestInit overrides (headers, signal, etc.)
+ * @returns Parsed JSON response, or undefined for 204/non-JSON responses
+ */
+export function apiPostWithRefresh<T>(
+  path: string,
+  data?: unknown,
+  options?: RequestInit,
+): Promise<T | undefined> {
+  return apiFetchWithRefresh<T>(path, {
+    ...options,
+    method: "POST",
+    body: data != null ? JSON.stringify(data) : undefined,
+  });
+}
+
+/**
+ * PUT request helper WITH automatic token refresh.
+ * Use this for all authenticated PUT requests.
+ *
+ * @param path - API path (e.g., "applications/123/status")
+ * @param data - Request body (auto-serialized to JSON). Pass undefined to skip body.
+ * @param options - Optional RequestInit overrides (headers, signal, etc.)
+ * @returns Parsed JSON response, or undefined for 204/non-JSON responses
+ */
+export function apiPutWithRefresh<T>(
+  path: string,
+  data?: unknown,
+  options?: RequestInit,
+): Promise<T | undefined> {
+  return apiFetchWithRefresh<T>(path, {
+    ...options,
+    method: "PUT",
+    body: data != null ? JSON.stringify(data) : undefined,
+  });
+}
+
+/**
+ * PATCH request helper WITH automatic token refresh.
+ * Use this for all authenticated PATCH requests.
+ *
+ * @param path - API path (e.g., "profile", "jobs/123")
+ * @param data - Request body (partial update, auto-serialized to JSON)
+ * @param options - Optional RequestInit overrides (headers, signal, etc.)
+ * @returns Parsed JSON response, or undefined for 204/non-JSON responses
+ */
+export function apiPatchWithRefresh<T>(
+  path: string,
+  data: unknown,
+  options?: RequestInit,
+): Promise<T | undefined> {
+  return apiFetchWithRefresh<T>(path, {
+    ...options,
+    method: "PATCH",
+    body: data != null ? JSON.stringify(data) : undefined,
+  });
+}
+
+/**
+ * DELETE request helper WITH automatic token refresh.
+ * Use this for all authenticated DELETE requests.
+ *
+ * @param path - API path (e.g., "jobs/123")
+ * @param options - Optional RequestInit overrides (headers, signal, etc.)
+ * @returns Parsed JSON response, or undefined for 204/non-JSON responses
+ */
+export function apiDeleteWithRefresh<T = void>(
+  path: string,
+  options?: RequestInit,
+): Promise<T | undefined> {
+  return apiFetchWithRefresh<T>(path, { ...options, method: "DELETE" });
 }

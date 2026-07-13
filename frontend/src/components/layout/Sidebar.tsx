@@ -53,7 +53,7 @@ function LogoutButton() {
   return (
     <button
       type="button"
-      onClick={logout}
+      onClick={() => logout.mutate()}
       className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-foreground"
     >
       <LogOut className="h-5 w-5" aria-hidden="true" />

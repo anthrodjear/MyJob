@@ -30,6 +30,7 @@ import type {
   CreateCoverLetterRequest,
   GenerateCoverLetterRequest,
 } from "@/lib/types/resumes";
+import type { ResumeListResponse, CoverLetterListResponse } from "@/lib/types/resumes";
 
 /** Stable stringify for query keys — sorts keys for consistent references. */
 function stableStringify(obj: Record<string, unknown>): string {
@@ -58,6 +59,12 @@ export const coverLettersKeys = {
   detail: (id: string) => [...coverLettersKeys.details(), id] as const,
 };
 
+/** Empty resume list response for graceful degradation. */
+const emptyResumes: ResumeListResponse = { resumes: [], total: 0, limit: 0, offset: 0 };
+
+/** Empty cover letter list response for graceful degradation. */
+const emptyCoverLetters: CoverLetterListResponse = { cover_letters: [], total: 0, limit: 0, offset: 0 };
+
 // ============================================================================
 // Resume Hooks
 // ============================================================================
@@ -67,6 +74,7 @@ export function useResumes(params: ResumeListParams = {}) {
   return useQuery({
     queryKey: resumesKeys.list(params),
     queryFn: () => fetchResumes(params),
+    placeholderData: emptyResumes,
   });
 }
 
@@ -141,15 +149,12 @@ export function useResumeVersions(id: string) {
   });
 }
 
-// ============================================================================
-// Cover Letter Hooks
-// ============================================================================
-
 /** Fetch cover letters with pagination + caching. */
 export function useCoverLetters(params: CoverLetterListParams = {}) {
   return useQuery({
     queryKey: coverLettersKeys.list(params),
     queryFn: () => fetchCoverLetters(params),
+    placeholderData: emptyCoverLetters,
   });
 }
 

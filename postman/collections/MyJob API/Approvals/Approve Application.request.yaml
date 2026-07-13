@@ -1,0 +1,8 @@
+$kind: http-request
+name: Approve Application
+method: POST
+url: '{{baseUrl}}/api/v1/approvals/{{approvalId}}/approve'
+order: 3000
+pathVariables:
+  - key: approvalId
+    value: '{{approvalId}}'

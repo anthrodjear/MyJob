@@ -45,7 +45,7 @@ export function EmailsPageClient() {
 
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
 
-  const { data, isLoading } = useEmails({
+  const { data, isLoading, isPlaceholderData } = useEmails({
     classification: classification ?? undefined,
     limit,
     offset,
@@ -111,7 +111,7 @@ export function EmailsPageClient() {
         </Select>
       </div>
 
-      <div aria-live="polite" aria-atomic="true" aria-busy={isLoading}>
+      <div aria-live="polite" aria-atomic="true" aria-busy={isLoading && !isPlaceholderData}>
         {data?.total != null && (
           <p className="text-sm text-muted-foreground mb-4">
             {data.total} {data.total === 1 ? "email" : "emails"}
@@ -121,7 +121,7 @@ export function EmailsPageClient() {
 
       <EmailList
         emails={emails}
-        isLoading={isLoading}
+        isLoading={isLoading && !isPlaceholderData}
         onSelect={handleSelect}
       />
     </div>

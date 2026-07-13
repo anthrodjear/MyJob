@@ -137,7 +137,7 @@ export function RejectDialog({ isOpen, onConfirm, onCancel }: RejectDialogProps)
           <textarea
             ref={inputRef}
             id="reject-reason"
-            className="w-full rounded-md border border-border bg-bg-primary p-3 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full rounded-md border border-border bg-surface p-3 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             rows={3}
             value={reason}
             onChange={(e) => setReason(e.target.value)}

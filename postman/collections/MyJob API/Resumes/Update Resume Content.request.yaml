@@ -1,0 +1,21 @@
+$kind: http-request
+name: Update Resume Content
+method: PUT
+url: '{{baseUrl}}/api/v1/resumes/{{resumeId}}/content'
+order: 7000
+pathVariables:
+  - key: resumeId
+    value: '{{resumeId}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "content": {
+        "summary": "Experienced backend engineer...",
+        "skills": [],
+        "experience": []
+      }
+    }

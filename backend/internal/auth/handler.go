@@ -23,23 +23,6 @@ func NewHandler(service *Service, logger *zap.Logger) *Handler {
 	}
 }
 
-// RegisterRoutes registers auth routes on the router group.
-func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
-	auth := rg.Group("/auth")
-	{
-		auth.POST("/login", h.Login)
-		auth.POST("/change-password", h.ChangePassword)
-		auth.GET("/setup/status", h.SetupStatus)
-		auth.POST("/setup", h.CompleteSetup)
-		auth.POST("/setup/test-llm", h.TestLLMKey)
-		auth.POST("/setup/test-voice", h.TestVoiceConfig)
-		auth.POST("/setup/test-email", h.TestEmailConfig)
-		auth.POST("/setup/config", h.SaveOnboardingConfig)
-		auth.POST("/setup/onboarding-step", h.UpdateOnboardingStep)
-		auth.POST("/setup/complete-onboarding", h.CompleteOnboarding)
-	}
-}
-
 // Login handles POST /auth/login.
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
@@ -98,7 +81,20 @@ func (h *Handler) SetupStatus(c *gin.Context) {
 		httpresp.InternalError(c)
 		return
 	}
+
 	httpresp.OK(c, resp)
+}
+
+// Logout handles POST /auth/logout.
+// Revokes all refresh tokens and increments session version.
+func (h *Handler) Logout(c *gin.Context) {
+	if err := h.service.Logout(c.Request.Context()); err != nil {
+		h.logger.Error("logout error", zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, LogoutResponse{Message: "logged out"})
 }
 
 // CompleteSetup handles POST /auth/setup.
@@ -223,4 +219,26 @@ func (h *Handler) CompleteOnboarding(c *gin.Context) {
 	}
 
 	httpresp.OK(c, OnboardingConfigResponse{Message: "onboarding completed"})
+}
+
+// Refresh handles POST /auth/refresh.
+func (h *Handler) Refresh(c *gin.Context) {
+	var req RefreshRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpresp.BadRequest(c, "INVALID_REQUEST", "invalid request body")
+		return
+	}
+
+	resp, err := h.service.Refresh(c.Request.Context(), req.RefreshToken)
+	if err != nil {
+		if errors.Is(err, ErrRefreshTokenInvalid) || errors.Is(err, ErrRefreshTokenExpired) || errors.Is(err, ErrRefreshTokenRevoked) {
+			httpresp.Unauthorized(c, "INVALID_REFRESH_TOKEN", "refresh token is invalid or expired")
+			return
+		}
+		h.logger.Error("refresh token error", zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, resp)
 }

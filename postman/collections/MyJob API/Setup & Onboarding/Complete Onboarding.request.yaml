@@ -1,0 +1,7 @@
+$kind: http-request
+name: Complete Onboarding
+method: POST
+url: '{{baseUrl}}/api/v1/auth/setup/complete-onboarding'
+order: 8000
+auth:
+  type: noauth

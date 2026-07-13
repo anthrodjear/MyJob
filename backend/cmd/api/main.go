@@ -87,7 +87,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to create auth repository", zap.Error(err))
 	}
-	authService := auth.NewService(authRepo, cfg.Auth, systemConfigService)
+	authService := auth.NewService(authRepo, cfg.Auth, systemConfigService, logger)
 	authHandler := auth.NewHandler(authService, logger)
 
 	// Setup check function — closure over authRepo
@@ -98,6 +98,16 @@ func main() {
 			return true // fail closed — require setup on error
 		}
 		return required
+	}
+
+	// Onboarding completion check function — closure over authRepo
+	isOnboardingCompleted := func() bool {
+		completed, err := authRepo.IsOnboardingCompleted(context.Background())
+		if err != nil {
+			logger.Error("failed to check onboarding status", zap.Error(err))
+			return true // fail closed — block onboarding routes on error
+		}
+		return completed
 	}
 
 	// Initialize asynq client for task dispatch
@@ -179,23 +189,25 @@ func main() {
 
 	// Setup router with all routes
 	router := api.SetupRouter(api.RouterConfig{
-		AuthHandler:         authHandler,
-		AuthService:         authService,
-		IsSetupRequired:     isSetupRequired,
-		CORSOrigins:         cfg.Server.CORSOrigins,
-		RateLimitConfig:     cfg.RateLimit,
-		JobsHandler:         jobsHandler,
-		ApplicationsHandler: appsHandler,
-		ResumesHandler:      resumesHandler,
-		ScoringHandler:      scoringHandler,
-		InterviewsHandler:   interviewsHandler,
-		ProfileHandler:      profileHandler,
-		ApprovalsHandler:    approvalsHandler,
-		RAGHandler:          ragHandler,
-		EmailsHandler:       emailsHandler,
-		ActivityHandler:     activityHandler,
-		SystemConfigHandler: systemConfigHandler,
-		Logger:              logger,
+		AuthHandler:           authHandler,
+		AuthService:           authService,
+		IsSetupRequired:       isSetupRequired,
+		IsOnboardingCompleted: isOnboardingCompleted,
+		CORSOrigins:           cfg.Server.CORSOrigins,
+		RateLimitConfig:       cfg.RateLimit,
+		AuthRateLimitConfig:   cfg.AuthRateLimit,
+		JobsHandler:           jobsHandler,
+		ApplicationsHandler:   appsHandler,
+		ResumesHandler:        resumesHandler,
+		ScoringHandler:        scoringHandler,
+		InterviewsHandler:     interviewsHandler,
+		ProfileHandler:        profileHandler,
+		ApprovalsHandler:      approvalsHandler,
+		RAGHandler:            ragHandler,
+		EmailsHandler:         emailsHandler,
+		ActivityHandler:       activityHandler,
+		SystemConfigHandler:   systemConfigHandler,
+		Logger:                logger,
 	})
 
 	// Start HTTP server

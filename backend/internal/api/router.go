@@ -26,23 +26,25 @@ import (
 
 // RouterConfig holds dependencies for router setup.
 type RouterConfig struct {
-	AuthHandler         *auth.Handler
-	AuthService         *auth.Service
-	IsSetupRequired     func() bool // setup check function
-	CORSOrigins         []string
-	RateLimitConfig     config.RateLimitConfig
-	JobsHandler         *jobs.Handler
-	ApplicationsHandler *applications.Handler
-	ResumesHandler      *resumes.Handler
-	ScoringHandler      *scoring.Handler
-	InterviewsHandler   *interviews.Handler
-	ProfileHandler      *profile.Handler
-	ApprovalsHandler    *approvals.Handler
-	RAGHandler          *rag.Handler
-	EmailsHandler       *emails.Handler
-	ActivityHandler     *activity.Handler
-	SystemConfigHandler *systemconfig.Handler
-	Logger              *zap.Logger
+	AuthHandler           *auth.Handler
+	AuthService           *auth.Service
+	IsSetupRequired       func() bool // setup check function
+	IsOnboardingCompleted func() bool // onboarding completion check function
+	CORSOrigins           []string
+	RateLimitConfig       config.RateLimitConfig
+	AuthRateLimitConfig   config.AuthRateLimitConfig
+	JobsHandler           *jobs.Handler
+	ApplicationsHandler   *applications.Handler
+	ResumesHandler        *resumes.Handler
+	ScoringHandler        *scoring.Handler
+	InterviewsHandler     *interviews.Handler
+	ProfileHandler        *profile.Handler
+	ApprovalsHandler      *approvals.Handler
+	RAGHandler            *rag.Handler
+	EmailsHandler         *emails.Handler
+	ActivityHandler       *activity.Handler
+	SystemConfigHandler   *systemconfig.Handler
+	Logger                *zap.Logger
 }
 
 // SetupRouter creates and configures the Gin router.
@@ -91,14 +93,39 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 	// API v1 group
 	v1 := r.Group("/api/v1")
 	{
-		// Public auth routes (no JWT)
+		// Public auth routes (no JWT) - with stricter rate limiting
 		authGroup := v1.Group("/auth")
+		authGroup.Use(middleware.RateLimit(config.RateLimitConfig{
+			RequestsPerMinute: cfg.AuthRateLimitConfig.RequestsPerMinute,
+			Burst:             cfg.AuthRateLimitConfig.Burst,
+		}, cfg.Logger))
 		{
 			authGroup.POST("/login", cfg.AuthHandler.Login)
+			authGroup.POST("/refresh", cfg.AuthHandler.Refresh)
 
 			// Setup routes — public, no JWT needed
 			authGroup.GET("/setup/status", cfg.AuthHandler.SetupStatus)
 			authGroup.POST("/setup", cfg.AuthHandler.CompleteSetup)
+
+			// Onboarding routes — guarded: blocked after onboarding completes
+			// Prevents unauthenticated access to API key config, etc.
+			// NOTE: Uses IsOnboardingCompleted, NOT IsSetupRequired.
+			// IsSetupRequired returns false after step 1, but onboarding continues.
+			// These routes are intentionally unauthenticated — they must be accessible
+			// before the user has a JWT (post-setup, pre-onboarding).
+			// Safe ONLY because this server is designed for localhost access.
+			if cfg.IsOnboardingCompleted != nil {
+				onboarding := authGroup.Group("")
+				onboarding.Use(middleware.OnboardingCompleteMiddleware(cfg.IsOnboardingCompleted, cfg.Logger))
+				{
+					onboarding.POST("/setup/test-llm", cfg.AuthHandler.TestLLMKey)
+					onboarding.POST("/setup/test-voice", cfg.AuthHandler.TestVoiceConfig)
+					onboarding.POST("/setup/test-email", cfg.AuthHandler.TestEmailConfig)
+					onboarding.POST("/setup/config", cfg.AuthHandler.SaveOnboardingConfig)
+					onboarding.POST("/setup/onboarding-step", cfg.AuthHandler.UpdateOnboardingStep)
+					onboarding.POST("/setup/complete-onboarding", cfg.AuthHandler.CompleteOnboarding)
+				}
+			}
 		}
 
 		// Protected routes (require JWT)
@@ -106,6 +133,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		protected.Use(middleware.AuthMiddleware(cfg.AuthService))
 		{
 			protected.POST("/auth/change-password", cfg.AuthHandler.ChangePassword)
+			protected.POST("/auth/logout", cfg.AuthHandler.Logout)
 			cfg.JobsHandler.RegisterRoutes(protected)
 			cfg.ApplicationsHandler.RegisterRoutes(protected)
 			cfg.ResumesHandler.RegisterRoutes(protected)

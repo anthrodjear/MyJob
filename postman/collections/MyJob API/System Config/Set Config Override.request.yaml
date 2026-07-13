@@ -1,0 +1,15 @@
+$kind: http-request
+name: Set Config Override
+method: PATCH
+url: '{{baseUrl}}/api/v1/system/config'
+order: 2000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "key": "scoring.auto_threshold",
+      "value": 90
+    }

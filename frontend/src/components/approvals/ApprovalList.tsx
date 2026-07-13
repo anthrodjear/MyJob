@@ -2,6 +2,7 @@
  * ApprovalList — paginated approval list with loading and empty states.
  *
  * Renders ApprovalCard components. Shows skeleton loader during initial load.
+ * Uses SkeletonWrapper to enforce minimum/maximum display times and prevent pop-ins.
  *
  * @example
  *   <ApprovalList approvals={approvals} isLoading={false} onApprove={handleApprove} />
@@ -14,41 +15,8 @@ import { cn } from "@/lib/utils";
 import { ApprovalCard } from "./ApprovalCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/shared/Button";
-import { Skeleton } from "@/components/shared/LoadingSkeleton";
+import { ApprovalCardSkeleton, SkeletonWrapper } from "@/components/shared/LoadingSkeleton";
 import type { Approval } from "@/lib/types/approvals";
-
-/**
- * Loading skeleton — shows placeholder cards matching ApprovalCard layout.
- */
-function ApprovalListSkeleton() {
-  return (
-    <div className="space-y-3" aria-busy="true" aria-label="Loading approvals">
-      <span className="sr-only" aria-live="polite">Loading approvals…</span>
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div
-          key={i}
-          className="rounded-lg border border-border bg-bg-secondary p-4"
-        >
-          <div className="mb-3 flex items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <Skeleton className="mb-2 h-5 w-3/4" />
-              <Skeleton className="h-4 w-1/2" />
-            </div>
-            <div className="flex flex-col items-end gap-1">
-              <Skeleton className="h-5 w-12 rounded-full" />
-              <Skeleton className="h-5 w-16 rounded-full" />
-            </div>
-          </div>
-          <Skeleton className="mb-3 h-3 w-1/3" />
-          <div className="flex gap-2">
-            <Skeleton className="h-8 w-20" />
-            <Skeleton className="h-8 w-16" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 interface ApprovalListProps {
   /** Array of approvals to display. */
@@ -73,6 +41,20 @@ interface ApprovalListProps {
   className?: string;
 }
 
+/** Skeleton placeholder matching the list layout. */
+function ApprovalListSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="Loading approvals">
+      <span className="sr-only" aria-live="polite">Loading approvals…</span>
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <ApprovalCardSkeleton key={i} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /**
  * ApprovalList — paginated approval listing.
  *
@@ -93,13 +75,8 @@ export function ApprovalList({
   loadingMore,
   className,
 }: ApprovalListProps) {
-  // Loading state — skeleton loader
-  if (isLoading) {
-    return <ApprovalListSkeleton />;
-  }
-
   // Empty state
-  if (approvals.length === 0) {
+  if (approvals.length === 0 && !isLoading) {
     return (
       <EmptyState
         icon={<ClipboardCheck className="h-12 w-12" />}
@@ -109,34 +86,43 @@ export function ApprovalList({
     );
   }
 
+  // Render list with SkeletonWrapper
   return (
-    <div className={cn("space-y-4", className)}>
-      <ul className="space-y-3">
-        {approvals.map((approval) => (
-          <li key={approval.id}>
-            <ApprovalCard
-              approval={approval}
-              onApprove={onApprove}
-              onReject={onReject}
-              onClick={onSelect}
-              isPending={isPending}
-            />
-          </li>
-        ))}
-      </ul>
+    <SkeletonWrapper
+      isLoading={isLoading}
+      skeleton={<ApprovalListSkeleton />}
+      minDisplayMs={300}
+      maxDisplayMs={5000}
+      ariaLiveRegion="Approvals loaded"
+    >
+      <div className={cn("space-y-4", className)}>
+        <ul className="space-y-3">
+          {approvals.map((approval) => (
+            <li key={approval.id}>
+              <ApprovalCard
+                approval={approval}
+                onApprove={onApprove}
+                onReject={onReject}
+                onClick={onSelect}
+                isPending={isPending}
+              />
+            </li>
+          ))}
+        </ul>
 
-      {hasMore && onLoadMore && (
-        <div className="flex justify-center pt-2">
-          <Button
-            variant="secondary"
-            onClick={onLoadMore}
-            disabled={loadingMore}
-            aria-label="Load more approvals"
-          >
-            {loadingMore ? "Loading..." : "Load More"}
-          </Button>
-        </div>
-      )}
-    </div>
+        {hasMore && onLoadMore && (
+          <div className="flex justify-center pt-2">
+            <Button
+              variant="secondary"
+              onClick={onLoadMore}
+              disabled={loadingMore}
+              aria-label="Load more approvals"
+            >
+              {loadingMore ? "Loading..." : "Load More"}
+            </Button>
+          </div>
+        )}
+      </div>
+    </SkeletonWrapper>
   );
 }

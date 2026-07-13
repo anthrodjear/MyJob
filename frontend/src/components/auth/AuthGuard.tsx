@@ -30,20 +30,19 @@ interface AuthGuardProps {
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
-  const [token] = useState(() => getAuthToken());
+  const [token] = useState<string | null>(() => getAuthToken());
 
-  // Redirect to login if no token — effect handles the navigation side effect
+  // Redirect to login if no token after initial check
   useEffect(() => {
-    if (token == null) {
+    if (token === null) {
       router.replace("/login");
     }
   }, [token, router]);
 
-  // Show loading while checking auth
-  if (token == null) {
+  if (token === null) {
     return (
       <div
-        className="flex min-h-screen items-center justify-center bg-bg-primary"
+        className="flex min-h-screen items-center justify-center bg-bg-secondary"
         role="status"
         aria-label="Checking authentication"
       >

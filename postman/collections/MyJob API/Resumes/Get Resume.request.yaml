@@ -1,0 +1,8 @@
+$kind: http-request
+name: Get Resume
+method: GET
+url: '{{baseUrl}}/api/v1/resumes/{{resumeId}}'
+order: 2000
+pathVariables:
+  - key: resumeId
+    value: '{{resumeId}}'

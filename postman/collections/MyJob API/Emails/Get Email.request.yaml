@@ -1,0 +1,8 @@
+$kind: http-request
+name: Get Email
+method: GET
+url: '{{baseUrl}}/api/v1/emails/{{emailId}}'
+order: 3000
+pathVariables:
+  - key: emailId
+    value: '{{emailId}}'

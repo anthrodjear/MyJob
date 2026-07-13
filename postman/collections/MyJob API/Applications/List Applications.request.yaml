@@ -1,0 +1,19 @@
+$kind: http-request
+name: List Applications
+method: GET
+url: '{{baseUrl}}/api/v1/applications'
+order: 1000
+queryParams:
+  - key: status
+    value: ''
+    disabled: true
+  - key: job_id
+    value: ''
+    disabled: true
+  - key: portal_type
+    value: ''
+    disabled: true
+  - key: limit
+    value: '20'
+  - key: offset
+    value: '0'

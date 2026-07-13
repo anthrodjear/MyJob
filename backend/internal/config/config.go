@@ -8,21 +8,24 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Config struct {
-	Server      ServerConfig
-	Database    DatabaseConfig
-	Redis       RedisConfig
-	Auth        AuthConfig
-	LLM         LLMConfig
-	Voice       VoiceConfig
-	Email       EmailConfig
-	Queue       QueueConfig
-	Scoring     ScoringConfig
-	Prompts     PromptsConfig
-	RateLimit   RateLimitConfig
-	Environment string
+	Server        ServerConfig
+	Database      DatabaseConfig
+	Redis         RedisConfig
+	Auth          AuthConfig
+	LLM           LLMConfig
+	Voice         VoiceConfig
+	Email         EmailConfig
+	Queue         QueueConfig
+	Scoring       ScoringConfig
+	Prompts       PromptsConfig
+	RateLimit     RateLimitConfig
+	AuthRateLimit AuthRateLimitConfig
+	Environment   string
 }
 
 type ServerConfig struct {
@@ -44,6 +47,11 @@ type RedisConfig struct {
 }
 
 type RateLimitConfig struct {
+	RequestsPerMinute int
+	Burst             int
+}
+
+type AuthRateLimitConfig struct {
 	RequestsPerMinute int
 	Burst             int
 }
@@ -126,9 +134,11 @@ type PromptPair struct {
 }
 
 type AuthConfig struct {
-	PasswordHash string        // bcrypt hash of the single user password
-	JWTSecret    string        // HMAC signing secret for JWT
-	JWTExpiry    time.Duration // Token validity duration
+	PasswordHash       string        // bcrypt hash of the single user password
+	JWTSecret          string        // HMAC signing secret for JWT
+	JWTExpiry          time.Duration // Token validity duration
+	RefreshTokenExpiry time.Duration // Refresh token validity duration (default: 7 days)
+	BCryptCost         int           // bcrypt cost factor (default: 12, min: 10)
 }
 
 // IsProduction returns true if running in production environment.
@@ -168,9 +178,11 @@ func Load() *Config {
 			URL: getEnv("REDIS_URL", ""),
 		},
 		Auth: AuthConfig{
-			PasswordHash: getEnv("AUTH_PASSWORD_HASH", ""),
-			JWTSecret:    getEnv("AUTH_JWT_SECRET", ""),
-			JWTExpiry:    getEnvDuration("JWT_EXPIRY", 24*time.Hour),
+			PasswordHash:       getEnv("AUTH_PASSWORD_HASH", ""),
+			JWTSecret:          getEnv("AUTH_JWT_SECRET", ""),
+			JWTExpiry:          getEnvDuration("JWT_EXPIRY", 30*time.Minute),
+			RefreshTokenExpiry: getEnvDuration("REFRESH_TOKEN_EXPIRY", 7*24*time.Hour), // 7 days
+			BCryptCost:         getEnvInt("BCRYPT_COST", 12),
 		},
 		LLM: LLMConfig{
 			Primary: LLMProvider{
@@ -240,6 +252,10 @@ func Load() *Config {
 			RequestsPerMinute: getEnvInt("RATE_LIMIT_RPM", 60),
 			Burst:             getEnvInt("RATE_LIMIT_BURST", 10),
 		},
+		AuthRateLimit: AuthRateLimitConfig{
+			RequestsPerMinute: getEnvInt("AUTH_RATE_LIMIT_RPM", 5),
+			Burst:             getEnvInt("AUTH_RATE_LIMIT_BURST", 3),
+		},
 		Prompts:     LoadPromptsFromYAML(yamlData),
 		Environment: getEnv("APP_ENV", "development"),
 	}
@@ -267,6 +283,20 @@ func (c *Config) Validate() error {
 	// When set, validates format for backward compatibility.
 	if c.Auth.PasswordHash != "" && !strings.HasPrefix(c.Auth.PasswordHash, "$2") {
 		return errors.New("config: invalid bcrypt hash format")
+	}
+	// BCrypt cost validation
+	if c.Auth.BCryptCost < bcrypt.MinCost {
+		return fmt.Errorf("config: bcrypt cost must be at least %d, got %d", bcrypt.MinCost, c.Auth.BCryptCost)
+	}
+	if c.Auth.BCryptCost > bcrypt.MaxCost {
+		return fmt.Errorf("config: bcrypt cost must not exceed %d, got %d", bcrypt.MaxCost, c.Auth.BCryptCost)
+	}
+	// Refresh token expiry validation
+	if c.Auth.RefreshTokenExpiry <= 0 {
+		return errors.New("config: refresh token expiry must be positive")
+	}
+	if c.Auth.RefreshTokenExpiry <= c.Auth.JWTExpiry {
+		return errors.New("config: refresh token expiry must be longer than JWT expiry")
 	}
 
 	// Infrastructure validation

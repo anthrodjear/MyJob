@@ -1,0 +1,8 @@
+$kind: http-request
+name: Get Approval
+method: GET
+url: '{{baseUrl}}/api/v1/approvals/{{approvalId}}'
+order: 2000
+pathVariables:
+  - key: approvalId
+    value: '{{approvalId}}'

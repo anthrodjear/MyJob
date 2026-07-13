@@ -2,6 +2,9 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -14,6 +17,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -25,6 +29,9 @@ var (
 	ErrSessionInvalidated   = errors.New("auth: session invalidated")
 	ErrPasswordSame         = errors.New("auth: new password must differ from current password")
 	ErrSetupAlreadyComplete = errors.New("auth: setup already complete — users exist")
+	ErrRefreshTokenInvalid  = errors.New("auth: refresh token invalid")
+	ErrRefreshTokenExpired  = errors.New("auth: refresh token expired")
+	ErrRefreshTokenRevoked  = errors.New("auth: refresh token revoked")
 )
 
 // Service handles authentication business logic.
@@ -32,14 +39,16 @@ type Service struct {
 	repo      *Repository
 	cfg       config.AuthConfig
 	configSvc *systemconfig.Service
+	logger    *zap.Logger
 }
 
 // NewService creates a new auth service.
-func NewService(repo *Repository, cfg config.AuthConfig, configSvc *systemconfig.Service) *Service {
+func NewService(repo *Repository, cfg config.AuthConfig, configSvc *systemconfig.Service, logger *zap.Logger) *Service {
 	return &Service{
 		repo:      repo,
 		cfg:       cfg,
 		configSvc: configSvc,
+		logger:    logger.Named("auth"),
 	}
 }
 
@@ -64,21 +73,33 @@ func (s *Service) Login(ctx context.Context, password string) (*LoginResponse, e
 		return nil, fmt.Errorf("auth: login: generate token: %w", err)
 	}
 
+	// Generate refresh token
+	refreshToken, refreshTokenHash, refreshTokenID, refreshTokenExpiresAt, err := s.generateRefreshToken()
+	if err != nil {
+		return nil, fmt.Errorf("auth: login: generate refresh token: %w", err)
+	}
+
+	// Store refresh token hash
+	if err := s.repo.CreateRefreshToken(ctx, refreshTokenID, "local-user", refreshTokenHash, refreshTokenExpiresAt); err != nil {
+		return nil, fmt.Errorf("auth: login: store refresh token: %w", err)
+	}
+
 	return &LoginResponse{
-		AccessToken: token,
-		ExpiresAt:   expiresAt,
+		AccessToken:  token,
+		RefreshToken: refreshToken,
+		ExpiresAt:    expiresAt,
 	}, nil
 }
 
 // ValidateToken parses and validates a JWT, returning the claims.
-// Uses strict validation: issuer must match "myjob".
+// Uses strict validation: issuer must match "myjob", algorithm must be HS256.
 func (s *Service) ValidateToken(tokenString string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("auth: unexpected signing method: %v", t.Header["alg"])
 		}
 		return []byte(s.cfg.JWTSecret), nil
-	}, jwt.WithIssuer("myjob"))
+	}, jwt.WithIssuer("myjob"), jwt.WithValidMethods([]string{"HS256"}), jwt.WithLeeway(30*time.Second))
 
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {
@@ -131,7 +152,7 @@ func (s *Service) ChangePassword(ctx context.Context, currentPassword, newPasswo
 		return ErrInvalidCredentials
 	}
 
-	newHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	newHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), s.cfg.BCryptCost)
 	if err != nil {
 		return fmt.Errorf("auth: change password: hash: %w", err)
 	}
@@ -140,11 +161,20 @@ func (s *Service) ChangePassword(ctx context.Context, currentPassword, newPasswo
 		return fmt.Errorf("auth: change password: update: %w", err)
 	}
 
+	// Revoke all refresh tokens on password change
+	if err := s.repo.RevokeAllRefreshTokens(ctx, "local-user"); err != nil {
+		return fmt.Errorf("auth: change password: revoke tokens: %w", err)
+	}
+
 	return nil
 }
 
 // Logout increments session version to invalidate all existing tokens (logout everywhere).
 func (s *Service) Logout(ctx context.Context) error {
+	// Revoke all refresh tokens
+	if err := s.repo.RevokeAllRefreshTokens(ctx, "local-user"); err != nil {
+		return fmt.Errorf("auth: logout: revoke tokens: %w", err)
+	}
 	return s.repo.IncrementSessionVersion(ctx)
 }
 
@@ -216,6 +246,95 @@ func (s *Service) IncrementSessionVersion(ctx context.Context) error {
 	return s.repo.IncrementSessionVersion(ctx)
 }
 
+// Refresh validates a refresh token and returns new access + refresh token pair.
+// Implements token rotation: old refresh token is revoked, new pair is issued.
+func (s *Service) Refresh(ctx context.Context, refreshTokenString string) (*RefreshResponse, error) {
+	// Hash the incoming token to look it up
+	tokenHash := hashRefreshToken(refreshTokenString)
+
+	// Find the token in the database
+	storedToken, err := s.repo.GetRefreshTokenByHash(ctx, tokenHash)
+	if err != nil {
+		return nil, ErrRefreshTokenInvalid
+	}
+
+	// Check if revoked
+	if storedToken.RevokedAt != nil {
+		// Potential token reuse attack — revoke all tokens for this user
+		if err := s.repo.RevokeAllRefreshTokens(ctx, storedToken.UserID); err != nil {
+			s.logger.Error("refresh token reuse detected but failed to revoke all tokens",
+				zap.String("user_id", storedToken.UserID),
+				zap.Error(err),
+			)
+		}
+		return nil, ErrRefreshTokenRevoked
+	}
+
+	// Check if expired
+	if time.Now().After(storedToken.ExpiresAt) {
+		return nil, ErrRefreshTokenExpired
+	}
+
+	// Revoke the old refresh token (rotation)
+	if err := s.repo.RevokeRefreshToken(ctx, storedToken.ID); err != nil {
+		return nil, fmt.Errorf("auth: refresh: revoke old token: %w", err)
+	}
+
+	// Generate new access token
+	accessToken, expiresAt, err := s.generateToken(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("auth: refresh: generate access token: %w", err)
+	}
+
+	// Generate new refresh token
+	refreshToken, refreshTokenHash, refreshTokenID, refreshTokenExpiresAt, err := s.generateRefreshToken()
+	if err != nil {
+		return nil, fmt.Errorf("auth: refresh: generate refresh token: %w", err)
+	}
+
+	// Store new refresh token hash
+	if err := s.repo.CreateRefreshToken(ctx, refreshTokenID, storedToken.UserID, refreshTokenHash, refreshTokenExpiresAt); err != nil {
+		return nil, fmt.Errorf("auth: refresh: store refresh token: %w", err)
+	}
+
+	return &RefreshResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresAt:    expiresAt,
+	}, nil
+}
+
+// generateRefreshToken creates a new refresh token and returns:
+// - plaintext token (to send to client)
+// - SHA-256 hash (to store in database)
+// - token ID (UUID for database primary key)
+// - expiration time
+func (s *Service) generateRefreshToken() (plaintext, hash, id string, expiresAt time.Time, err error) {
+	// Generate 64 random bytes (128 hex characters)
+	buf := make([]byte, 64)
+	if _, err := rand.Read(buf); err != nil {
+		return "", "", "", time.Time{}, fmt.Errorf("auth: generate random bytes: %w", err)
+	}
+	plaintext = hex.EncodeToString(buf)
+
+	// Hash for storage
+	hash = hashRefreshToken(plaintext)
+
+	// UUID for primary key
+	id = uuid.NewString()
+
+	// Expiration from config
+	expiresAt = time.Now().Add(s.cfg.RefreshTokenExpiry)
+
+	return plaintext, hash, id, expiresAt, nil
+}
+
+// hashRefreshToken returns the SHA-256 hex hash of a refresh token.
+func hashRefreshToken(token string) string {
+	h := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(h[:])
+}
+
 // GetSetupStatus returns whether setup is required (no users exist).
 func (s *Service) GetSetupStatus(ctx context.Context) (*SetupStatusResponse, error) {
 	required, err := s.repo.IsSetupRequired(ctx)
@@ -239,7 +358,7 @@ func (s *Service) CompleteSetup(ctx context.Context, username, email, password s
 	}
 
 	// Hash the password
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), s.cfg.BCryptCost)
 	if err != nil {
 		return fmt.Errorf("auth: complete setup: hash password: %w", err)
 	}
@@ -252,14 +371,29 @@ func (s *Service) CompleteSetup(ctx context.Context, username, email, password s
 	return nil
 }
 
+// IsOnboardingCompleted returns true if onboarding has been completed.
+func (s *Service) IsOnboardingCompleted(ctx context.Context) (bool, error) {
+	completed, err := s.repo.IsOnboardingCompleted(ctx)
+	if err != nil {
+		return false, fmt.Errorf("auth: is onboarding completed: %w", err)
+	}
+	return completed, nil
+}
+
 // CompleteOnboarding marks onboarding as finished.
 func (s *Service) CompleteOnboarding(ctx context.Context) error {
-	return s.repo.SetOnboardingCompleted(ctx, time.Now())
+	if err := s.repo.SetOnboardingCompleted(ctx, time.Now()); err != nil {
+		return fmt.Errorf("auth: complete onboarding: %w", err)
+	}
+	return nil
 }
 
 // UpdateOnboardingStep tracks progress for resume capability.
 func (s *Service) UpdateOnboardingStep(ctx context.Context, step string) error {
-	return s.repo.UpdateOnboardingStep(ctx, step)
+	if err := s.repo.UpdateOnboardingStep(ctx, step); err != nil {
+		return fmt.Errorf("auth: update onboarding step: %w", err)
+	}
+	return nil
 }
 
 // SaveOnboardingConfig persists all onboarding config overrides.

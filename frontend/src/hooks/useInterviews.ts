@@ -16,6 +16,10 @@ import {
   stopInterview,
 } from "@/lib/api/interviews";
 import type { InterviewFilterInput, CreateInterviewInput } from "@/lib/schemas/interviews";
+import type { InterviewListResponse } from "@/lib/types/interviews";
+
+/** Empty interview list response for graceful degradation. */
+const emptyInterviews: InterviewListResponse = { interviews: [], total: 0, limit: 0, offset: 0 };
 
 /**
  * Fetch paginated interview list with optional filters.
@@ -26,6 +30,7 @@ export function useInterviews(params?: InterviewFilterInput) {
   return useQuery({
     queryKey: ["interviews", params],
     queryFn: ({ signal }) => fetchInterviews(params, signal),
+    placeholderData: emptyInterviews,
   });
 }
 

@@ -6,21 +6,22 @@ import "github.com/golang-jwt/jwt/v5"
 
 // LoginRequest is the payload for POST /auth/login.
 type LoginRequest struct {
-	Password string `json:"password" binding:"required"`
+	Password string `json:"password" binding:"required,max=72"`
 }
 
 // ChangePasswordRequest is the payload for POST /auth/change-password.
 type ChangePasswordRequest struct {
-	CurrentPassword string `json:"current_password" binding:"required"`
-	NewPassword     string `json:"new_password" binding:"required,min=8"`
+	CurrentPassword string `json:"current_password" binding:"required,max=72"`
+	NewPassword     string `json:"new_password" binding:"required,min=8,max=72"`
 }
 
 // --- Response DTOs ---
 
 // LoginResponse is returned on successful login.
 type LoginResponse struct {
-	AccessToken string `json:"access_token"`
-	ExpiresAt   int64  `json:"expires_at"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresAt    int64  `json:"expires_at"`
 }
 
 // --- JWT Claims ---
@@ -45,7 +46,7 @@ type SetupStatusResponse struct {
 type SetupRequest struct {
 	Username string `json:"username" binding:"required,min=3,max=100"`
 	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=8"`
+	Password string `json:"password" binding:"required,min=8,max=72"`
 }
 
 // SetupResponse is returned on successful setup.
@@ -104,4 +105,23 @@ type OnboardingStepRequest struct {
 // OnboardingConfigResponse is returned on successful config save.
 type OnboardingConfigResponse struct {
 	Message string `json:"message"`
+}
+
+// LogoutResponse is returned on successful logout.
+type LogoutResponse struct {
+	Message string `json:"message"`
+}
+
+// --- Refresh Token DTOs ---
+
+// RefreshRequest is the payload for POST /auth/refresh.
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required,min=64"`
+}
+
+// RefreshResponse is returned on successful token refresh.
+type RefreshResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresAt    int64  `json:"expires_at"`
 }
