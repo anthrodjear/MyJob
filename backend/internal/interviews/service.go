@@ -106,7 +106,7 @@ func (s *Service) Create(ctx context.Context, req CreateInterviewRequest) (*Inte
 		Status:        StatusPending,
 		Provider:      "",
 		Model:         "",
-		Transcript:    []TranscriptEntry{},
+		Transcript:    Transcript{},
 	}
 
 	if err := s.repo.Create(ctx, session); err != nil {
