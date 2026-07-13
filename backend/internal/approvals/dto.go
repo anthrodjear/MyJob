@@ -51,7 +51,7 @@ type ApproveRequest struct {
 //	}
 type RejectRequest struct {
 	// Reason is required for audit trail.
-	Reason string `json:"reason" binding:"required"`
+	Reason string `json:"reason" binding:"required" example:"Salary too low for current market"`
 }
 
 // ListFilter is not a DTO — used internally for query params.
@@ -67,31 +67,31 @@ type RejectRequest struct {
 //   - GET /approvals/:id
 //   - GET /approvals (in list)
 type ApprovalResponse struct {
-	ID                 uuid.UUID   `json:"id"`
-	ApplicationID      uuid.UUID   `json:"application_id"`
+	ID                 uuid.UUID   `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	ApplicationID      uuid.UUID   `json:"application_id" example:"550e8400-e29b-41d4-a716-446655440001"`
 	JobSnapshot        JobSnapshot `json:"job_snapshot"`
-	ResumePreviewPath  *string     `json:"resume_preview_path,omitempty"`
-	CoverLetterPreview *string     `json:"cover_letter_preview,omitempty"`
-	Status             string      `json:"status"`
-	RejectionReason    *string     `json:"rejection_reason,omitempty"`
-	CreatedAt          time.Time   `json:"created_at"`
-	ReviewedAt         *time.Time  `json:"reviewed_at,omitempty"`
+	ResumePreviewPath  *string     `json:"resume_preview_path,omitempty" example:"/storage/resumes/550e8400-e29b-41d4-a716-446655440000.pdf"`
+	CoverLetterPreview *string     `json:"cover_letter_preview,omitempty" example:"/storage/cover-letters/550e8400-e29b-41d4-a716-446655440001.pdf"`
+	Status             string      `json:"status" example:"pending" enums:"pending,approved,rejected"`
+	RejectionReason    *string     `json:"rejection_reason,omitempty" example:"Salary too low"`
+	CreatedAt          time.Time   `json:"created_at" example:"2026-06-19T10:00:00Z"`
+	ReviewedAt         *time.Time  `json:"reviewed_at,omitempty" example:"2026-06-20T14:30:00Z"`
 }
 
 // ApprovalListResponse is the API response for listing approval requests.
 type ApprovalListResponse struct {
 	Approvals []ApprovalResponse `json:"approvals"`
-	Total     int64              `json:"total"`
-	Limit     int                `json:"limit"`
-	Offset    int                `json:"offset"`
+	Total     int64              `json:"total" example:"15"`
+	Limit     int                `json:"limit" example:"50"`
+	Offset    int                `json:"offset" example:"0"`
 }
 
 // ApprovePartialResponse is the API response when approval succeeds but
 // task dispatch fails (207 Multi-Status). The approval is persisted;
 // the submission task needs retry.
 type ApprovePartialResponse struct {
-	Status   string           `json:"status"`
-	Warning  string           `json:"warning"`
+	Status   string           `json:"status" example:"approved"`
+	Warning  string           `json:"warning" example:"application submission queued for retry"`
 	Approval ApprovalResponse `json:"approval"`
 }
 

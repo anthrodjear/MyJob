@@ -55,6 +55,18 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 // --- Resume handlers ---
 
 // ListResumes handles GET /resumes.
+// @Summary List resumes
+// @Description Get paginated list of resumes (content omitted)
+// @Tags Resumes
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param limit query int false "Results per page (max 100)" default(20) minimum(1) maximum(100)
+// @Param offset query int false "Pagination offset" default(0) minimum(0)
+// @Success 200 {object} ResumeListResponse "Paginated resume list"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /resumes [get]
 func (h *Handler) ListResumes(c *gin.Context) {
 	limit, offset := h.parsePagination(c)
 
@@ -74,6 +86,19 @@ func (h *Handler) ListResumes(c *gin.Context) {
 }
 
 // GetResume handles GET /resumes/:id.
+// @Summary Get resume by ID
+// @Description Get detailed resume information including structured content
+// @Tags Resumes
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Resume UUID" format(uuid)
+// @Success 200 {object} ResumeDetailResponse "Resume with content"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid resume ID"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Resume not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /resumes/{id} [get]
 func (h *Handler) GetResume(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -96,6 +121,18 @@ func (h *Handler) GetResume(c *gin.Context) {
 }
 
 // CreateResume handles POST /resumes.
+// @Summary Create resume
+// @Description Create a new resume profile
+// @Tags Resumes
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body CreateResumeRequest true "Resume creation request"
+// @Success 201 {object} ResumeDetailResponse "Created resume"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body or validation error"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /resumes [post]
 func (h *Handler) CreateResume(c *gin.Context) {
 	var req CreateResumeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -118,6 +155,21 @@ func (h *Handler) CreateResume(c *gin.Context) {
 }
 
 // UpdateResume handles PUT /resumes/:id.
+// @Summary Update resume
+// @Description Update resume profile (optimistic locking via version)
+// @Tags Resumes
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Resume UUID" format(uuid)
+// @Param request body UpdateResumeRequest true "Resume update request"
+// @Success 200 {object} ResumeDetailResponse "Updated resume"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Resume not found"
+// @Failure 409 {object} httpresp.ErrorResponse "Version conflict - resume modified by another process"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /resumes/{id} [put]
 func (h *Handler) UpdateResume(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -169,6 +221,19 @@ func (h *Handler) UpdateResume(c *gin.Context) {
 }
 
 // DeleteResume handles DELETE /resumes/:id.
+// @Summary Delete resume
+// @Description Delete a resume permanently
+// @Tags Resumes
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Resume UUID" format(uuid)
+// @Success 200 {object} map[string]string "Resume deleted"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid resume ID"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Resume not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /resumes/{id} [delete]
 func (h *Handler) DeleteResume(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -192,6 +257,19 @@ func (h *Handler) DeleteResume(c *gin.Context) {
 // --- Content handlers ---
 
 // GetContent handles GET /resumes/:id/content.
+// @Summary Get resume content
+// @Description Get the structured content of a resume
+// @Tags Resumes
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Resume UUID" format(uuid)
+// @Success 200 {object} ResumeContentResponse "Resume content with version"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid resume ID"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Resume not found or no content"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /resumes/{id}/content [get]
 func (h *Handler) GetContent(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -222,6 +300,21 @@ func (h *Handler) GetContent(c *gin.Context) {
 }
 
 // UpdateContent handles PUT /resumes/:id/content.
+// @Summary Update resume content
+// @Description Manually override structured resume content (optimistic locking)
+// @Tags Resumes
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Resume UUID" format(uuid)
+// @Param request body UpdateResumeContentRequest true "Content update"
+// @Success 200 {object} ResumeContentResponse "Updated content with version"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Resume not found"
+// @Failure 409 {object} httpresp.ErrorResponse "Version conflict"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /resumes/{id}/content [put]
 func (h *Handler) UpdateContent(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -258,7 +351,21 @@ func (h *Handler) UpdateContent(c *gin.Context) {
 }
 
 // GenerateContent handles POST /resumes/:id/generate.
-// Generation is synchronous (LLM call blocks), returns 200 OK with the generated content.
+// @Summary Generate resume content
+// @Description Generate structured resume content using LLM (synchronous)
+// @Tags Resumes
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Resume UUID" format(uuid)
+// @Param request body GenerateResumeContentRequest true "Generation options"
+// @Success 200 {object} ResumeContentResponse "Generated content with version"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Resume not found"
+// @Failure 409 {object} httpresp.ErrorResponse "Version conflict"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /resumes/{id}/generate [post]
 func (h *Handler) GenerateContent(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -295,6 +402,19 @@ func (h *Handler) GenerateContent(c *gin.Context) {
 }
 
 // ListVersions handles GET /resumes/:id/versions.
+// @Summary List resume versions
+// @Description Get all historical versions of a resume
+// @Tags Resumes
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Resume UUID" format(uuid)
+// @Success 200 {object} ResumeVersionListResponse "List of resume versions"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid resume ID"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Resume not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /resumes/{id}/versions [get]
 func (h *Handler) ListVersions(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -319,6 +439,20 @@ func (h *Handler) ListVersions(c *gin.Context) {
 }
 
 // GetVersion handles GET /resumes/:id/versions/:version.
+// @Summary Get resume version
+// @Description Get a specific historical version of a resume
+// @Tags Resumes
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Resume UUID" format(uuid)
+// @Param version path int true "Version number"
+// @Success 200 {object} ResumeVersionResponse "Resume version with content"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid resume ID or version"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Version not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /resumes/{id}/versions/{version} [get]
 func (h *Handler) GetVersion(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -349,6 +483,18 @@ func (h *Handler) GetVersion(c *gin.Context) {
 // --- Cover Letter handlers ---
 
 // ListCoverLetters handles GET /cover-letters.
+// @Summary List cover letters
+// @Description Get paginated list of cover letters
+// @Tags CoverLetters
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param limit query int false "Results per page (max 100)" default(20) minimum(1) maximum(100)
+// @Param offset query int false "Pagination offset" default(0) minimum(0)
+// @Success 200 {object} CoverLetterListResponse "Paginated cover letter list"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /cover-letters [get]
 func (h *Handler) ListCoverLetters(c *gin.Context) {
 	limit, offset := h.parsePagination(c)
 
@@ -368,6 +514,19 @@ func (h *Handler) ListCoverLetters(c *gin.Context) {
 }
 
 // GetCoverLetter handles GET /cover-letters/:id.
+// @Summary Get cover letter by ID
+// @Description Get detailed cover letter information
+// @Tags CoverLetters
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Cover letter UUID" format(uuid)
+// @Success 200 {object} CoverLetterResponse "Cover letter details"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid cover letter ID"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Cover letter not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /cover-letters/{id} [get]
 func (h *Handler) GetCoverLetter(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -390,6 +549,18 @@ func (h *Handler) GetCoverLetter(c *gin.Context) {
 }
 
 // CreateCoverLetter handles POST /cover-letters.
+// @Summary Create cover letter
+// @Description Create a new cover letter placeholder
+// @Tags CoverLetters
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body CreateCoverLetterRequest true "Cover letter creation request"
+// @Success 201 {object} CoverLetterResponse "Created cover letter"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /cover-letters [post]
 func (h *Handler) CreateCoverLetter(c *gin.Context) {
 	var req CreateCoverLetterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -408,6 +579,21 @@ func (h *Handler) CreateCoverLetter(c *gin.Context) {
 }
 
 // GenerateCoverLetter handles POST /cover-letters/:id/generate.
+// @Summary Generate cover letter
+// @Description Generate cover letter content using LLM
+// @Tags CoverLetters
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Cover letter UUID" format(uuid)
+// @Param request body GenerateCoverLetterRequest true "Generation options"
+// @Success 200 {object} CoverLetterResponse "Generated cover letter"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Cover letter not found"
+// @Failure 409 {object} httpresp.ErrorResponse "Version conflict"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /cover-letters/{id}/generate [post]
 func (h *Handler) GenerateCoverLetter(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -440,6 +626,21 @@ func (h *Handler) GenerateCoverLetter(c *gin.Context) {
 }
 
 // UpdateCoverLetterContent handles PUT /cover-letters/:id/content.
+// @Summary Update cover letter content
+// @Description Manually override cover letter content (optimistic locking)
+// @Tags CoverLetters
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Cover letter UUID" format(uuid)
+// @Param request body UpdateCoverLetterContentRequest true "Content update"
+// @Success 200 {object} CoverLetterResponse "Updated cover letter"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Cover letter not found"
+// @Failure 409 {object} httpresp.ErrorResponse "Version conflict"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /cover-letters/{id}/content [put]
 func (h *Handler) UpdateCoverLetterContent(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -472,6 +673,19 @@ func (h *Handler) UpdateCoverLetterContent(c *gin.Context) {
 }
 
 // DeleteCoverLetter handles DELETE /cover-letters/:id.
+// @Summary Delete cover letter
+// @Description Delete a cover letter permanently
+// @Tags CoverLetters
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Cover letter UUID" format(uuid)
+// @Success 200 {object} map[string]string "Cover letter deleted"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid cover letter ID"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Cover letter not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /cover-letters/{id} [delete]
 func (h *Handler) DeleteCoverLetter(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {

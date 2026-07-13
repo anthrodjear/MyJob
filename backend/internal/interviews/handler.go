@@ -66,9 +66,18 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 // ---------------------------------------------------------------------------
 
 // CreateInterview handles POST /interviews.
-//
-// Creates a new interview session in "pending" status.
-// The session is not started until StartInterview is called.
+// @Summary Create interview session
+// @Description Create a new interview session in pending status
+// @Tags Interviews
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body CreateInterviewRequest true "Interview creation request"
+// @Success 201 {object} InterviewResponse "Created interview session"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body or mode"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /interviews [post]
 func (h *Handler) CreateInterview(c *gin.Context) {
 	var req CreateInterviewRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -91,9 +100,21 @@ func (h *Handler) CreateInterview(c *gin.Context) {
 }
 
 // StartInterview handles POST /interviews/:id/start.
-//
-// Starts the interview session. The backend enqueues a voice_session task
-// for the browser-agent, which joins the LiveKit room and begins the interview.
+// @Summary Start interview session
+// @Description Start the interview session and enqueue voice task for browser-agent
+// @Tags Interviews
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Interview UUID" format(uuid)
+// @Param request body StartInterviewRequest true "Start options"
+// @Success 200 {object} InterviewResponse "Started interview session"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid interview ID or request body"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Interview not found"
+// @Failure 409 {object} httpresp.ErrorResponse "Invalid status transition"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /interviews/{id}/start [post]
 func (h *Handler) StartInterview(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -126,9 +147,21 @@ func (h *Handler) StartInterview(c *gin.Context) {
 }
 
 // StopInterview handles POST /interviews/:id/stop.
-//
-// Stops an active interview session. The voice service is notified
-// and the session transitions to "cancelled".
+// @Summary Stop interview session
+// @Description Stop an active interview session gracefully
+// @Tags Interviews
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Interview UUID" format(uuid)
+// @Param request body StopInterviewRequest true "Stop reason"
+// @Success 200 {object} map[string]string "Interview stopped"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid interview ID or request body"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Interview not found"
+// @Failure 409 {object} httpresp.ErrorResponse "Invalid status transition"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /interviews/{id}/stop [post]
 func (h *Handler) StopInterview(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -160,10 +193,19 @@ func (h *Handler) StopInterview(c *gin.Context) {
 }
 
 // HandleEvent handles POST /internal/interviews/:id/events.
-//
-// This is an INTERNAL endpoint used by the voice service (browser-agent)
-// to report transcript entries, status changes, scores, and feedback.
-// It is NOT exposed to the frontend.
+// @Summary Handle voice service events (internal)
+// @Description Internal endpoint for voice service to report transcript, status, score, feedback
+// @Tags Interviews
+// @Accept json
+// @Produce json
+// @Param id path string true "Interview UUID" format(uuid)
+// @Param request body InterviewEventRequest true "Event payload"
+// @Success 200 {object} map[string]string "Event processed"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid interview ID or request body"
+// @Failure 404 {object} httpresp.ErrorResponse "Interview not found"
+// @Failure 409 {object} httpresp.ErrorResponse "Invalid status transition"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /internal/interviews/{id}/events [post]
 func (h *Handler) HandleEvent(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -203,6 +245,19 @@ func (h *Handler) HandleEvent(c *gin.Context) {
 // ---------------------------------------------------------------------------
 
 // GetInterview handles GET /interviews/:id.
+// @Summary Get interview by ID
+// @Description Get detailed interview session including transcript
+// @Tags Interviews
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Interview UUID" format(uuid)
+// @Success 200 {object} InterviewResponse "Interview session with transcript"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid interview ID"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Interview not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /interviews/{id} [get]
 func (h *Handler) GetInterview(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -234,6 +289,22 @@ type listInterviewsQuery struct {
 }
 
 // ListInterviews handles GET /interviews.
+// @Summary List interviews
+// @Description Get paginated list of interview sessions with optional filters
+// @Tags Interviews
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param application_id query string false "Filter by application UUID"
+// @Param status query string false "Filter by status" Enums(pending,active,completed,cancelled)
+// @Param mode query string false "Filter by mode" Enums(assist,autonomous)
+// @Param limit query int false "Results per page (max 100)" default(20) minimum(1) maximum(100)
+// @Param offset query int false "Pagination offset" default(0) minimum(0)
+// @Success 200 {object} InterviewListResponse "Paginated interview list"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid query parameters"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /interviews [get]
 func (h *Handler) ListInterviews(c *gin.Context) {
 	var q listInterviewsQuery
 	if err := c.ShouldBindQuery(&q); err != nil {

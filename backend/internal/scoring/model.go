@@ -45,11 +45,11 @@ type ScoreResult struct {
 
 // ScoreDetails provides per-factor scoring breakdown.
 type ScoreDetails struct {
-	SkillMatch       float64 `json:"skill_match"`       // 0-100
-	ExperienceMatch  float64 `json:"experience_match"`  // 0-100
-	LocationMatch    float64 `json:"location_match"`    // 0-100
-	SalaryMatch      float64 `json:"salary_match"`      // 0-100
-	DescriptionMatch float64 `json:"description_match"` // 0-100
+	SkillMatch       float64 `json:"skill_match" example:"95.0"`       // 0-100
+	ExperienceMatch  float64 `json:"experience_match" example:"85.0"`  // 0-100
+	LocationMatch    float64 `json:"location_match" example:"100.0"`   // 0-100
+	SalaryMatch      float64 `json:"salary_match" example:"90.0"`      // 0-100
+	DescriptionMatch float64 `json:"description_match" example:"88.0"` // 0-100
 }
 
 // Validate checks that all factor scores are in [0, 100].

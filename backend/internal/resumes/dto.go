@@ -10,29 +10,29 @@ import (
 
 // CreateResumeRequest is the payload for POST /resumes.
 type CreateResumeRequest struct {
-	Name                string      `json:"name" binding:"required,min=2,max=100"`
-	Specialization      string      `json:"specialization" binding:"required,min=2,max=100"`
-	TemplatePath        string      `json:"template_path" binding:"required"`
-	FocusSkills         []string    `json:"focus_skills" binding:"required,min=1,max=20"`
-	HighlightExperience []uuid.UUID `json:"highlight_experience,omitempty"`
+	Name                string      `json:"name" binding:"required,min=2,max=100" example:"Senior Go Engineer Resume"`
+	Specialization      string      `json:"specialization" binding:"required,min=2,max=100" example:"Backend Engineering"`
+	TemplatePath        string      `json:"template_path" binding:"required" example:"templates/resume.tex"`
+	FocusSkills         []string    `json:"focus_skills" binding:"required,min=1,max=20" example:"[\"Go\",\"PostgreSQL\",\"Kubernetes\",\"gRPC\"]"`
+	HighlightExperience []uuid.UUID `json:"highlight_experience,omitempty" example:"[\"550e8400-e29b-41d4-a716-446655440000\"]"`
 }
 
 // UpdateResumeRequest is the payload for PUT /resumes/:id.
 // Only client-writable fields are exposed — ID, Version, timestamps are never client-settable.
 type UpdateResumeRequest struct {
-	Name                string      `json:"name" binding:"required,min=2,max=100"`
-	Specialization      string      `json:"specialization" binding:"required,min=2,max=100"`
-	TemplatePath        string      `json:"template_path" binding:"required"`
-	FocusSkills         []string    `json:"focus_skills" binding:"required,min=1,max=20"`
-	HighlightExperience []uuid.UUID `json:"highlight_experience,omitempty"`
+	Name                string      `json:"name" binding:"required,min=2,max=100" example:"Senior Go Engineer Resume v2"`
+	Specialization      string      `json:"specialization" binding:"required,min=2,max=100" example:"Backend Engineering"`
+	TemplatePath        string      `json:"template_path" binding:"required" example:"templates/resume.tex"`
+	FocusSkills         []string    `json:"focus_skills" binding:"required,min=1,max=20" example:"[\"Go\",\"PostgreSQL\",\"Kubernetes\",\"gRPC\",\"Redis\"]"`
+	HighlightExperience []uuid.UUID `json:"highlight_experience,omitempty" example:"[\"550e8400-e29b-41d4-a716-446655440000\"]"`
 }
 
 // GenerateResumeContentRequest is the payload for POST /resumes/:id/generate.
 // Triggers async LLM generation of structured resume content.
 type GenerateResumeContentRequest struct {
-	JobID           *uuid.UUID `json:"job_id,omitempty"`           // optional: tailor for specific job
-	JobTitle        string     `json:"job_title,omitempty"`        // optional: target job title
-	JobRequirements string     `json:"job_requirements,omitempty"` // optional: target job requirements
+	JobID           *uuid.UUID `json:"job_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"` // optional: tailor for specific job
+	JobTitle        string     `json:"job_title,omitempty" example:"Senior Go Engineer"`                // optional: target job title
+	JobRequirements string     `json:"job_requirements,omitempty" example:"5+ years Go, Kubernetes, PostgreSQL"` // optional: target job requirements
 }
 
 // UpdateResumeContentRequest is the payload for PUT /resumes/:id/content.
@@ -44,34 +44,34 @@ type UpdateResumeContentRequest struct {
 // CreateCoverLetterRequest is the payload for POST /cover-letters.
 // Creates an empty cover letter placeholder — use POST /cover-letters/:id/generate to fill content.
 type CreateCoverLetterRequest struct {
-	JobID    uuid.UUID  `json:"job_id" binding:"required"`
-	ResumeID *uuid.UUID `json:"resume_id"`
+	JobID    uuid.UUID  `json:"job_id" binding:"required" example:"550e8400-e29b-41d4-a716-446655440001"`
+	ResumeID *uuid.UUID `json:"resume_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440002"`
 }
 
 // GenerateCoverLetterRequest is the payload for POST /cover-letters/:id/generate.
 // Triggers LLM generation of cover letter content with job context.
 type GenerateCoverLetterRequest struct {
-	JobTitle        string     `json:"job_title" binding:"required,max=200"`
-	JobRequirements string     `json:"job_requirements" binding:"required,max=10000"`
-	JobDescription  string     `json:"job_description" binding:"required,max=50000"`
-	ResumeID        *uuid.UUID `json:"resume_id"` // override: use specific resume
+	JobTitle        string     `json:"job_title" binding:"required,max=200" example:"Senior Go Engineer"`
+	JobRequirements string     `json:"job_requirements" binding:"required,max=10000" example:"5+ years Go experience, Kubernetes, PostgreSQL, gRPC"`
+	JobDescription  string     `json:"job_description" binding:"required,max=50000" example:"We are looking for a Senior Go Engineer..."`
+	ResumeID        *uuid.UUID `json:"resume_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440002"` // override: use specific resume
 }
 
 // --- Response DTOs ---
 
 // ResumeResponse is the API response for a single resume (list view — content omitted).
 type ResumeResponse struct {
-	ID                  uuid.UUID   `json:"id"`
-	Name                string      `json:"name"`
-	Specialization      string      `json:"specialization"`
-	TemplatePath        string      `json:"template_path"`
-	FocusSkills         []string    `json:"focus_skills"`
-	HighlightExperience []uuid.UUID `json:"highlight_experience,omitempty"`
-	HasContent          bool        `json:"has_content"`
-	PdfKey              *string     `json:"pdf_key,omitempty"`
-	Version             int32       `json:"version"`
-	CreatedAt           time.Time   `json:"created_at"`
-	UpdatedAt           time.Time   `json:"updated_at"`
+	ID                  uuid.UUID   `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Name                string      `json:"name" example:"Senior Go Engineer Resume"`
+	Specialization      string      `json:"specialization" example:"Backend Engineering"`
+	TemplatePath        string      `json:"template_path" example:"templates/resume.tex"`
+	FocusSkills         []string    `json:"focus_skills" example:"[\"Go\",\"PostgreSQL\",\"Kubernetes\",\"gRPC\"]"`
+	HighlightExperience []uuid.UUID `json:"highlight_experience,omitempty" example:"[\"550e8400-e29b-41d4-a716-446655440001\"]"`
+	HasContent          bool        `json:"has_content" example:"true"`
+	PdfKey              *string     `json:"pdf_key,omitempty" example:"resumes/550e8400-e29b-41d4-a716-446655440000.pdf"`
+	Version             int32       `json:"version" example:"3"`
+	CreatedAt           time.Time   `json:"created_at" example:"2026-01-10T10:00:00Z"`
+	UpdatedAt           time.Time   `json:"updated_at" example:"2026-01-15T14:30:00Z"`
 }
 
 // ResumeDetailResponse is the API response for a single resume with content.
@@ -83,26 +83,26 @@ type ResumeDetailResponse struct {
 // ResumeListResponse is the API response for listing resumes.
 type ResumeListResponse struct {
 	Resumes []ResumeResponse `json:"resumes"`
-	Total   int64            `json:"total"`
-	Limit   int              `json:"limit"`
-	Offset  int              `json:"offset"`
+	Total   int64            `json:"total" example:"15"`
+	Limit   int              `json:"limit" example:"20"`
+	Offset  int              `json:"offset" example:"0"`
 }
 
 // ResumeContentResponse wraps the structured content for API responses.
 type ResumeContentResponse struct {
-	ResumeID uuid.UUID     `json:"resume_id"`
-	Version  int32         `json:"version"`
+	ResumeID uuid.UUID     `json:"resume_id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Version  int32         `json:"version" example:"3"`
 	Content  ResumeContent `json:"content"`
 }
 
 // ResumeVersionResponse represents a historical version of resume content.
 type ResumeVersionResponse struct {
-	ID        uuid.UUID     `json:"id"`
-	ResumeID  uuid.UUID     `json:"resume_id"`
-	Version   int32         `json:"version"`
+	ID        uuid.UUID     `json:"id" example:"550e8400-e29b-41d4-a716-446655440003"`
+	ResumeID  uuid.UUID     `json:"resume_id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Version   int32         `json:"version" example:"2"`
 	Content   ResumeContent `json:"content"`
-	PdfKey    *string       `json:"pdf_key,omitempty"`
-	CreatedAt time.Time     `json:"created_at"`
+	PdfKey    *string       `json:"pdf_key,omitempty" example:"resumes/550e8400-e29b-41d4-a716-446655440000_v2.pdf"`
+	CreatedAt time.Time     `json:"created_at" example:"2026-01-12T08:00:00Z"`
 }
 
 // ResumeVersionListResponse is the API response for listing versions.
@@ -112,35 +112,35 @@ type ResumeVersionListResponse struct {
 
 // CoverLetterResponse is the API response for a single cover letter.
 type CoverLetterResponse struct {
-	ID            uuid.UUID      `json:"id"`
-	JobID         *uuid.UUID     `json:"job_id,omitempty"`
-	ResumeID      *uuid.UUID     `json:"resume_id,omitempty"`
-	JobTitle      *string        `json:"job_title,omitempty"`
-	Content       string         `json:"content"`
-	Model         *string        `json:"model,omitempty"`
-	PromptVersion *string        `json:"prompt_version,omitempty"`
-	ResumeVersion *int32         `json:"resume_version,omitempty"`
-	Strengths     *StringSliceDB `json:"strengths,omitempty"`
-	Gaps          *StringSliceDB `json:"gaps,omitempty"`
-	PdfKey        *string        `json:"pdf_key,omitempty"`
-	WordCount     *int           `json:"word_count,omitempty"`
-	Version       int32          `json:"version"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
+	ID            uuid.UUID      `json:"id" example:"550e8400-e29b-41d4-a716-446655440004"`
+	JobID         *uuid.UUID     `json:"job_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`
+	ResumeID      *uuid.UUID     `json:"resume_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440002"`
+	JobTitle      *string        `json:"job_title,omitempty" example:"Senior Go Engineer"`
+	Content       string         `json:"content" example:"Dear Hiring Manager,\n\nI am writing to express my interest..."`
+	Model         *string        `json:"model,omitempty" example:"qwen2.5:latest"`
+	PromptVersion *string        `json:"prompt_version,omitempty" example:"v1.2"`
+	ResumeVersion *int32         `json:"resume_version,omitempty" example:"3"`
+	Strengths     *StringSliceDB `json:"strengths,omitempty" example:"[\"Strong Go experience\",\"Kubernetes expertise\"]"`
+	Gaps          *StringSliceDB `json:"gaps,omitempty" example:"[\"No direct PostgreSQL experience\"]"`
+	PdfKey        *string        `json:"pdf_key,omitempty" example:"cover-letters/550e8400-e29b-41d4-a716-446655440004.pdf"`
+	WordCount     *int           `json:"word_count,omitempty" example:"350"`
+	Version       int32          `json:"version" example:"1"`
+	CreatedAt     time.Time      `json:"created_at" example:"2026-01-20T10:00:00Z"`
+	UpdatedAt     time.Time      `json:"updated_at" example:"2026-01-20T10:00:00Z"`
 }
 
 // UpdateCoverLetterContentRequest is the payload for PUT /cover-letters/:id/content.
 // Allows manual override of cover letter content.
 type UpdateCoverLetterContentRequest struct {
-	Content string `json:"content" binding:"required,min=10,max=50000"`
+	Content string `json:"content" binding:"required,min=10,max=50000" example:"Dear Hiring Manager,\n\nI am writing to express my interest..."`
 }
 
 // CoverLetterListResponse is the API response for listing cover letters.
 type CoverLetterListResponse struct {
 	CoverLetters []CoverLetterResponse `json:"cover_letters"`
-	Total        int64                 `json:"total"`
-	Limit        int                   `json:"limit"`
-	Offset       int                   `json:"offset"`
+	Total        int64                 `json:"total" example:"8"`
+	Limit        int                   `json:"limit" example:"20"`
+	Offset       int                   `json:"offset" example:"0"`
 }
 
 // --- Mappers ---

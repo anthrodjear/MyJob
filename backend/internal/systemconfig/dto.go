@@ -7,6 +7,10 @@
 // can evolve independently.
 package systemconfig
 
+import (
+	"encoding/json"
+)
+
 // ---------------------------------------------------------------------------
 // SetOverrideRequest — PATCH /api/v1/system/config
 // ---------------------------------------------------------------------------
@@ -15,27 +19,26 @@ package systemconfig
 // configuration override via PATCH /api/v1/system/config.
 //
 // The Key uses dotted notation (e.g., "scoring.auto_threshold", "llm.primary.model").
-// The Value accepts any valid JSON type (int, float, bool, string, array, object)
-// and will be marshaled to JSONB for storage in the database.
+// The Value accepts any valid JSON value and will be marshaled to JSONB for storage.
 //
 // Example:
 //
 //	// Set auto-apply threshold to 95
 //	SetOverrideRequest{
 //	  Key:   "scoring.auto_threshold",
-//	  Value: 95,
+//	  Value: json.RawMessage("95"),
 //	}
 //
 //	// Set LLM model to a specific version
 //	SetOverrideRequest{
 //	  Key:   "llm.primary.model",
-//	  Value: "gpt-4o-mini",
+//	  Value: json.RawMessage(`"gpt-4o-mini"`),
 //	}
 //
 //	// Set queue concurrency
 //	SetOverrideRequest{
 //	  Key:   "queue.concurrency",
-//	  Value: 8,
+//	  Value: json.RawMessage("8"),
 //	}
 type SetOverrideRequest struct {
 	// Key is the dotted-notation configuration key.
@@ -43,10 +46,10 @@ type SetOverrideRequest struct {
 	// Example: "scoring.auto_threshold"
 	Key string `json:"key" binding:"required" example:"scoring.auto_threshold"`
 
-	// Value is the JSON value to store. Accepts int, float, bool, string, array, or object.
+	// Value is the JSON value to store. Accepts any valid JSON (int, float, bool, string, array, object).
 	// Will be marshaled to JSONB for database storage.
 	// Example: 95, "hybrid", true, ["folder1", "folder2"]
-	Value any `json:"value" binding:"required" example:"95"`
+	Value json.RawMessage `json:"value" binding:"required" swaggertype:"object"`
 }
 
 // ---------------------------------------------------------------------------
@@ -113,7 +116,7 @@ type DeleteOverrideResponse struct {
 type EffectiveConfigResponse struct {
 	// EffectiveConfig is the fully resolved configuration tree merging
 	// defaults, YAML, env vars, and DB overrides.
-	EffectiveConfig EffectiveConfig `json:"config"`
+	EffectiveConfig EffectiveConfig `json:"config" swaggertype:"object"`
 
 	// Version is an opaque version identifier for the config snapshot.
 	// Currently empty; reserved for future OCC support (e.g., SHA256 hash

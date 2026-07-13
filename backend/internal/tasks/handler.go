@@ -22,6 +22,18 @@ func NewHandler(svc *Service, logger *zap.Logger) *Handler {
 }
 
 // CreateTask handles POST /tasks.
+// @Summary Create a task
+// @Description Create a new async task (internal use - tasks are typically created by other endpoints)
+// @Tags Tasks
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body CreateTaskRequest true "Task creation request"
+// @Success 201 {object} TaskResponse "Task created"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body or task type"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /tasks [post]
 func (h *Handler) CreateTask(c *gin.Context) {
 	var req CreateTaskRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -48,6 +60,19 @@ func (h *Handler) CreateTask(c *gin.Context) {
 }
 
 // GetTask handles GET /tasks/:id.
+// @Summary Get task status
+// @Description Get the status and result of an async task by ID
+// @Tags Tasks
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Task ID (UUID)"
+// @Success 200 {object} TaskResponse "Task details with status and result"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid task ID"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Task not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /tasks/{id} [get]
 func (h *Handler) GetTask(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -81,6 +106,21 @@ type listTasksQuery struct {
 }
 
 // ListTasks handles GET /tasks.
+// @Summary List tasks
+// @Description Get paginated list of tasks with optional filters
+// @Tags Tasks
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param status query string false "Filter by status" Enums(pending,running,completed,failed,cancelled)
+// @Param type query string false "Filter by task type" Enums(job_discovery,job_scoring,resume_generate,cover_letter_gen,application_submit,fill_form,email_check,interview_prep,embedding_generate,voice_session,resume_tailor)
+// @Param limit query int false "Results per page (max 100)" default(20) minimum(1) maximum(100)
+// @Param offset query int false "Pagination offset" default(0) minimum(0)
+// @Success 200 {object} TaskListResponse "Paginated task list"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid query parameters"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /tasks [get]
 func (h *Handler) ListTasks(c *gin.Context) {
 	var q listTasksQuery
 	if err := c.ShouldBindQuery(&q); err != nil {

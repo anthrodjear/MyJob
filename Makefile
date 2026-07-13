@@ -227,6 +227,12 @@ lint-browser-agent:
 	cd browser-agent && npx eslint src/ --max-warnings 0 || true
 	cd browser-agent && npx tsc --noEmit
 
+# Verify swagger docs are up to date (regenerate and check for diff)
+verify-swagger:
+	cd backend && go install github.com/swaggo/swag/cmd/swag@latest && \
+	swag init -g cmd/api/main.go --output docs && \
+	cd .. && git diff --exit-code backend/docs/docs.go backend/docs/swagger.json backend/docs/swagger.yaml
+
 # Run full CI locally (lint + test + docker build)
 ci-local: lint test build
 
