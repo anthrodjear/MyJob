@@ -543,3 +543,107 @@ func (s *Service) TestEmailConfig(ctx context.Context, tenantID, clientID, clien
 	defer resp.Body.Close()
 	return resp.StatusCode == 200, nil
 }
+
+// RequestPasswordReset generates a password reset token and returns it.
+// In a local-first app (no outbound email), the token is returned in the API
+// response body for the user to copy.
+func (s *Service) RequestPasswordReset(ctx context.Context) (string, error) {
+	// Check if user exists
+	_, err := s.getUser(ctx)
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			// Don't reveal if user exists — return generic success
+			s.logger.Info("password reset requested for non-existent user")
+			return "", nil
+		}
+		return "", fmt.Errorf("auth: request password reset: %w", err)
+	}
+
+	// Invalidate any outstanding tokens so only the latest one remains valid.
+	if err := s.repo.DeleteOutstandingPasswordResetTokens(ctx, "local-user"); err != nil {
+		return "", fmt.Errorf("auth: request password reset: invalidate prior: %w", err)
+	}
+
+	// Generate secure random token (32 bytes = 256 bits)
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return "", fmt.Errorf("auth: generate reset token: %w", err)
+	}
+	token := hex.EncodeToString(tokenBytes)
+	tokenHash := hashRefreshToken(token) // Reuse SHA-256 hashing
+
+	// Token expires based on config
+	expiresAt := time.Now().Add(s.cfg.ResetTokenExpiry)
+	tokenID := uuid.NewString()
+
+	// Store token hash (never the plaintext token)
+	if err := s.repo.CreatePasswordResetToken(ctx, tokenID, "local-user", tokenHash, expiresAt); err != nil {
+		return "", fmt.Errorf("auth: store reset token: %w", err)
+	}
+
+	s.logger.Info("password reset token generated",
+		zap.String("token_id", tokenID),
+		zap.Time("expires_at", expiresAt),
+	)
+
+	// Return the plaintext token (returned in the API response body for the user to copy)
+	return token, nil
+}
+
+// ResetTokenExpiry returns the configured password reset token lifetime.
+// Exposed so handlers can report the token's TTL to clients without holding
+// the full config.
+func (s *Service) ResetTokenExpiry() time.Duration {
+	return s.cfg.ResetTokenExpiry
+}
+
+// ResetPassword validates the reset token and updates the user's password.
+func (s *Service) ResetPassword(ctx context.Context, token, newPassword string) error {
+	tokenHash := hashRefreshToken(token)
+
+	storedToken, err := s.repo.GetPasswordResetTokenByHash(ctx, tokenHash)
+	if err != nil {
+		// Log the underlying error server-side; return a generic error to the
+		// client to avoid token enumeration.
+		s.logger.Warn("password reset token lookup failed", zap.Error(err))
+		return ErrInvalidCredentials
+	}
+
+	// Defense-in-depth: reject expired or already-used tokens before claiming.
+	if time.Now().After(storedToken.ExpiresAt) {
+		return ErrInvalidCredentials
+	}
+	if storedToken.UsedAt != nil {
+		return ErrInvalidCredentials
+	}
+
+	// Atomically claim the token (single-use). The WHERE clause also enforces
+	// unused + unexpired, so a concurrent request or a partial failure cannot
+	// reuse this token. Fail closed if the claim did not take effect.
+	claimed, err := s.repo.ClaimPasswordResetToken(ctx, storedToken.ID)
+	if err != nil {
+		return fmt.Errorf("auth: reset password: claim token: %w", err)
+	}
+	if !claimed {
+		return ErrInvalidCredentials
+	}
+
+	// Hash new password
+	newHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), s.cfg.BCryptCost)
+	if err != nil {
+		return fmt.Errorf("auth: reset password: hash: %w", err)
+	}
+
+	// Update password hash
+	if err := s.repo.UpdatePasswordHash(ctx, string(newHash)); err != nil {
+		return fmt.Errorf("auth: reset password: update: %w", err)
+	}
+
+	// Revoke all refresh tokens (logout everywhere)
+	if err := s.repo.RevokeAllRefreshTokens(ctx, "local-user"); err != nil {
+		return fmt.Errorf("auth: reset password: revoke tokens: %w", err)
+	}
+
+	s.logger.Info("password reset successful")
+	return nil
+}

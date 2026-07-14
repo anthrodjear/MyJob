@@ -391,3 +391,90 @@ func (r *Repository) DeleteExpiredRefreshTokens(ctx context.Context) (int64, err
 	}
 	return result.RowsAffected()
 }
+
+// PasswordResetToken represents a stored password reset token.
+type PasswordResetToken struct {
+	ID        string     `db:"id"`
+	UserID    string     `db:"user_id"`
+	TokenHash string     `db:"token_hash"`
+	ExpiresAt time.Time  `db:"expires_at"`
+	UsedAt    *time.Time `db:"used_at"`
+	CreatedAt time.Time  `db:"created_at"`
+	UpdatedAt time.Time  `db:"updated_at"`
+}
+
+// CreatePasswordResetToken creates a new password reset token for the user.
+func (r *Repository) CreatePasswordResetToken(ctx context.Context, id, userID, tokenHash string, expiresAt time.Time) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $5)
+	`, id, userID, tokenHash, expiresAt, time.Now())
+	if err != nil {
+		return fmt.Errorf("auth: create password reset token: %w", err)
+	}
+	return nil
+}
+
+// GetPasswordResetTokenByHash retrieves a password reset token by its SHA-256 hash.
+func (r *Repository) GetPasswordResetTokenByHash(ctx context.Context, tokenHash string) (*PasswordResetToken, error) {
+	var token PasswordResetToken
+	err := r.db.GetContext(ctx, &token, `
+		SELECT id, user_id, token_hash, expires_at, used_at, created_at, updated_at
+		FROM password_reset_tokens
+		WHERE token_hash = $1
+	`, tokenHash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("auth: password reset token not found")
+		}
+		return nil, fmt.Errorf("auth: get password reset token: %w", err)
+	}
+	return &token, nil
+}
+
+// ClaimPasswordResetToken atomically marks a password reset token as used
+// IF it is unused and unexpired. It returns true only when this call
+// successfully claimed the token (exactly one row updated), which guarantees
+// single-use even under concurrent requests. Unlike MarkPasswordResetTokenUsed,
+// the caller MUST check the returned bool and fail closed if false.
+func (r *Repository) ClaimPasswordResetToken(ctx context.Context, id string) (bool, error) {
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE password_reset_tokens
+		SET used_at = $1, updated_at = $1
+		WHERE id = $2 AND used_at IS NULL AND expires_at > $1
+	`, time.Now(), id)
+	if err != nil {
+		return false, fmt.Errorf("auth: claim password reset token: %w", err)
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("auth: claim password reset token rows: %w", err)
+	}
+	return n == 1, nil
+}
+
+// DeleteOutstandingPasswordResetTokens invalidates any not-yet-used tokens for
+// the given user. Called before issuing a new token so that only the latest
+// token remains valid (reduces replay surface).
+func (r *Repository) DeleteOutstandingPasswordResetTokens(ctx context.Context, userID string) error {
+	_, err := r.db.ExecContext(ctx, `
+		DELETE FROM password_reset_tokens
+		WHERE user_id = $1 AND used_at IS NULL
+	`, userID)
+	if err != nil {
+		return fmt.Errorf("auth: delete outstanding password reset tokens: %w", err)
+	}
+	return nil
+}
+
+// DeleteExpiredPasswordResetTokens removes expired or used password reset tokens.
+func (r *Repository) DeleteExpiredPasswordResetTokens(ctx context.Context) (int64, error) {
+	result, err := r.db.ExecContext(ctx, `
+		DELETE FROM password_reset_tokens
+		WHERE expires_at < $1 OR used_at IS NOT NULL
+	`, time.Now())
+	if err != nil {
+		return 0, fmt.Errorf("auth: delete expired password reset tokens: %w", err)
+	}
+	return result.RowsAffected()
+}

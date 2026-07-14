@@ -30,7 +30,6 @@ import {
   updateOnboardingStep,
   completeOnboarding,
   getSetupStatus,
-  updateOnboardingStep,
 } from "@/lib/api/auth";
 import { Button } from "@/components/shared/Button";
 import { SetupStepLLMKeys } from "@/components/setup/SetupStepLLMKeys";

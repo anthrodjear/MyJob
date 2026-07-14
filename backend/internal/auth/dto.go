@@ -126,3 +126,28 @@ type RefreshResponse struct {
 	RefreshToken string `json:"refresh_token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
 	ExpiresAt    int64  `json:"expires_at" example:"1705276800"`
 }
+
+// --- Password Reset DTOs ---
+
+// ForgotPasswordRequest is the payload for POST /auth/forgot-password.
+type ForgotPasswordRequest struct {
+	Email string `json:"email" binding:"required,email" example:"user@example.com"`
+}
+
+// ForgotPasswordResponse is returned after requesting a password reset.
+type ForgotPasswordResponse struct {
+	Message   string `json:"message" example:"Password reset token generated. Please save it securely."`
+	ResetToken string `json:"reset_token,omitempty" example:"abc123... (shown only in local-first mode)"`
+	ExpiresIn int    `json:"expires_in,omitempty" example:"3600"`
+}
+
+// ResetPasswordRequest is the payload for POST /auth/reset-password.
+type ResetPasswordRequest struct {
+	Token       string `json:"token" binding:"required,min=32" example:"abc123..."`
+	NewPassword string `json:"new_password" binding:"required,min=8,max=72" example:"new-secure-password"`
+}
+
+// ResetPasswordResponse is returned after successful password reset.
+type ResetPasswordResponse struct {
+	Message string `json:"message" example:"Password has been reset. You can now log in with your new password."`
+}
