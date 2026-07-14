@@ -138,6 +138,7 @@ type AuthConfig struct {
 	JWTSecret          string        // HMAC signing secret for JWT
 	JWTExpiry          time.Duration // Token validity duration
 	RefreshTokenExpiry time.Duration // Refresh token validity duration (default: 7 days)
+	ResetTokenExpiry   time.Duration // Password reset token validity duration (default: 1 hour)
 	BCryptCost         int           // bcrypt cost factor (default: 12, min: 10)
 }
 
@@ -182,6 +183,7 @@ func Load() *Config {
 			JWTSecret:          getEnv("AUTH_JWT_SECRET", ""),
 			JWTExpiry:          getEnvDuration("JWT_EXPIRY", 30*time.Minute),
 			RefreshTokenExpiry: getEnvDuration("REFRESH_TOKEN_EXPIRY", 7*24*time.Hour), // 7 days
+			ResetTokenExpiry:   getEnvDuration("RESET_TOKEN_EXPIRY", 1*time.Hour),
 			BCryptCost:         getEnvInt("BCRYPT_COST", 12),
 		},
 		LLM: LLMConfig{
@@ -253,8 +255,8 @@ func Load() *Config {
 			Burst:             getEnvInt("RATE_LIMIT_BURST", 10),
 		},
 		AuthRateLimit: AuthRateLimitConfig{
-			RequestsPerMinute: getEnvInt("AUTH_RATE_LIMIT_RPM", 5),
-			Burst:             getEnvInt("AUTH_RATE_LIMIT_BURST", 3),
+			RequestsPerMinute: getEnvInt("AUTH_RATE_LIMIT_RPM", 60),
+			Burst:             getEnvInt("AUTH_RATE_LIMIT_BURST", 10),
 		},
 		Prompts:     LoadPromptsFromYAML(yamlData),
 		Environment: getEnv("APP_ENV", "development"),
@@ -297,6 +299,13 @@ func (c *Config) Validate() error {
 	}
 	if c.Auth.RefreshTokenExpiry <= c.Auth.JWTExpiry {
 		return errors.New("config: refresh token expiry must be longer than JWT expiry")
+	}
+	// Reset token expiry validation
+	if c.Auth.ResetTokenExpiry <= 0 {
+		return errors.New("config: reset token expiry must be positive")
+	}
+	if c.Auth.ResetTokenExpiry > c.Auth.RefreshTokenExpiry {
+		return errors.New("config: reset token expiry must be shorter than refresh token expiry")
 	}
 
 	// Infrastructure validation

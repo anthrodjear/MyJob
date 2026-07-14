@@ -9,7 +9,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { login, refreshAccessToken, changePassword, logout as logoutApi } from "@/lib/api/auth";
-import { clearAuthTokens, getAuthToken, getTokenExpiry } from "@/lib/auth";
+import { clearAuthTokens, getAuthToken, getTokenExpiry, setAuthStatusCookie, clearAuthStatusCookie } from "@/lib/auth";
 
 /** Query keys for auth — consistent cache invalidation. */
 export const authKeys = {
@@ -49,6 +49,8 @@ export function useLogin() {
     // Note: login() stores tokens in localStorage internally
     mutationFn: (password: string) => login(password),
     onSuccess: () => {
+      // Set auth status cookie for middleware
+      setAuthStatusCookie(true);
       // Invalidate profile query so it refetches with new token
       void queryClient.invalidateQueries({ queryKey: authKeys.profile() });
     },
@@ -134,6 +136,7 @@ export function useLogout() {
     },
     onSettled: () => {
       clearAuthTokens();
+      clearAuthStatusCookie();
       queryClient.clear();
       // Full page reload to clear all in-memory state
       window.location.href = "/login";

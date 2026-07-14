@@ -105,6 +105,10 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			authGroup.POST("/login", cfg.AuthHandler.Login)
 			authGroup.POST("/refresh", cfg.AuthHandler.Refresh)
 
+			// Password reset routes (public, no JWT needed)
+			authGroup.POST("/password/reset", cfg.AuthHandler.RequestPasswordReset)
+			authGroup.POST("/password/reset/confirm", cfg.AuthHandler.ResetPassword)
+
 			// Setup routes — public, no JWT needed
 			authGroup.GET("/setup/status", cfg.AuthHandler.SetupStatus)
 			authGroup.POST("/setup", cfg.AuthHandler.CompleteSetup)

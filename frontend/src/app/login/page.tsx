@@ -27,8 +27,8 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, useEffect, useCallback, type FormEvent, type ReactNode } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLogin } from "@/hooks/useAuth";
 import { getSetupStatus } from "@/lib/api/auth";
 import { Button } from "@/components/shared/Button";
@@ -42,7 +42,7 @@ type PasswordStrength = "weak" | "fair" | "good" | "strong";
 const STRENGTH_LEVELS: PasswordStrength[] = ["weak", "fair", "good", "strong"];
 
 /** Color and label for each strength level. */
-const STRENGTH_CONFIG: Record<PasswordStrength, { color: string; label: string; icon: React.ReactNode }> = {
+const STRENGTH_CONFIG: Record<PasswordStrength, { color: string; label: string; icon: ReactNode }> = {
   weak: { color: "text-danger", label: "Weak", icon: <ShieldAlert className="h-3 w-3" /> },
   fair: { color: "text-warning", label: "Fair", icon: <Shield className="h-3 w-3" /> },
   good: { color: "text-primary", label: "Good", icon: <Shield className="h-3 w-3" /> },
@@ -108,6 +108,20 @@ function getUserMessage(error: unknown): string {
 }
 
 export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <p className="text-sm text-text-secondary">Loading…</p>
+        </div>
+      }
+    >
+      <LoginInner />
+    </Suspense>
+  );
+}
+
+function LoginInner() {
   const router = useRouter();
   const loginMutation = useLogin();
   const [password, setPassword] = useState("");
@@ -116,6 +130,10 @@ export default function LoginPage() {
   const [checkingSetup, setCheckingSetup] = useState(true);
   const [touched, setTouched] = useState(false);
 
+  // Get redirect URL from query params
+  const searchParams = useSearchParams();
+  const redirectUrl = searchParams.get("redirect") || "/dashboard";
+
   // Password strength (show after user has touched the field)
   const strength = calculatePasswordStrength(password);
   const showStrength = touched;
@@ -123,11 +141,27 @@ export default function LoginPage() {
   // Check setup status on mount — redirect to /setup if required
   useEffect(() => {
     let cancelled = false;
+    let redirectCount = 0;
+    const MAX_REDIRECTS = 3;
 
     async function checkSetup() {
+      if (redirectCount >= MAX_REDIRECTS) {
+        // Too many redirects - stop to prevent loop
+        if (!cancelled) setCheckingSetup(false);
+        return;
+      }
+
       try {
         const status = await getSetupStatus();
         if (!cancelled && status.setup_required) {
+          // Setup required — redirect to setup page
+          redirectCount++;
+          router.replace("/setup");
+          return;
+        }
+        // If setup not required but onboarding not complete, also go to setup
+        if (!cancelled && !status.setup_required && !status.onboarding_completed) {
+          redirectCount++;
           router.replace("/setup");
           return;
         }
@@ -160,16 +194,16 @@ export default function LoginPage() {
       }
 
       // Send trimmed password to backend (consistent with strength calculation)
-      loginMutation.mutate(trimmedPassword, {
+loginMutation.mutate(trimmedPassword, {
         onSuccess: () => {
-          router.push("/dashboard");
+          router.push(redirectUrl);
         },
         onError: (err) => {
           setError(getUserMessage(err));
         },
       });
     },
-    [password, loginMutation, router],
+    [password, loginMutation, router, redirectUrl],
   );
 
   // Show loading spinner while checking setup status
@@ -297,6 +331,22 @@ export default function LoginPage() {
               Sign In
             </Button>
           </form>
+
+          {/* Forgot password & Sign up links */}
+          <div className="flex justify-between text-sm">
+            <a
+              href="/forgot-password"
+              className="text-primary hover:text-primary/80 transition-colors"
+            >
+              Forgot password?
+            </a>
+            <a
+              href="/setup"
+              className="text-primary hover:text-primary/80 transition-colors"
+            >
+              Don&apos;t have an account? Sign up
+            </a>
+          </div>
         </div>
 
         {/* Help text */}

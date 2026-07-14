@@ -122,3 +122,26 @@ export function clearAuthTokens(): void {
 export function isAuthenticated(): boolean {
   return getAuthToken() !== null;
 }
+
+/**
+ * Set the auth status cookie for middleware protection.
+ * This is a client-side only operation.
+ */
+export function setAuthStatusCookie(authenticated: boolean): void {
+  if (typeof window === "undefined") return;
+  const cookieValue = authenticated ? "authenticated" : "unauthenticated";
+  // Set cookie with SameSite=Lax for CSRF protection, max-age 7 days (matching refresh token)
+  // Add Secure flag in production (HTTPS)
+  const isSecure = window.location.protocol === "https:";
+  const secureFlag = isSecure ? "; Secure" : "";
+  document.cookie = `auth_status=${cookieValue}; path=/; max-age=604800; SameSite=Lax${secureFlag}`;
+}
+
+/**
+ * Clear the auth status cookie.
+ * Call on logout.
+ */
+export function clearAuthStatusCookie(): void {
+  if (typeof window === "undefined") return;
+  document.cookie = "auth_status=; path=/; max-age=0; SameSite=Lax";
+}

@@ -155,6 +155,7 @@ export async function logout(): Promise<MessageResponse> {
 export interface SetupStatusResponse {
   setup_required: boolean;
   step?: string;
+  onboarding_completed: boolean;
 }
 
 /** Response from POST /auth/setup. */
@@ -354,6 +355,51 @@ export async function completeOnboarding(): Promise<OnboardingResponse> {
   );
   if (resp == null) {
     throw new ApiError(500, "EMPTY_RESPONSE", "Onboarding complete failed: no response from server");
+  }
+  return resp;
+}
+
+/**
+ * Request a password reset token.
+ *
+ * In a local-first app, the token is returned in the response
+ * (and printed to server logs) for the user to copy.
+ *
+ * @param email - User's email address
+ * @returns Reset token and message
+ * @throws ApiError on server error
+ */
+export async function requestPasswordReset(
+  email: string,
+): Promise<{ reset_token?: string; message: string }> {
+  const resp = await apiPost<{ reset_token?: string; message: string }>(
+    "auth/password/reset",
+    { email },
+  );
+  if (resp == null) {
+    throw new ApiError(500, "EMPTY_RESPONSE", "Password reset request failed: no response from server");
+  }
+  return resp;
+}
+
+/**
+ * Confirm password reset with a token.
+ *
+ * @param token - Reset token from email/console
+ * @param newPassword - New password
+ * @returns Confirmation message
+ * @throws ApiError on invalid/expired token or server error
+ */
+export async function resetPassword(
+  token: string,
+  newPassword: string,
+): Promise<MessageResponse> {
+  const resp = await apiPost<MessageResponse>(
+    "auth/password/reset/confirm",
+    { token, new_password: newPassword },
+  );
+  if (resp == null) {
+    throw new ApiError(500, "EMPTY_RESPONSE", "Password reset failed: no response from server");
   }
   return resp;
 }

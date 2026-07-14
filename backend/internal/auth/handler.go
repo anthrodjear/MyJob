@@ -362,3 +362,91 @@ func (h *Handler) Refresh(c *gin.Context) {
 
 	httpresp.OK(c, resp)
 }
+
+// RequestPasswordReset handles POST /auth/password/reset.
+// @Summary Request password reset
+// @Description Generate a password reset token for the user. In local-first mode, token is returned in response.
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body ForgotPasswordRequest true "User email"
+// @Success 200 {object} ForgotPasswordResponse "Reset token generated"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /auth/password/reset [post]
+func (h *Handler) RequestPasswordReset(c *gin.Context) {
+	var req ForgotPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpresp.BadRequest(c, "INVALID_REQUEST", "invalid request body")
+		return
+	}
+
+	// In a single-user app, we just verify the email matches the stored user.
+	// NOTE: returning the token only when the email matches exactly reveals
+	// which email is the account's. This is an accepted trade-off for a
+	// local-first app (single local user, no outbound email delivery).
+	user, err := h.service.Me(c.Request.Context())
+	if err != nil {
+		// Don't reveal if user exists — return generic success
+		h.logger.Warn("password reset requested for non-existent user")
+		httpresp.OK(c, ForgotPasswordResponse{
+			Message: "If an account with that email exists, a reset token has been generated. Check server logs.",
+		})
+		return
+	}
+
+	if user.Email != req.Email {
+		// Don't reveal if email doesn't match — return generic success
+		h.logger.Warn("password reset requested with incorrect email")
+		httpresp.OK(c, ForgotPasswordResponse{
+			Message: "If an account with that email exists, a reset token has been generated. Check server logs.",
+		})
+		return
+	}
+
+	token, err := h.service.RequestPasswordReset(c.Request.Context())
+	if err != nil {
+		h.logger.Error("request password reset error", zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	// Token is returned in the response body for the user to copy.
+	httpresp.OK(c, ForgotPasswordResponse{
+		ResetToken: token,
+		ExpiresIn:  int(h.service.ResetTokenExpiry().Seconds()),
+		Message:    "Password reset token generated. Copy the token above and use it to reset your password.",
+	})
+}
+
+// ResetPassword handles POST /auth/password/reset/confirm.
+// @Summary Confirm password reset
+// @Description Reset the password using a valid reset token
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body ResetPasswordRequest true "Reset token and new password"
+// @Success 200 {object} ResetPasswordResponse "Password reset successful"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 401 {object} httpresp.ErrorResponse "Invalid or expired token"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /auth/password/reset/confirm [post]
+func (h *Handler) ResetPassword(c *gin.Context) {
+	var req ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpresp.BadRequest(c, "INVALID_REQUEST", "invalid request body")
+		return
+	}
+
+	if err := h.service.ResetPassword(c.Request.Context(), req.Token, req.NewPassword); err != nil {
+		if errors.Is(err, ErrInvalidCredentials) {
+			httpresp.Unauthorized(c, "INVALID_TOKEN", "reset token is invalid, expired, or already used")
+			return
+		}
+		h.logger.Error("reset password error", zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, ResetPasswordResponse{Message: "Password has been reset. You can now log in with your new password."})
+}
