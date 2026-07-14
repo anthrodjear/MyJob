@@ -69,20 +69,21 @@ func (r *ListFilterRequest) ToListFilter() (ListFilter, error) {
 
 // DetailsResponse is the API representation of activity details.
 // Each event type populates this with relevant context:
-//   EventJobDiscovered → {"title": "...", "company": "...", "source": "indeed"}
-//   EventEmailClassified → {"category": "interview_invite", "confidence": 0.95}
-//   EventError → {"error": "timeout", "component": "scoring"}
+//
+//	EventJobDiscovered → {"title": "...", "company": "...", "source": "indeed"}
+//	EventEmailClassified → {"category": "interview_invite", "confidence": 0.95}
+//	EventError → {"error": "timeout", "component": "scoring"}
 type DetailsResponse map[string]any
 
 // ActivityResponse is the API response for a single activity log entry.
 // Returned by GET /activity-logs and GET /activity-logs/:id.
 type ActivityResponse struct {
-	ID         uuid.UUID      `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	EventType  string         `json:"event_type" example:"status_changed" enums:"created,updated,deleted,status_changed,scored,applied,email_received,interview_scheduled"`
-	EntityType string         `json:"entity_type" example:"application" enums:"job,application,resume,cover_letter,interview,email,approval"`
-	EntityID   uuid.UUID      `json:"entity_id" example:"550e8400-e29b-41d4-a716-446655440001"`
+	ID         uuid.UUID       `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	EventType  string          `json:"event_type" example:"status_changed" enums:"created,updated,deleted,status_changed,scored,applied,email_received,interview_scheduled"`
+	EntityType string          `json:"entity_type" example:"application" enums:"job,application,resume,cover_letter,interview,email,approval"`
+	EntityID   uuid.UUID       `json:"entity_id" example:"550e8400-e29b-41d4-a716-446655440001"`
 	Details    DetailsResponse `json:"details"`
-	CreatedAt  time.Time      `json:"created_at" example:"2026-06-19T14:30:00Z"`
+	CreatedAt  time.Time       `json:"created_at" example:"2026-06-19T14:30:00Z"`
 }
 
 // ActivityListResponse is the response for GET /activity-logs.

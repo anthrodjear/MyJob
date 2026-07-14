@@ -137,7 +137,6 @@ type InterviewEventRequest struct {
 	// Feedback is the full evaluation payload. Only used when Type="feedback".
 	// Stored as raw JSON because the schema varies by evaluation model.
 	Feedback json.RawMessage `json:"feedback,omitempty" swaggertype:"object"`
-
 }
 
 // ---------------------------------------------------------------------------

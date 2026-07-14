@@ -30,8 +30,8 @@ type UpdateResumeRequest struct {
 // GenerateResumeContentRequest is the payload for POST /resumes/:id/generate.
 // Triggers async LLM generation of structured resume content.
 type GenerateResumeContentRequest struct {
-	JobID           *uuid.UUID `json:"job_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"` // optional: tailor for specific job
-	JobTitle        string     `json:"job_title,omitempty" example:"Senior Go Engineer"`                // optional: target job title
+	JobID           *uuid.UUID `json:"job_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`          // optional: tailor for specific job
+	JobTitle        string     `json:"job_title,omitempty" example:"Senior Go Engineer"`                         // optional: target job title
 	JobRequirements string     `json:"job_requirements,omitempty" example:"5+ years Go, Kubernetes, PostgreSQL"` // optional: target job requirements
 }
 
