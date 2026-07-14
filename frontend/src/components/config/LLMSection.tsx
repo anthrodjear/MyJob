@@ -15,7 +15,7 @@
 
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useSetOverride, executeOverrides } from "@/hooks/useSystemConfig";
 import type { LLMSection as LLMSectionType } from "@/lib/types/config";
 import { Button } from "@/components/shared/Button";
@@ -51,11 +51,30 @@ export function LLMSection({ llm, onSaved }: LLMSectionProps) {
   const [embeddingsProvider, setEmbeddingsProvider] = useState(llm.embeddings.provider);
   const [embeddingsModel, setEmbeddingsModel] = useState(llm.embeddings.model);
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const clearError = useCallback(() => setError(null), []);
+
+  // Sync state when props change (skip initial mount)
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    setPrimaryProvider(llm.primary.provider);
+    setPrimaryModel(llm.primary.model);
+    setLocalProvider(llm.local.provider);
+    setLocalModel(llm.local.model);
+    setEmbeddingsProvider(llm.embeddings.provider);
+    setEmbeddingsModel(llm.embeddings.model);
+  }, [llm]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       setIsSaving(true);
+      setError(null);
 
       const overrides: Array<[string, string]> = [];
 
@@ -78,8 +97,24 @@ export function LLMSection({ llm, onSaved }: LLMSectionProps) {
         overrides.push(["llm.embeddings.model", embeddingsModel]);
       }
 
-      await executeOverrides(overrides, mutateAsync, onSaved);
-      setIsSaving(false);
+      try {
+        const result = await executeOverrides(overrides, mutateAsync, onSaved);
+        if (result.failed > 0) {
+          setError(
+            result.failed === result.total
+              ? "Failed to save LLM settings. Please try again."
+              : `Partially saved: ${result.succeeded} of ${result.total} settings saved. ${result.failed} failed.`,
+          );
+        }
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to save LLM settings. Please try again.",
+        );
+      } finally {
+        setIsSaving(false);
+      }
     },
     [
       primaryProvider,
@@ -96,9 +131,11 @@ export function LLMSection({ llm, onSaved }: LLMSectionProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="rounded-md bg-danger-light p-3 text-sm text-danger-dark" role="alert">
-        Failed to save LLM settings. Please try again.
-      </div>
+      {error && (
+        <div className="rounded-md bg-danger-light p-3 text-sm text-danger-dark" role="alert">
+          {error}
+        </div>
+      )}
 
       {/* Primary Provider */}
       <fieldset className="space-y-4">
@@ -112,7 +149,10 @@ export function LLMSection({ llm, onSaved }: LLMSectionProps) {
               id="primary-provider"
               type="text"
               value={primaryProvider}
-              onChange={(e) => setPrimaryProvider(e.target.value)}
+              onChange={(e) => {
+                setPrimaryProvider(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -124,7 +164,10 @@ export function LLMSection({ llm, onSaved }: LLMSectionProps) {
               id="primary-model"
               type="text"
               value={primaryModel}
-              onChange={(e) => setPrimaryModel(e.target.value)}
+              onChange={(e) => {
+                setPrimaryModel(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -143,7 +186,10 @@ export function LLMSection({ llm, onSaved }: LLMSectionProps) {
               id="local-provider"
               type="text"
               value={localProvider}
-              onChange={(e) => setLocalProvider(e.target.value)}
+              onChange={(e) => {
+                setLocalProvider(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -155,7 +201,10 @@ export function LLMSection({ llm, onSaved }: LLMSectionProps) {
               id="local-model"
               type="text"
               value={localModel}
-              onChange={(e) => setLocalModel(e.target.value)}
+              onChange={(e) => {
+                setLocalModel(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -174,7 +223,10 @@ export function LLMSection({ llm, onSaved }: LLMSectionProps) {
               id="embeddings-provider"
               type="text"
               value={embeddingsProvider}
-              onChange={(e) => setEmbeddingsProvider(e.target.value)}
+              onChange={(e) => {
+                setEmbeddingsProvider(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -186,7 +238,10 @@ export function LLMSection({ llm, onSaved }: LLMSectionProps) {
               id="embeddings-model"
               type="text"
               value={embeddingsModel}
-              onChange={(e) => setEmbeddingsModel(e.target.value)}
+              onChange={(e) => {
+                setEmbeddingsModel(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>

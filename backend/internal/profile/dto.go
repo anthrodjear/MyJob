@@ -123,20 +123,20 @@ type PatchLinks struct {
 //	  "updated_at": "2026-06-20T14:30:00Z"
 //	}
 type ProfileResponse struct {
-	ID        uuid.UUID            `json:"id"`
+	ID        uuid.UUID            `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
 	Data      ProfileData          `json:"data"`
 	Stats     ProfileStatsResponse `json:"stats"`
-	CreatedAt time.Time            `json:"created_at"`
-	UpdatedAt time.Time            `json:"updated_at"`
+	CreatedAt time.Time            `json:"created_at" example:"2026-06-19T10:00:00Z"`
+	UpdatedAt time.Time            `json:"updated_at" example:"2026-06-20T14:30:00Z"`
 }
 
 // ProfileStatsResponse is embedded in ProfileResponse.
 // Computed on every GET — cheap for a single-user local system.
 type ProfileStatsResponse struct {
-	SkillCount     int  `json:"skill_count"`
-	EducationCount int  `json:"education_count"`
-	HasResumePrefs bool `json:"has_resume_preferences"`
-	HasLinks       bool `json:"has_links"`
+	SkillCount     int  `json:"skill_count" example:"8"`
+	EducationCount int  `json:"education_count" example:"2"`
+	HasResumePrefs bool `json:"has_resume_preferences" example:"true"`
+	HasLinks       bool `json:"has_links" example:"true"`
 }
 
 // ---------------------------------------------------------------------------

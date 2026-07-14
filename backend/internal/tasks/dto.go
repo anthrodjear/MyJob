@@ -11,36 +11,38 @@ import (
 
 // CreateTaskRequest is the payload for creating a new task.
 type CreateTaskRequest struct {
-	Type        string          `json:"type" binding:"required"`
-	Params      json.RawMessage `json:"params"`
-	Priority    int             `json:"priority"`
-	ScheduledAt *time.Time      `json:"scheduled_at"`
+	Type        string          `json:"type" binding:"required" example:"job_discovery" enums:"job_discovery,job_scoring,resume_generate,cover_letter_gen,application_submit,fill_form,email_check,interview_prep,embedding_generate,voice_session,resume_tailor"`
+	Params      json.RawMessage `json:"params" swaggertype:"object"`
+	Priority    int             `json:"priority" example:"0"`
+	ScheduledAt *time.Time      `json:"scheduled_at,omitempty" example:"2026-01-15T10:30:00Z"`
 }
 
 // --- Response DTOs ---
 
 // TaskResponse is the API response for a single task.
 type TaskResponse struct {
-	ID          uuid.UUID       `json:"id"`
-	Type        string          `json:"type"`
-	Status      string          `json:"status"`
-	Params      json.RawMessage `json:"params,omitempty"`
-	Result      json.RawMessage `json:"result,omitempty"`
-	Error       *string         `json:"error,omitempty"`
-	Attempts    int             `json:"attempts"`
-	MaxAttempts int             `json:"max_attempts"`
-	Priority    int             `json:"priority"`
-	ScheduledAt time.Time       `json:"scheduled_at"`
-	StartedAt   *time.Time      `json:"started_at,omitempty"`
-	CompletedAt *time.Time      `json:"completed_at,omitempty"`
-	CreatedAt   time.Time       `json:"created_at"`
-	UpdatedAt   time.Time       `json:"updated_at"`
+	ID          uuid.UUID       `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Type        string          `json:"type" example:"job_scoring"`
+	Status      string          `json:"status" example:"completed" enums:"pending,running,completed,failed,cancelled"`
+	Params      json.RawMessage `json:"params,omitempty" swaggertype:"object"`
+	Result      json.RawMessage `json:"result,omitempty" swaggertype:"object"`
+	Error       *string         `json:"error,omitempty" example:"task timeout"`
+	Attempts    int             `json:"attempts" example:"1"`
+	MaxAttempts int             `json:"max_attempts" example:"3"`
+	Priority    int             `json:"priority" example:"0"`
+	ScheduledAt time.Time       `json:"scheduled_at" example:"2026-01-15T10:30:00Z"`
+	StartedAt   *time.Time      `json:"started_at,omitempty" example:"2026-01-15T10:30:05Z"`
+	CompletedAt *time.Time      `json:"completed_at,omitempty" example:"2026-01-15T10:31:00Z"`
+	CreatedAt   time.Time       `json:"created_at" example:"2026-01-15T10:30:00Z"`
+	UpdatedAt   time.Time       `json:"updated_at" example:"2026-01-15T10:31:00Z"`
 }
 
 // TaskListResponse is the API response for a list of tasks.
 type TaskListResponse struct {
-	Tasks []TaskResponse `json:"tasks"`
-	Total int            `json:"total"`
+	Tasks  []TaskResponse `json:"tasks"`
+	Total  int            `json:"total" example:"42"`
+	Limit  int            `json:"limit" example:"20"`
+	Offset int            `json:"offset" example:"0"`
 }
 
 // --- Internal DTOs (for queue payloads) ---

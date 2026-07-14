@@ -45,12 +45,22 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 
 // scoreRequest is the payload for POST /scoring/score.
 type scoreRequest struct {
-	JobID uuid.UUID `json:"job_id" binding:"required"`
+	JobID uuid.UUID `json:"job_id" binding:"required" example:"550e8400-e29b-41d4-a716-446655440000"`
 }
 
 // ScoreJobAsync handles POST /scoring/score.
-// Enqueues a scoring task and returns the task ID for polling.
-// This is async because LLM scoring can take 2-30 seconds.
+// @Summary Score a job asynchronously
+// @Description Enqueue a job scoring task using LLM semantic matching
+// @Tags Scoring
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body scoreRequest true "Job ID to score"
+// @Success 202 {object} map[string]interface{} "Task ID for polling"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /scoring/score [post]
 func (h *Handler) ScoreJobAsync(c *gin.Context) {
 	var req scoreRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -78,7 +88,19 @@ func (h *Handler) ScoreJobAsync(c *gin.Context) {
 }
 
 // GetScore handles GET /scoring/score/:jobId.
-// Returns the persisted score for a job including LLM reasoning and details.
+// @Summary Get job score
+// @Description Get the persisted scoring result for a job with details
+// @Tags Scoring
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param jobId path string true "Job UUID" format(uuid)
+// @Success 200 {object} ScoreResponse "Job score with details"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid job ID"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Job not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /scoring/score/{jobId} [get]
 func (h *Handler) GetScore(c *gin.Context) {
 	jobID, err := uuid.Parse(c.Param("jobId"))
 	if err != nil {
@@ -130,12 +152,22 @@ func (h *Handler) GetScore(c *gin.Context) {
 
 // batchScoreRequest is the payload for POST /scoring/batch.
 type batchScoreRequest struct {
-	JobIDs []uuid.UUID `json:"job_ids" binding:"required,min=1,max=100"`
+	JobIDs []uuid.UUID `json:"job_ids" binding:"required,min=1,max=100" example:"[\"550e8400-e29b-41d4-a716-446655440000\",\"550e8400-e29b-41d4-a716-446655440001\"]"`
 }
 
 // BatchScoreAsync handles POST /scoring/batch.
-// Enqueues scoring tasks for multiple jobs and returns task IDs.
-// This is async to avoid timeouts with multiple LLM calls.
+// @Summary Batch score jobs
+// @Description Enqueue scoring tasks for multiple jobs
+// @Tags Scoring
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body batchScoreRequest true "List of job IDs to score"
+// @Success 202 {object} map[string]interface{} "Task IDs for polling"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /scoring/batch [post]
 func (h *Handler) BatchScoreAsync(c *gin.Context) {
 	var req batchScoreRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

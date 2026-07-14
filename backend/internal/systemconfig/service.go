@@ -189,13 +189,17 @@ var allowedKeys = map[string]bool{
 
 	// Approval tiers
 	"approval_tiers.auto_apply.min_score": true,
+	"approval_tiers.auto_apply.max_score": true,
 	"approval_tiers.auto_apply.action":    true,
 	"approval_tiers.auto_apply.notify":    true,
 	"approval_tiers.review.min_score":     true,
 	"approval_tiers.review.max_score":     true,
 	"approval_tiers.review.action":        true,
+	"approval_tiers.review.notify":        true,
+	"approval_tiers.reject.min_score":     true,
 	"approval_tiers.reject.max_score":     true,
 	"approval_tiers.reject.action":        true,
+	"approval_tiers.reject.notify":        true,
 	"approval_tiers.reject.log":           true,
 
 	// Resume & cover letter
@@ -270,9 +274,13 @@ func (s *Service) validateValue(key string, raw json.RawMessage) error {
 
 	case "approval_tiers.auto_apply.min_score":
 		return validateIntRange(raw, 0, 100, key)
+	case "approval_tiers.auto_apply.max_score":
+		return validateIntRange(raw, 0, 100, key)
 	case "approval_tiers.review.min_score":
 		return validateIntRange(raw, 0, 100, key)
 	case "approval_tiers.review.max_score":
+		return validateIntRange(raw, 0, 100, key)
+	case "approval_tiers.reject.min_score":
 		return validateIntRange(raw, 0, 100, key)
 	case "approval_tiers.reject.max_score":
 		return validateIntRange(raw, 0, 100, key)
@@ -298,7 +306,8 @@ func (s *Service) validateValue(key string, raw json.RawMessage) error {
 		return nil
 
 	case "automation.auto_generate.resume", "automation.auto_generate.cover_letter",
-		"approval_tiers.auto_apply.notify", "approval_tiers.reject.log":
+		"approval_tiers.auto_apply.notify", "approval_tiers.review.notify",
+		"approval_tiers.reject.notify", "approval_tiers.reject.log":
 		// Booleans — just validate it parses (already done by ValidateOverrideValue)
 		return nil
 

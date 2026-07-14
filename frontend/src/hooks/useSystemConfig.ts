@@ -125,13 +125,15 @@ export interface OverrideResult {
  * Execute multiple config overrides with proper error handling.
  *
  * Uses mutateAsync + Promise.allSettled so partial failures don't
- * silently swallow errors. Always calls onSaved after all mutations
- * complete, regardless of individual failures.
+ * silently swallow errors. Calls onSaved only when at least one
+ * override succeeded. Throws when ALL overrides fail so caller
+ * catch blocks are reachable.
  *
  * @param overrides - Array of [key, value] pairs to set
  * @param mutateAsync - The async mutate function from useSetOverride
- * @param onSaved - Callback after all mutations complete
+ * @param onSaved - Callback after all mutations complete (only if >=1 succeeded)
  * @returns OverrideResult with success/failure counts
+ * @throws Error when ALL overrides fail
  *
  * @example
  *   const { mutateAsync } = useSetOverride();
@@ -164,12 +166,28 @@ export async function executeOverrides(
   if (failed > 0) {
     console.warn(
       `[useSystemConfig] ${failed}/${overrides.length} overrides failed:`,
-      results
-        .filter((r): r is PromiseRejectedResult => r.status === "rejected")
-        .map((r) => r.reason),
+      overrides
+        .filter((_, i) => results[i].status === "rejected")
+        .map(([key]) => key),
     );
   }
 
-  onSaved?.();
+  // Only call onSaved when at least something succeeded
+  if (succeeded > 0) {
+    onSaved?.();
+  }
+
+  // Throw on total failure so caller catch blocks are reachable
+  if (failed === overrides.length && overrides.length > 0) {
+    const firstError = results.find(
+      (r): r is PromiseRejectedResult => r.status === "rejected",
+    );
+    throw new Error(
+      firstError?.reason instanceof Error
+        ? firstError.reason.message
+        : `All ${failed} overrides failed`,
+    );
+  }
+
   return { succeeded, failed, total: overrides.length };
 }

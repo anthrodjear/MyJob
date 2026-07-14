@@ -157,14 +157,15 @@ func TestCreateTaskRequest_JSONRoundTrip(t *testing.T) {
 }
 
 func TestCreateTaskRequest_SerializesZeroValues(t *testing.T) {
-	// CreateTaskRequest does NOT have omitempty on its fields, so even
-	// zero-values are serialised.
+	// CreateTaskRequest has omitempty on ScheduledAt (pointer), so nil pointer is omitted.
+	// Priority (int) and Params (json.RawMessage) are still serialized with zero values.
 	req := CreateTaskRequest{Type: TypeEmailCheck}
 	data, err := json.Marshal(req)
 	require.NoError(t, err)
 	require.Contains(t, string(data), `"params":null`)
 	require.Contains(t, string(data), `"priority":0`)
-	require.Contains(t, string(data), `"scheduled_at":null`)
+	// ScheduledAt has omitempty, so nil pointer is omitted entirely
+	require.NotContains(t, string(data), `"scheduled_at"`)
 }
 
 // --- ToResponse ---

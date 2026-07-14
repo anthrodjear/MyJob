@@ -1,3 +1,62 @@
+// @title           AI Job Search Agent API
+// @version         1.0
+// @description     Local-first AI-powered job search automation platform. Discovers, scores, and applies to jobs with tailored resumes and cover letters.
+// @termsOfService  https://github.com/your-org/ai-job-search-agent
+
+// @contact.name   API Support
+// @contact.url    https://github.com/your-org/ai-job-search-agent/issues
+// @contact.email  support@example.com
+
+// @license.name  MIT
+// @license.url   https://opensource.org/licenses/MIT
+
+// @host      localhost:8080
+// @BasePath  /api/v1
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description JWT Authorization header using the Bearer scheme. Example: "Authorization: Bearer {token}"
+
+// @tag.name Auth
+// @tag.description Authentication and onboarding endpoints
+
+// @tag.name Jobs
+// @tag.description Job discovery, listing, and management
+
+// @tag.name Applications
+// @tag.description Application lifecycle management with audit trail
+
+// @tag.name Resumes
+// @tag.description Resume CRUD, versioning, and LLM generation
+
+// @tag.name CoverLetters
+// @tag.description Cover letter management and LLM generation
+
+// @tag.name Scoring
+// @tag.description Job-candidate matching and scoring pipeline
+
+// @tag.name Interviews
+// @tag.description Interview session management and voice agent
+
+// @tag.name Profile
+// @tag.description User profile and preferences (JSONB with optimistic locking)
+
+// @tag.name Approvals
+// @tag.description Human-in-the-loop approval gate for auto-apply
+
+// @tag.name Emails
+// @tag.description Recruiter email monitoring and classification
+
+// @tag.name RAG
+// @tag.description Semantic search and embeddings for resume/job matching
+
+// @tag.name Tasks
+// @tag.description Async task queue status and polling
+
+// @tag.name SystemConfig
+// @tag.description System configuration management (YAML/env/DB merge)
+
 package main
 
 import (
@@ -11,7 +70,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
+
+	_ "backend/docs" // swagger docs
 
 	"backend/internal/activity"
 	"backend/internal/api"
@@ -228,6 +291,12 @@ func main() {
 		SystemConfigHandler:   systemConfigHandler,
 		Logger:                logger,
 	})
+
+	// Swagger UI - only enabled in non-production environments
+	if !cfg.IsProduction() {
+		router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+		logger.Info("Swagger UI enabled at /swagger/index.html")
+	}
 
 	// Start HTTP server
 	server := &http.Server{

@@ -258,14 +258,14 @@ func TestActivityResponse_Struct(t *testing.T) {
 			EventType:  EventInterviewCompleted,
 			EntityType: "interviews",
 			EntityID:   eid,
-			Details:    Details{"duration_sec": float64(1800)},
+			Details:    DetailsResponse{"duration_sec": float64(1800)},
 			CreatedAt:  now,
 		}
 		assert.Equal(t, id, resp.ID)
 		assert.Equal(t, EventInterviewCompleted, resp.EventType)
 		assert.Equal(t, "interviews", resp.EntityType)
 		assert.Equal(t, eid, resp.EntityID)
-		assert.Equal(t, Details{"duration_sec": float64(1800)}, resp.Details)
+		assert.Equal(t, DetailsResponse{"duration_sec": float64(1800)}, resp.Details)
 		assert.Equal(t, now, resp.CreatedAt)
 	})
 }
@@ -295,14 +295,14 @@ func TestActivityListResponse_Struct(t *testing.T) {
 					EventType:  EventJobDiscovered,
 					EntityType: "jobs",
 					EntityID:   eid,
-					Details:    Details{"title": "Engineer"},
+					Details:    DetailsResponse{"title": "Engineer"},
 				},
 				{
 					ID:         id2,
 					EventType:  EventJobScored,
 					EntityType: "jobs",
 					EntityID:   eid,
-					Details:    Details{"score": float64(85)},
+					Details:    DetailsResponse{"score": float64(85)},
 				},
 			},
 			Total:  42,
@@ -354,7 +354,7 @@ func TestToActivityResponse(t *testing.T) {
 	assert.Equal(t, a.EventType, resp.EventType)
 	assert.Equal(t, a.EntityType, resp.EntityType)
 	assert.Equal(t, a.EntityID, resp.EntityID)
-	assert.Equal(t, a.Details, resp.Details)
+	assert.Equal(t, DetailsResponse(a.Details), resp.Details)
 	assert.Equal(t, a.CreatedAt, resp.CreatedAt)
 
 	// Verify it's a value copy, not a shared reference

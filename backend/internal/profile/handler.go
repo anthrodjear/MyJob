@@ -77,8 +77,17 @@ func parseETag(raw string) (int, error) {
 // ---------------------------------------------------------------------------
 
 // GetProfile handles GET /profile.
-// Returns the singleton profile with embedded stats.
-// Sets ETag header with the current version for use with If-Match.
+// @Summary Get user profile
+// @Description Get the singleton user profile with embedded stats and ETag for optimistic locking
+// @Tags Profile
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} ProfileResponse "Profile with stats and ETag header"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Header 200 {string} ETag "Current profile version for If-Match"
+// @Router /profile [get]
 func (h *Handler) GetProfile(c *gin.Context) {
 	p, err := h.svc.GetOrCreate(c.Request.Context())
 	if err != nil {
@@ -93,8 +102,21 @@ func (h *Handler) GetProfile(c *gin.Context) {
 }
 
 // UpdateProfile handles PUT /profile.
-// Replaces the entire profile data.
-// Requires If-Match header with the version from the last GET.
+// @Summary Replace user profile
+// @Description Replace the entire profile data (optimistic locking via If-Match)
+// @Tags Profile
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param If-Match header string true "Current profile version from ETag" example:"1"
+// @Param request body UpdateProfileRequest true "Full profile data"
+// @Success 200 {object} ProfileResponse "Updated profile with new ETag"
+// @Failure 400 {object} httpresp.ErrorResponse "Missing or invalid If-Match header"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 409 {object} httpresp.ErrorResponse "Version conflict - profile modified"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Header 200 {string} ETag "Updated profile version"
+// @Router /profile [put]
 func (h *Handler) UpdateProfile(c *gin.Context) {
 	version, err := parseETag(c.GetHeader("If-Match"))
 	if err != nil {
@@ -124,8 +146,21 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 }
 
 // PatchProfile handles PATCH /profile.
-// Partially merges fields into the existing profile data.
-// Requires If-Match header with the version from the last GET.
+// @Summary Partially update user profile
+// @Description Partially merge fields into existing profile (optimistic locking via If-Match)
+// @Tags Profile
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param If-Match header string true "Current profile version from ETag" example:"1"
+// @Param request body PatchProfileRequest true "Partial profile update"
+// @Success 200 {object} ProfileResponse "Updated profile with new ETag"
+// @Failure 400 {object} httpresp.ErrorResponse "Missing or invalid If-Match header"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 409 {object} httpresp.ErrorResponse "Version conflict - profile modified"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Header 200 {string} ETag "Updated profile version"
+// @Router /profile [patch]
 func (h *Handler) PatchProfile(c *gin.Context) {
 	version, err := parseETag(c.GetHeader("If-Match"))
 	if err != nil {

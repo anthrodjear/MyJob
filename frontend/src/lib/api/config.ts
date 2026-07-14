@@ -10,7 +10,7 @@
  * @see backend/internal/systemconfig/handler.go
  */
 
-import { apiGet, apiPatch, apiDelete } from "@/lib/api/client";
+import { apiGetWithRefresh, apiPatchWithRefresh, apiDeleteWithRefresh } from "@/lib/api/client";
 import type {
   SystemConfigResponse,
   SetOverrideRequest,
@@ -32,7 +32,7 @@ import type {
  *   console.log(config.scoring.mode); // "hybrid"
  */
 export async function fetchSystemConfig(): Promise<SystemConfigResponse> {
-  const result = await apiGet<SystemConfigResponse>("system/config");
+  const result = await apiGetWithRefresh<SystemConfigResponse>("system/config");
   if (result === undefined) {
     throw new Error("Failed to fetch system config");
   }
@@ -58,7 +58,7 @@ export async function setOverride(
   key: string,
   value: unknown,
 ): Promise<SetOverrideResponse> {
-  const result = await apiPatch<SetOverrideResponse>("system/config", {
+  const result = await apiPatchWithRefresh<SetOverrideResponse>("system/config", {
     key,
     value,
   } as SetOverrideRequest);
@@ -84,7 +84,7 @@ export async function setOverride(
 export async function deleteOverride(
   key: string,
 ): Promise<DeleteOverrideResponse> {
-  const result = await apiDelete<DeleteOverrideResponse>(
+  const result = await apiDeleteWithRefresh<DeleteOverrideResponse>(
     `system/config/${encodeURIComponent(key)}`,
   );
   if (result === undefined) {

@@ -10,15 +10,15 @@ import (
 
 // ScoreResponse is the API response for a scored job.
 type ScoreResponse struct {
-	JobID      uuid.UUID     `json:"job_id"`
-	Score      float64       `json:"score"`
-	Tier       ApprovalTier  `json:"tier"`
-	Reasoning  string        `json:"reasoning,omitempty"`
-	Source     string        `json:"source,omitempty"`     // "heuristic" | "llm" | "hybrid"
-	Model      string        `json:"model,omitempty"`      // model name used (e.g., "gpt-4o", "qwen2.5")
-	Confidence float64       `json:"confidence,omitempty"` // 0-1 confidence in score
-	Strengths  []string      `json:"strengths,omitempty"`  // extracted from reasoning
-	Gaps       []string      `json:"gaps,omitempty"`       // extracted from reasoning
+	JobID      uuid.UUID     `json:"job_id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Score      float64       `json:"score" example:"92.5"`
+	Tier       ApprovalTier  `json:"tier" example:"AUTO" enums:"AUTO,REVIEW,REJECT"`
+	Reasoning  string        `json:"reasoning,omitempty" example:"Strong match on Go and Kubernetes experience. 8 years backend experience aligns well with senior role requirements."`
+	Source     string        `json:"source,omitempty" example:"hybrid" enums:"heuristic,llm,hybrid"`
+	Model      string        `json:"model,omitempty" example:"qwen2.5:latest"`
+	Confidence float64       `json:"confidence,omitempty" example:"0.9" minimum:"0" maximum:"1"`
+	Strengths  []string      `json:"strengths,omitempty" example:"[\"Strong match\",\"Experienced candidate\",\"Proficient in required skills\"]"`
+	Gaps       []string      `json:"gaps,omitempty" example:"[\"Missing cloud certification\"]"`
 	Details    *ScoreDetails `json:"details,omitempty"`
 }
 
@@ -31,11 +31,11 @@ type ScoreBreakdownResponse struct {
 
 // WeightsResponse shows the weights used for scoring.
 type WeightsResponse struct {
-	Skill       float64 `json:"skill"`
-	Experience  float64 `json:"experience"`
-	Location    float64 `json:"location"`
-	Salary      float64 `json:"salary"`
-	Description float64 `json:"description"`
+	Skill       float64 `json:"skill" example:"0.35"`
+	Experience  float64 `json:"experience" example:"0.25"`
+	Location    float64 `json:"location" example:"0.10"`
+	Salary      float64 `json:"salary" example:"0.15"`
+	Description float64 `json:"description" example:"0.15"`
 }
 
 // NewScoreResponse creates a ScoreResponse with normalized score and tier.

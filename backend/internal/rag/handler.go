@@ -72,7 +72,18 @@ func parseEmbeddingID(c *gin.Context) (uuid.UUID, bool) {
 // ---------------------------------------------------------------------------
 
 // Search handles POST /rag/search.
-// Embeds the query text and performs cosine similarity search.
+// @Summary Semantic search
+// @Description Embed query text and perform cosine similarity search against stored vectors
+// @Tags RAG
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body SearchRequest true "Search query and filters"
+// @Success 200 {object} SearchResponse "Search results with similarity scores"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body or filter"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /rag/search [post]
 func (h *Handler) Search(c *gin.Context) {
 	var req SearchRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -137,7 +148,20 @@ func (h *Handler) Search(c *gin.Context) {
 }
 
 // ListEmbeddings handles GET /rag/embeddings.
-// Query params: source_type, limit, offset.
+// @Summary List embeddings
+// @Description Get paginated list of stored embeddings with optional filters
+// @Tags RAG
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param source_type query string false "Filter by source type" Enums(job,resume,application,cover_letter)
+// @Param limit query int false "Results per page (max 50)" default(50) minimum(1) maximum(50)
+// @Param offset query int false "Pagination offset" default(0) minimum(0)
+// @Success 200 {object} EmbeddingListResponse "Paginated embeddings"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid query parameters"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /rag/embeddings [get]
 func (h *Handler) ListEmbeddings(c *gin.Context) {
 	var filter ListFilter
 
@@ -193,6 +217,19 @@ func (h *Handler) ListEmbeddings(c *gin.Context) {
 }
 
 // GetEmbedding handles GET /rag/embeddings/:id.
+// @Summary Get embedding by ID
+// @Description Get a single embedding by its UUID
+// @Tags RAG
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Embedding UUID" format(uuid)
+// @Success 200 {object} EmbeddingResponse "Embedding details"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid embedding ID"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Embedding not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /rag/embeddings/{id} [get]
 func (h *Handler) GetEmbedding(c *gin.Context) {
 	id, ok := parseEmbeddingID(c)
 	if !ok {
@@ -214,6 +251,19 @@ func (h *Handler) GetEmbedding(c *gin.Context) {
 }
 
 // DeleteEmbedding handles DELETE /rag/embeddings/:id.
+// @Summary Delete embedding
+// @Description Delete an embedding by its UUID
+// @Tags RAG
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Embedding UUID" format(uuid)
+// @Success 200 {object} map[string]string "Embedding deleted"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid embedding ID"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Embedding not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /rag/embeddings/{id} [delete]
 func (h *Handler) DeleteEmbedding(c *gin.Context) {
 	id, ok := parseEmbeddingID(c)
 	if !ok {

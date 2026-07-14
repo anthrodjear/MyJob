@@ -17,7 +17,7 @@
 
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useSetOverride, executeOverrides } from "@/hooks/useSystemConfig";
 import type { AutomationSection as AutomationSectionType } from "@/lib/types/config";
 import { Button } from "@/components/shared/Button";
@@ -51,19 +51,48 @@ export function AutomationSection({ automation, onSaved }: AutomationSectionProp
   const [autoResume, setAutoResume] = useState(automation.auto_generate.resume);
   const [autoCoverLetter, setAutoCoverLetter] = useState(automation.auto_generate.cover_letter);
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const clearError = useCallback(() => setError(null), []);
+
+  // Sync state when props change (skip initial mount)
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    setConcurrency(automation.queue.concurrency.toString());
+    setRetryAttempts(automation.queue.retry_attempts.toString());
+    setAutoResume(automation.auto_generate.resume);
+    setAutoCoverLetter(automation.auto_generate.cover_letter);
+  }, [automation]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       setIsSaving(true);
+      setError(null);
 
       const overrides: Array<[string, unknown]> = [];
 
       if (concurrency !== automation.queue.concurrency.toString()) {
-        overrides.push(["automation.queue.concurrency", parseInt(concurrency, 10)]);
+        const parsed = parseInt(concurrency, 10);
+        if (Number.isNaN(parsed) || parsed < 1 || parsed > 50) {
+          setError("Concurrency must be a valid number between 1 and 50.");
+          setIsSaving(false);
+          return;
+        }
+        overrides.push(["automation.queue.concurrency", parsed]);
       }
       if (retryAttempts !== automation.queue.retry_attempts.toString()) {
-        overrides.push(["automation.queue.retry_attempts", parseInt(retryAttempts, 10)]);
+        const parsed = parseInt(retryAttempts, 10);
+        if (Number.isNaN(parsed) || parsed < 0 || parsed > 10) {
+          setError("Retry Attempts must be a valid number between 0 and 10.");
+          setIsSaving(false);
+          return;
+        }
+        overrides.push(["automation.queue.retry_attempts", parsed]);
       }
       if (autoResume !== automation.auto_generate.resume) {
         overrides.push(["automation.auto_generate.resume", autoResume]);
@@ -72,17 +101,35 @@ export function AutomationSection({ automation, onSaved }: AutomationSectionProp
         overrides.push(["automation.auto_generate.cover_letter", autoCoverLetter]);
       }
 
-      await executeOverrides(overrides, mutateAsync, onSaved);
-      setIsSaving(false);
+      try {
+        const result = await executeOverrides(overrides, mutateAsync, onSaved);
+        if (result.failed > 0) {
+          setError(
+            result.failed === result.total
+              ? "Failed to save automation settings. Please try again."
+              : `Partially saved: ${result.succeeded} of ${result.total} settings saved. ${result.failed} failed.`,
+          );
+        }
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to save automation settings. Please try again.",
+        );
+      } finally {
+        setIsSaving(false);
+      }
     },
     [concurrency, retryAttempts, autoResume, autoCoverLetter, automation, mutateAsync, onSaved],
   );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="rounded-md bg-danger-light p-3 text-sm text-danger-dark" role="alert">
-        Failed to save automation settings. Please try again.
-      </div>
+      {error && (
+        <div className="rounded-md bg-danger-light p-3 text-sm text-danger-dark" role="alert">
+          {error}
+        </div>
+      )}
 
       {/* Queue Settings */}
       <fieldset className="space-y-4">
@@ -98,7 +145,10 @@ export function AutomationSection({ automation, onSaved }: AutomationSectionProp
               min="1"
               max="20"
               value={concurrency}
-              onChange={(e) => setConcurrency(e.target.value)}
+              onChange={(e) => {
+                setConcurrency(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
             <p className="mt-1 text-xs text-text-secondary">
@@ -115,7 +165,10 @@ export function AutomationSection({ automation, onSaved }: AutomationSectionProp
               min="0"
               max="10"
               value={retryAttempts}
-              onChange={(e) => setRetryAttempts(e.target.value)}
+              onChange={(e) => {
+                setRetryAttempts(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
             <p className="mt-1 text-xs text-text-secondary">
@@ -133,7 +186,10 @@ export function AutomationSection({ automation, onSaved }: AutomationSectionProp
             <input
               type="checkbox"
               checked={autoResume}
-              onChange={(e) => setAutoResume(e.target.checked)}
+              onChange={(e) => {
+                setAutoResume(e.target.checked);
+                clearError();
+              }}
               className="rounded border-border text-primary focus:ring-primary"
             />
             <span className="text-sm text-text-primary">Auto-generate resumes for new applications</span>
@@ -142,7 +198,10 @@ export function AutomationSection({ automation, onSaved }: AutomationSectionProp
             <input
               type="checkbox"
               checked={autoCoverLetter}
-              onChange={(e) => setAutoCoverLetter(e.target.checked)}
+              onChange={(e) => {
+                setAutoCoverLetter(e.target.checked);
+                clearError();
+              }}
               className="rounded border-border text-primary focus:ring-primary"
             />
             <span className="text-sm text-text-primary">Auto-generate cover letters for new applications</span>

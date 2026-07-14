@@ -15,7 +15,6 @@
 package systemconfig
 
 import (
-	"encoding/json"
 	"errors"
 
 	"github.com/gin-gonic/gin"
@@ -62,9 +61,16 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 }
 
 // GetEffectiveConfig handles GET /api/v1/system/config.
-// Returns the fully resolved configuration tree merging YAML, env, and DB layers.
-//
-// Response: EffectiveConfigResponse with config and optional version.
+// @Summary Get effective configuration
+// @Description Returns the fully resolved configuration tree merging YAML, env, and DB layers
+// @Tags SystemConfig
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} EffectiveConfigResponse "Resolved configuration with all layers"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /system/config [get]
 func (h *Handler) GetEffectiveConfig(c *gin.Context) {
 	effect, err := h.service.GetEffectiveConfig(c.Request.Context())
 	if err != nil {
@@ -79,10 +85,18 @@ func (h *Handler) GetEffectiveConfig(c *gin.Context) {
 }
 
 // SetOverride handles PATCH /api/v1/system/config.
-// Creates or updates a runtime configuration override.
-//
-// Request body: { "key": "scoring.auto_threshold", "value": 90 }
-// Response: { "message": "override saved", "key": "scoring.auto_threshold" }
+// @Summary Set configuration override
+// @Description Create or update a runtime configuration override
+// @Tags SystemConfig
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body SetOverrideRequest true "Override key and value"
+// @Success 200 {object} SetOverrideResponse "Override saved successfully"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid key format, key not allowed, or invalid value"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /system/config [patch]
 func (h *Handler) SetOverride(c *gin.Context) {
 	var req SetOverrideRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -90,14 +104,8 @@ func (h *Handler) SetOverride(c *gin.Context) {
 		return
 	}
 
-	// Convert value to json.RawMessage for storage
-	rawValue, err := json.Marshal(req.Value)
-	if err != nil {
-		httpresp.BadRequest(c, "INVALID_VALUE", "value must be valid JSON")
-		return
-	}
-
-	if err := h.service.SetOverride(c.Request.Context(), req.Key, rawValue); err != nil {
+	// req.Value is already json.RawMessage, use directly
+	if err := h.service.SetOverride(c.Request.Context(), req.Key, req.Value); err != nil {
 		// Map domain errors to HTTP codes
 		if errors.Is(err, ErrInvalidKeyFormat) {
 			httpresp.BadRequest(c, "INVALID_KEY_FORMAT", err.Error())
@@ -126,9 +134,18 @@ func (h *Handler) SetOverride(c *gin.Context) {
 }
 
 // DeleteOverride handles DELETE /api/v1/system/config/:key.
-// Removes a runtime configuration override by key.
-//
-// Response: { "message": "override deleted", "key": "scoring.auto_threshold" }
+// @Summary Delete configuration override
+// @Description Remove a runtime configuration override by key
+// @Tags SystemConfig
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param key path string true "Configuration key in dotted notation" example:"scoring.auto_threshold"
+// @Success 200 {object} DeleteOverrideResponse "Override deleted"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid key format"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /system/config/{key} [delete]
 func (h *Handler) DeleteOverride(c *gin.Context) {
 	key := c.Param("key")
 	if key == "" {

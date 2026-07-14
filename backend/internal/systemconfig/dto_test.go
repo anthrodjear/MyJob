@@ -16,7 +16,7 @@ import (
 func TestSetOverrideRequest_JSONRoundTrip(t *testing.T) {
 	req := SetOverrideRequest{
 		Key:   "scoring.auto_threshold",
-		Value: 95,
+		Value: json.RawMessage("95"),
 	}
 
 	data, err := json.Marshal(req)
@@ -27,13 +27,13 @@ func TestSetOverrideRequest_JSONRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, req.Key, decoded.Key)
-	assert.Equal(t, float64(95), decoded.Value) // JSON numbers unmarshal to float64 by default
+	assert.Equal(t, json.RawMessage("95"), decoded.Value)
 }
 
 func TestSetOverrideRequest_StringValue(t *testing.T) {
 	req := SetOverrideRequest{
 		Key:   "scoring.mode",
-		Value: "hybrid",
+		Value: json.RawMessage(`"hybrid"`),
 	}
 
 	data, err := json.Marshal(req)
@@ -44,13 +44,13 @@ func TestSetOverrideRequest_StringValue(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "scoring.mode", decoded.Key)
-	assert.Equal(t, "hybrid", decoded.Value)
+	assert.Equal(t, json.RawMessage(`"hybrid"`), decoded.Value)
 }
 
 func TestSetOverrideRequest_BoolValue(t *testing.T) {
 	req := SetOverrideRequest{
 		Key:   "automation.auto_generate.resume",
-		Value: true,
+		Value: json.RawMessage("true"),
 	}
 
 	data, err := json.Marshal(req)
@@ -60,13 +60,13 @@ func TestSetOverrideRequest_BoolValue(t *testing.T) {
 	err = json.Unmarshal(data, &decoded)
 	require.NoError(t, err)
 
-	assert.Equal(t, true, decoded.Value)
+	assert.Equal(t, json.RawMessage("true"), decoded.Value)
 }
 
 func TestSetOverrideRequest_ArrayValue(t *testing.T) {
 	req := SetOverrideRequest{
 		Key:   "email.folders",
-		Value: []interface{}{"INBOX", "JOBS"},
+		Value: json.RawMessage(`["INBOX", "JOBS"]`),
 	}
 
 	data, err := json.Marshal(req)
@@ -78,10 +78,12 @@ func TestSetOverrideRequest_ArrayValue(t *testing.T) {
 
 	assert.Equal(t, "email.folders", decoded.Key)
 
-	decodedArr, ok := decoded.Value.([]interface{})
-	require.True(t, ok, "decoded value should be an array")
-	assert.Equal(t, "INBOX", decodedArr[0])
-	assert.Equal(t, "JOBS", decodedArr[1])
+	// Verify the array content by unmarshaling
+	var arr []string
+	err = json.Unmarshal(decoded.Value, &arr)
+	require.NoError(t, err)
+	assert.Equal(t, "INBOX", arr[0])
+	assert.Equal(t, "JOBS", arr[1])
 }
 
 func TestSetOverrideRequest_BindingTags(t *testing.T) {

@@ -9,8 +9,14 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
+# Install swag for Swagger docs generation
+RUN go install github.com/swaggo/swag/cmd/swag@latest
+
 # Copy source code
 COPY . .
+
+# Generate Swagger docs (required for _ "backend/docs" import)
+RUN swag init -g cmd/api/main.go
 
 # Build the API binary (CGO disabled for static binary — no gcc needed)
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /app/api ./cmd/api
