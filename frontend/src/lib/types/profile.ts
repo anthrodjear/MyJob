@@ -89,6 +89,8 @@ export interface Education {
   degree: string;
   /** Field of study. */
   field?: string;
+  /** Short description of studies, achievements, or relevant coursework. */
+  description?: string;
   /** Year studies began. */
   start_year?: number;
   /** Year studies ended (or expected). */

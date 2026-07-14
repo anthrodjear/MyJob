@@ -42,6 +42,7 @@ export function SkillsForm({ skills, onSaved }: SkillsFormProps) {
   const patchMutation = usePatchProfile();
   const [rows, setRows] = useState<Skill[]>(skills);
   const [errors, setErrors] = useState<Record<number, string>>({});
+  const [serverError, setServerError] = useState<string | null>(null);
 
   // ---------------------------------------------------------------------------
   // Row Operations
@@ -50,6 +51,7 @@ export function SkillsForm({ skills, onSaved }: SkillsFormProps) {
   /** Add an empty skill row at the end. */
   const addRow = useCallback(() => {
     setRows((prev) => [...prev, { name: "", proficiency: undefined, years: undefined }]);
+    setServerError(null);
   }, []);
 
   /** Remove a skill row by index. */
@@ -60,6 +62,7 @@ export function SkillsForm({ skills, onSaved }: SkillsFormProps) {
       delete next[index];
       return next;
     });
+    setServerError(null);
   }, []);
 
   /** Update a single field in a skill row. */
@@ -72,6 +75,7 @@ export function SkillsForm({ skills, onSaved }: SkillsFormProps) {
         delete next[index];
         return next;
       });
+      setServerError(null);
     },
     [],
   );
@@ -105,7 +109,14 @@ export function SkillsForm({ skills, onSaved }: SkillsFormProps) {
 
       patchMutation.mutate(
         { skills: validSkills.length > 0 ? validSkills : [] },
-        { onSuccess: onSaved },
+        {
+          onSuccess: onSaved,
+          onError: (error) => {
+            // Show the actual error message from the backend
+            const message = error instanceof Error ? error.message : "Failed to save skills. Please try again.";
+            setServerError(message);
+          },
+        },
       );
     },
     [rows, validate, patchMutation, onSaved],
@@ -118,9 +129,9 @@ export function SkillsForm({ skills, onSaved }: SkillsFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Error feedback */}
-      {patchMutation.isError && (
+      {serverError && (
         <div className="rounded-md bg-error/10 p-3 text-sm text-error-dark" role="alert">
-          Failed to save skills. Please try again.
+          {serverError}
         </div>
       )}
 
@@ -135,7 +146,7 @@ export function SkillsForm({ skills, onSaved }: SkillsFormProps) {
         {rows.map((skill, index) => (
           <div
             key={index}
-            className="flex flex-col gap-2 rounded-md border border-border p-3 sm:flex-row sm:items-start"
+            className="flex flex-col gap-2 rounded-md border border-border p-3 transition-colors hover:border-primary/30 sm:flex-row sm:items-start"
           >
             {/* Skill Name */}
             <div className="flex-1">
@@ -143,7 +154,7 @@ export function SkillsForm({ skills, onSaved }: SkillsFormProps) {
                 htmlFor={`skill-name-${index}`}
                 className="block text-xs font-medium text-text-secondary"
               >
-                Skill Name
+                Skill Name <span className="text-error">*</span>
               </label>
               <input
                 id={`skill-name-${index}`}

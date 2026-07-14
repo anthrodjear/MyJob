@@ -73,6 +73,45 @@ export function PreferencesForm({ preferences, onSaved }: PreferencesFormProps) 
   const [coverLetterStyle, setCoverLetterStyle] = useState(
     preferences.cover_letter_style ?? "",
   );
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // ---------------------------------------------------------------------------
+  // Validation
+  // ---------------------------------------------------------------------------
+
+  const validate = useCallback((): boolean => {
+    const errors: Record<string, string> = {};
+
+    // Salary range validation
+    if (minSalary !== "" && maxSalary !== "") {
+      const min = parseInt(minSalary, 10);
+      const max = parseInt(maxSalary, 10);
+      if (!Number.isNaN(min) && !Number.isNaN(max) && min > max) {
+        errors.minSalary = "Minimum salary must be less than maximum";
+        errors.maxSalary = "Maximum salary must be greater than minimum";
+      }
+    }
+
+    // Auto-apply threshold validation
+    if (autoApplyThreshold !== "") {
+      const threshold = parseInt(autoApplyThreshold, 10);
+      if (Number.isNaN(threshold) || threshold < 0 || threshold > 100) {
+        errors.autoApplyThreshold = "Threshold must be between 0 and 100";
+      }
+    }
+
+    // Years experience validation
+    if (yearsExperience !== "") {
+      const years = parseInt(yearsExperience, 10);
+      if (Number.isNaN(years) || years < 0 || years > 50) {
+        errors.yearsExperience = "Years must be between 0 and 50";
+      }
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  }, [minSalary, maxSalary, autoApplyThreshold, yearsExperience]);
 
   // ---------------------------------------------------------------------------
   // Submit Handler
@@ -81,6 +120,9 @@ export function PreferencesForm({ preferences, onSaved }: PreferencesFormProps) 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
+      setServerError(null);
+
+      if (!validate()) return;
 
       // Parse comma-separated lists, trimming whitespace and filtering empties
       const titles = targetTitles
@@ -109,7 +151,14 @@ export function PreferencesForm({ preferences, onSaved }: PreferencesFormProps) 
             cover_letter_style: coverLetterStyle || undefined,
           },
         },
-        { onSuccess: onSaved },
+        {
+          onSuccess: onSaved,
+          onError: (error) => {
+            // Show the actual error message from the backend
+            const message = error instanceof Error ? error.message : "Failed to save preferences. Please try again.";
+            setServerError(message);
+          },
+        },
       );
     },
     [
@@ -124,6 +173,7 @@ export function PreferencesForm({ preferences, onSaved }: PreferencesFormProps) 
       resumeStyle,
       autoApplyThreshold,
       coverLetterStyle,
+      validate,
       patchMutation,
       onSaved,
     ],
@@ -136,14 +186,12 @@ export function PreferencesForm({ preferences, onSaved }: PreferencesFormProps) 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Error feedback */}
-      {patchMutation.isError && (
+      {serverError && (
         <div
           className="rounded-md bg-error/10 p-3 text-sm text-error-dark"
           role="alert"
         >
-          {patchMutation.error instanceof Error
-            ? "Failed to save preferences. Please try again."
-            : "Failed to save preferences. Please try again."}
+          {serverError}
         </div>
       )}
 
@@ -169,7 +217,10 @@ export function PreferencesForm({ preferences, onSaved }: PreferencesFormProps) 
               id="target_titles"
               type="text"
               value={targetTitles}
-              onChange={(e) => setTargetTitles(e.target.value)}
+              onChange={(e) => {
+                setTargetTitles(e.target.value);
+                setServerError(null);
+              }}
               placeholder="Backend Engineer, Platform Engineer"
               className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
@@ -190,7 +241,10 @@ export function PreferencesForm({ preferences, onSaved }: PreferencesFormProps) 
               id="target_locations"
               type="text"
               value={targetLocations}
-              onChange={(e) => setTargetLocations(e.target.value)}
+              onChange={(e) => {
+                setTargetLocations(e.target.value);
+                setServerError(null);
+              }}
               placeholder="Remote, New York, San Francisco"
               className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
@@ -205,7 +259,10 @@ export function PreferencesForm({ preferences, onSaved }: PreferencesFormProps) 
               id="remote_only"
               type="checkbox"
               checked={remoteOnly}
-              onChange={(e) => setRemoteOnly(e.target.checked)}
+              onChange={(e) => {
+                setRemoteOnly(e.target.checked);
+                setServerError(null);
+              }}
               className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
             />
             <label htmlFor="remote_only" className="text-sm text-text-primary">
@@ -225,7 +282,10 @@ export function PreferencesForm({ preferences, onSaved }: PreferencesFormProps) 
               id="work_authorization"
               type="text"
               value={workAuthorization}
-              onChange={(e) => setWorkAuthorization(e.target.value)}
+              onChange={(e) => {
+                setWorkAuthorization(e.target.value);
+                setServerError(null);
+              }}
               placeholder="US Citizen, H1B, Green Card"
               className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
@@ -245,10 +305,25 @@ export function PreferencesForm({ preferences, onSaved }: PreferencesFormProps) 
               min={0}
               max={50}
               value={yearsExperience}
-              onChange={(e) => setYearsExperience(e.target.value)}
+              onChange={(e) => {
+                setYearsExperience(e.target.value);
+                setServerError(null);
+                setFieldErrors((prev) => {
+                  const next = { ...prev };
+                  delete next.yearsExperience;
+                  return next;
+                });
+              }}
               placeholder="5"
-              className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className={`mt-1 block w-full rounded-md border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary ${
+                fieldErrors.yearsExperience ? "border-error" : "border-border"
+              }`}
             />
+            {fieldErrors.yearsExperience && (
+              <p className="mt-1 text-xs text-error-dark" role="alert">
+                {fieldErrors.yearsExperience}
+              </p>
+            )}
           </div>
         </div>
       </fieldset>
@@ -276,10 +351,26 @@ export function PreferencesForm({ preferences, onSaved }: PreferencesFormProps) 
               min={0}
               step={1000}
               value={minSalary}
-              onChange={(e) => setMinSalary(e.target.value)}
+              onChange={(e) => {
+                setMinSalary(e.target.value);
+                setServerError(null);
+                setFieldErrors((prev) => {
+                  const next = { ...prev };
+                  delete next.minSalary;
+                  delete next.maxSalary;
+                  return next;
+                });
+              }}
               placeholder="100000"
-              className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className={`mt-1 block w-full rounded-md border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary ${
+                fieldErrors.minSalary ? "border-error" : "border-border"
+              }`}
             />
+            {fieldErrors.minSalary && (
+              <p className="mt-1 text-xs text-error-dark" role="alert">
+                {fieldErrors.minSalary}
+              </p>
+            )}
           </div>
           <div>
             <label
@@ -294,10 +385,26 @@ export function PreferencesForm({ preferences, onSaved }: PreferencesFormProps) 
               min={0}
               step={1000}
               value={maxSalary}
-              onChange={(e) => setMaxSalary(e.target.value)}
+              onChange={(e) => {
+                setMaxSalary(e.target.value);
+                setServerError(null);
+                setFieldErrors((prev) => {
+                  const next = { ...prev };
+                  delete next.minSalary;
+                  delete next.maxSalary;
+                  return next;
+                });
+              }}
               placeholder="200000"
-              className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className={`mt-1 block w-full rounded-md border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary ${
+                fieldErrors.maxSalary ? "border-error" : "border-border"
+              }`}
             />
+            {fieldErrors.maxSalary && (
+              <p className="mt-1 text-xs text-error-dark" role="alert">
+                {fieldErrors.maxSalary}
+              </p>
+            )}
           </div>
         </div>
       </fieldset>
@@ -322,7 +429,10 @@ export function PreferencesForm({ preferences, onSaved }: PreferencesFormProps) 
             <select
               id="resume_tone"
               value={resumeTone}
-              onChange={(e) => setResumeTone(e.target.value)}
+              onChange={(e) => {
+                setResumeTone(e.target.value);
+                setServerError(null);
+              }}
               className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="">Default</option>
@@ -343,7 +453,10 @@ export function PreferencesForm({ preferences, onSaved }: PreferencesFormProps) 
             <select
               id="resume_style"
               value={resumeStyle}
-              onChange={(e) => setResumeStyle(e.target.value)}
+              onChange={(e) => {
+                setResumeStyle(e.target.value);
+                setServerError(null);
+              }}
               className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="">Default</option>
@@ -363,7 +476,10 @@ export function PreferencesForm({ preferences, onSaved }: PreferencesFormProps) 
             <select
               id="cover_letter_style"
               value={coverLetterStyle}
-              onChange={(e) => setCoverLetterStyle(e.target.value)}
+              onChange={(e) => {
+                setCoverLetterStyle(e.target.value);
+                setServerError(null);
+              }}
               className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="">Default</option>
@@ -387,13 +503,28 @@ export function PreferencesForm({ preferences, onSaved }: PreferencesFormProps) 
               min={0}
               max={100}
               value={autoApplyThreshold}
-              onChange={(e) => setAutoApplyThreshold(e.target.value)}
+              onChange={(e) => {
+                setAutoApplyThreshold(e.target.value);
+                setServerError(null);
+                setFieldErrors((prev) => {
+                  const next = { ...prev };
+                  delete next.autoApplyThreshold;
+                  return next;
+                });
+              }}
               placeholder="95"
-              className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className={`mt-1 block w-full rounded-md border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary ${
+                fieldErrors.autoApplyThreshold ? "border-error" : "border-border"
+              }`}
             />
             <p className="mt-1 text-xs text-text-tertiary">
               Score (0-100) above which applications auto-submit. Leave empty for manual approval.
             </p>
+            {fieldErrors.autoApplyThreshold && (
+              <p className="mt-1 text-xs text-error-dark" role="alert">
+                {fieldErrors.autoApplyThreshold}
+              </p>
+            )}
           </div>
         </div>
       </fieldset>
