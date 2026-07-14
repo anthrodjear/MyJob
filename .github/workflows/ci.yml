@@ -100,12 +100,12 @@ jobs:
         working-directory: backend
         run: go vet ./...
 
+      - name: Install golangci-lint (from source for Go 1.26 compat)
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
-          working-directory: backend
-          args: --config ../.golangci.yml
+        working-directory: backend
+        run: golangci-lint run --config ../.golangci.yml
 
       - uses: actions/setup-node@v4
         with:
@@ -167,7 +167,7 @@ jobs:
         run: |
           docker compose up -d api
           echo "Waiting for API to become healthy (includes migration time)..."
-          timeout 120 bash -c 'until docker compose ps api | grep -q "healthy"; do sleep 5; done'
+          timeout 120 bash -c 'until docker compose exec -T api wget -qO- http://localhost:8080/health >/dev/null 2>&1; do sleep 5; done'
           echo "API is healthy!"
 
       - name: Start remaining services
