@@ -102,16 +102,16 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			Burst:             cfg.AuthRateLimitConfig.Burst,
 		}, cfg.Logger))
 		{
-authGroup.POST("/login", cfg.AuthHandler.Login)
-		authGroup.POST("/refresh", cfg.AuthHandler.Refresh)
+			authGroup.POST("/login", cfg.AuthHandler.Login)
+			authGroup.POST("/refresh", cfg.AuthHandler.Refresh)
 
-		// Password reset routes (public, no JWT needed)
-		authGroup.POST("/password/reset", cfg.AuthHandler.RequestPasswordReset)
-		authGroup.POST("/password/reset/confirm", cfg.AuthHandler.ResetPassword)
+			// Password reset routes (public, no JWT needed)
+			authGroup.POST("/password/reset", cfg.AuthHandler.RequestPasswordReset)
+			authGroup.POST("/password/reset/confirm", cfg.AuthHandler.ResetPassword)
 
-		// Setup routes — public, no JWT needed
-		authGroup.GET("/setup/status", cfg.AuthHandler.SetupStatus)
-		authGroup.POST("/setup", cfg.AuthHandler.CompleteSetup)
+			// Setup routes — public, no JWT needed
+			authGroup.GET("/setup/status", cfg.AuthHandler.SetupStatus)
+			authGroup.POST("/setup", cfg.AuthHandler.CompleteSetup)
 
 			// Onboarding routes — guarded: blocked after onboarding completes
 			// Prevents unauthenticated access to API key config, etc.

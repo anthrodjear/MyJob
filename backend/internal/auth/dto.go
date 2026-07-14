@@ -136,9 +136,9 @@ type ForgotPasswordRequest struct {
 
 // ForgotPasswordResponse is returned after requesting a password reset.
 type ForgotPasswordResponse struct {
-	Message   string `json:"message" example:"Password reset token generated. Please save it securely."`
+	Message    string `json:"message" example:"Password reset token generated. Please save it securely."`
 	ResetToken string `json:"reset_token,omitempty" example:"abc123... (shown only in local-first mode)"`
-	ExpiresIn int    `json:"expires_in,omitempty" example:"3600"`
+	ExpiresIn  int    `json:"expires_in,omitempty" example:"3600"`
 }
 
 // ResetPasswordRequest is the payload for POST /auth/reset-password.
