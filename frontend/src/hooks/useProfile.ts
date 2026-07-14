@@ -115,9 +115,19 @@ export function useUpdateProfile() {
 
   return useMutation({
     mutationFn: async (data: UpdateProfileRequest): Promise<ProfileWithETag> => {
-      const cached = queryClient.getQueryData<ProfileWithETag>(profileKeys.current());
+      // Try cache first; if empty, fetch fresh (handles direct navigation to settings)
+      let cached = queryClient.getQueryData<ProfileWithETag>(profileKeys.current());
       if (!cached?.etag) {
-        throw new ApiError(0, "ETAG_MISSING", "Fetch profile before updating");
+        cached = await queryClient.fetchQuery({
+          queryKey: profileKeys.current(),
+          queryFn: async (): Promise<ProfileWithETag> => {
+            const result = await fetchProfile();
+            return { profile: result.profile, etag: result.etag };
+          },
+        });
+      }
+      if (!cached?.etag) {
+        throw new ApiError(0, "ETAG_MISSING", "Could not load profile for updating");
       }
       const result = await updateProfile(cached.etag, data);
       return { profile: result.profile, etag: result.etag };
@@ -154,9 +164,19 @@ export function usePatchProfile() {
 
   return useMutation({
     mutationFn: async (data: PatchProfileRequest): Promise<ProfileWithETag> => {
-      const cached = queryClient.getQueryData<ProfileWithETag>(profileKeys.current());
+      // Try cache first; if empty, fetch fresh (handles direct navigation to settings)
+      let cached = queryClient.getQueryData<ProfileWithETag>(profileKeys.current());
       if (!cached?.etag) {
-        throw new ApiError(0, "ETAG_MISSING", "Fetch profile before patching");
+        cached = await queryClient.fetchQuery({
+          queryKey: profileKeys.current(),
+          queryFn: async (): Promise<ProfileWithETag> => {
+            const result = await fetchProfile();
+            return { profile: result.profile, etag: result.etag };
+          },
+        });
+      }
+      if (!cached?.etag) {
+        throw new ApiError(0, "ETAG_MISSING", "Could not load profile for patching");
       }
       const result = await patchProfile(cached.etag, data);
       return { profile: result.profile, etag: result.etag };
