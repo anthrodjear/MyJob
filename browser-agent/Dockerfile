@@ -45,6 +45,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libasound2 \
     libstdc++6 \
     libdbus-1-3 \
+    libxkbcommon0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Add non-root user
