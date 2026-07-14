@@ -1,5 +1,5 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:20-bookworm-slim AS builder
 
 ARG BUILD_TIME=unknown
 
@@ -9,31 +9,46 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install all dependencies (including dev for build)
-RUN npm cache clean --force && npm ci --no-audit --no-fund
+RUN npm ci --no-audit --no-fund
 
 # Copy source code
 COPY . .
 
-# Set the path where Playwright installs browsers *during build*
+# Install Playwright Chromium with system dependencies
+# This automatically installs both the browser AND required system libraries
 ENV PLAYWRIGHT_BROWSERS_PATH=/app/.local-browsers
-RUN npx playwright install chromium
+RUN npx playwright install --with-deps chromium
 
 # Build TypeScript
 RUN npm run build
 
 
 # Runtime stage
-FROM node:20-alpine
+FROM node:20-bookworm-slim
 
-# Install Playwright system dependencies (chromium provided by Playwright copy, not apk)
-RUN apk add --no-cache \
-    nss \
-    freetype \
-    harfbuzz \
-    ttf-freefont
+# Install minimal runtime dependencies for Chromium
+# These are the runtime-only libraries (not build tools)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libasound2 \
+    libstdc++6 \
+    libdbus-1-3 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Add non-root user
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN groupadd -r appgroup && useradd -r -g appgroup -G audio,video appuser
 
 WORKDIR /app
 
@@ -41,7 +56,7 @@ WORKDIR /app
 COPY --chown=appuser:appgroup package*.json ./
 
 # Install production dependencies only (before copying built code/browsers)
-RUN npm cache clean --force && npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
+RUN npm ci --omit=dev --no-audit --no-fund
 
 # Copy built application code
 COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
@@ -53,8 +68,8 @@ COPY --from=builder --chown=appuser:appgroup /app/.local-browsers /app/.local-br
 ENV PLAYWRIGHT_BROWSERS_PATH=/app/.local-browsers
 ENV NODE_ENV=production
 
-USER appuser
-
 EXPOSE 3000
 
-CMD ["npm", "start"]
+USER appuser
+
+CMD ["node", "dist/index.js"]

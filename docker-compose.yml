@@ -65,7 +65,7 @@ services:
       - myjob-net
 
   livekit:
-    image: livekit/livekit-server:latest
+    image: livekit/livekit-server:v1.7.1
     restart: unless-stopped
     ports:
       - "7880:7880"

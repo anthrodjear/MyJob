@@ -36,8 +36,8 @@ WORKDIR /app
 COPY --from=builder --chown=appuser:appgroup /app/api .
 COPY --from=builder --chown=appuser:appgroup /app/internal/database/migrations ./migrations
 
-# Copy scripts
-COPY --chown=appuser:appgroup scripts/ ./scripts/
+# Copy scripts from builder (not build context) to avoid leaking source into runtime
+COPY --from=builder --chown=appuser:appgroup /app/scripts/ ./scripts/
 RUN chmod +x ./scripts/*.sh
 
 # Version metadata
@@ -50,5 +50,8 @@ ENV BUILD_TIME=${BUILD_TIME}
 USER appuser
 
 EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
 CMD ["./api"]

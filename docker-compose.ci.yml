@@ -1,53 +1,128 @@
-﻿# docker-compose.ci.yml — CI-specific overlay
+# docker-compose.ci.yml — CI-specific overlay
 # Usage: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+#
+# Selective startup (recommended for CI):
+#   docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d api worker postgres redis browser-agent
+#
+# Cleanup between runs:
+#   docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v
 
 services:
   api:
+    restart: "no"
     environment:
       DATABASE_URL: postgres://myjob:myjob_ci@postgres:5432/myjob?sslmode=disable
       REDIS_URL: redis://redis:6379
-      AUTH_PASSWORD_HASH: "$2a$10$dummy_hash_for_ci_testing_only"
-      AUTH_JWT_SECRET: ci-test-secret-do-not-use-in-production
+      AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH:-$2a$10$dummy_hash_for_ci_testing_only}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-ci-test-secret-do-not-use-in-production}
+      OLLAMA_BASE_URL: ""
+      LLM_PRIMARY_PROVIDER: none
+      LLM_FALLBACK_PROVIDER: none
+      VOICE_PROVIDER: none
       APP_ENV: ci
       CONFIG_PATH: /app/config/application.yaml
+      LOG_LEVEL: warn
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
     healthcheck:
       interval: 5s
       timeout: 3s
-      retries: 3
-      start_period: 10s
+      retries: 12
+      start_period: 60s
 
   worker:
+    restart: "no"
     environment:
       DATABASE_URL: postgres://myjob:myjob_ci@postgres:5432/myjob?sslmode=disable
       REDIS_URL: redis://redis:6379
-      AUTH_PASSWORD_HASH: "$2a$10$dummy_hash_for_ci_testing_only"
-      AUTH_JWT_SECRET: ci-test-secret-do-not-use-in-production
+      AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH:-$2a$10$dummy_hash_for_ci_testing_only}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-ci-test-secret-do-not-use-in-production}
       BROWSER_AGENT_URL: http://browser-agent:3000
+      OLLAMA_BASE_URL: ""
+      LLM_PRIMARY_PROVIDER: none
+      LLM_FALLBACK_PROVIDER: none
       APP_ENV: ci
       CONFIG_PATH: /app/config/application.yaml
+      LOG_LEVEL: warn
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+    healthcheck:
+      test: ["CMD", "pgrep", "-x", "worker"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
 
   browser-agent:
+    restart: "no"
     environment:
       REDIS_URL: redis://redis:6379
       API_URL: http://api:8080
+      OLLAMA_BASE_URL: ""
       LOG_LEVEL: info
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
 
   frontend:
+    restart: "no"
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8080
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8080
       INTERNAL_API_URL: http://api:8080
       NODE_ENV: production
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
 
   postgres:
+    restart: "no"
     environment:
-      POSTGRES_PASSWORD: myjob_ci
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-myjob_ci}
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
     healthcheck:
       interval: 3s
       timeout: 3s
       retries: 5
+      start_period: 10s
 
   redis:
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
     healthcheck:
       interval: 3s
       timeout: 3s
       retries: 5
+      start_period: 10s

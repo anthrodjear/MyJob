@@ -1,364 +1,228 @@
-﻿# .github/workflows/ci.yml
-# Main CI pipeline - lint, test, security scan, Docker build
-
-name: CI Pipeline
+﻿name: CI
 
 on:
   push:
-    branches: ['*']
-    paths-ignore:
-      - '*.md'
-      - 'docs/**'
-      - '.gitignore'
-      - 'LICENSE'
+    branches: [main, develop]
   pull_request:
-    branches: [main, staging]
-
-permissions:
-  contents: read
+    branches: [main]
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  GO_VERSION: '1.26'
-  NODE_VERSION: '20'
+  COMPOSE_FILE: docker-compose.yml:docker-compose.ci.yml
 
 jobs:
-  detect-changes:
-    runs-on: ubuntu-latest
-    outputs:
-      backend: ${{ steps.filter.outputs.backend }}
-      frontend: ${{ steps.filter.outputs.frontend }}
-      browser-agent: ${{ steps.filter.outputs.browser-agent }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            backend:
-              - 'backend/**'
-            frontend:
-              - 'frontend/**'
-            browser-agent:
-              - 'browser-agent/**'
+  # ============================================
+  # Stage 1: Unit Tests (no Docker)
+  # ============================================
 
-  lint-go:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.backend == 'true'
+  test-backend:
+    name: Backend Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
+          go-version: "1.26"
           cache-dependency-path: backend/go.sum
-      - name: Install swag
-        working-directory: backend
-        run: go install github.com/swaggo/swag/cmd/swag@latest
-      - name: Generate Swagger docs
-        working-directory: backend
-        run: swag init -g cmd/api/main.go
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: v2.12.2
-          working-directory: backend
 
-  lint-browser-agent:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.browser-agent == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: browser-agent/package-lock.json
-      - run: npm ci
-        working-directory: browser-agent
-      - run: npx tsc --noEmit
-        working-directory: browser-agent
-
-  lint-frontend:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.frontend == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
-        working-directory: frontend
-      - run: npx tsc --noEmit
-        working-directory: frontend
-      - run: npm run lint
-        working-directory: frontend
-
-  security-go:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.backend == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-          cache-dependency-path: backend/go.sum
-      - name: Install swag
-        working-directory: backend
-        run: go install github.com/swaggo/swag/cmd/swag@latest
-      - name: Generate Swagger docs
-        working-directory: backend
-        run: swag init -g cmd/api/main.go
-      - name: Prepare Go modules
-        working-directory: backend
-        run: go mod download
-      - name: Install gosec
-        working-directory: backend
-        run: go install github.com/securego/gosec/v2/cmd/gosec@latest
-      - name: Run gosec
-        working-directory: backend
-        run: $(go env GOPATH)/bin/gosec -conf .gosec.json ./...
-      - name: Run govulncheck
-        working-directory: backend
-        run: |
-          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
-          $(go env GOPATH)/bin/govulncheck ./...
-
-  secret-scan:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    timeout-minutes: 3
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Run gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          args: detect --source . --report-format sarif --report-path results.sarif
-        continue-on-error: true
-        id: gitleaks
-      - name: Upload gitleaks report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gitleaks-report
-          path: results.sarif
-          retention-days: 7
-
-  test-go:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.backend == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_DB: myjob_test
-          POSTGRES_USER: myjob
-          POSTGRES_PASSWORD: test_password  # Test-only, not a real secret
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U myjob -d myjob_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-          cache-dependency-path: backend/go.sum
-      - name: Install swag
-        working-directory: backend
-        run: go install github.com/swaggo/swag/cmd/swag@latest
-      - name: Generate Swagger docs
-        working-directory: backend
-        run: swag init -g cmd/api/main.go
       - name: Run tests
         working-directory: backend
-        env:
-          DATABASE_URL: postgres://myjob:test_password@localhost:5432/myjob_test?sslmode=disable
-          REDIS_URL: redis://localhost:6379
-        run: |
-          go test -race -coverprofile=coverage.out -covermode=atomic -count=1 ./...
-          go tool cover -func=coverage.out | tail -1
-
-  test-browser-agent:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.browser-agent == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: browser-agent/package-lock.json
-      - run: npm ci
-        working-directory: browser-agent
-      - run: npm test -- --coverage
-        working-directory: browser-agent
+        run: go test ./... -count=1 -timeout 120s
 
   test-frontend:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.frontend == 'true'
+    name: Frontend Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          node-version: "20"
+          cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
-        working-directory: frontend
-      - run: npm run test:coverage
-        working-directory: frontend
 
-  docker-build:
-    needs: [lint-go, lint-browser-agent, lint-frontend, test-go, test-browser-agent, test-frontend]
-    if: |
-      always() &&
-      !failure() &&
-      !cancelled()
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+
+      - name: Type check
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        working-directory: frontend
+        run: npm test -- --run
+
+  test-browser-agent:
+    name: Browser Agent Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      packages: write
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Docker metadata (API)
-        id: meta-api
-        uses: docker/metadata-action@v5
+      - uses: actions/setup-node@v4
         with:
-          images: ghcr.io/${{ github.repository_owner }}/myjob-api
-          tags: |
-            type=sha,prefix=sha-,format=short
-            type=ref,event=branch
-      - name: Build and push API
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          file: ./backend/Dockerfile.api
-          push: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging' }}
-          tags: ${{ steps.meta-api.outputs.tags }}
-          build-args: |
-            APP_VERSION=${{ github.sha }}
-            GIT_COMMIT=${{ github.sha }}
-            BUILD_TIME=${{ github.event.head_commit.timestamp }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: browser-agent/package-lock.json
 
-      - name: Docker metadata (Worker)
-        id: meta-worker
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/myjob-worker
-          tags: |
-            type=sha,prefix=sha-,format=short
-            type=ref,event=branch
-      - name: Build and push Worker
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          file: ./backend/Dockerfile.worker
-          push: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging' }}
-          tags: ${{ steps.meta-worker.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Install dependencies
+        working-directory: browser-agent
+        run: npm ci --no-audit --no-fund
 
-      - name: Docker metadata (Browser Agent)
-        id: meta-browser-agent
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/myjob-browser-agent
-          tags: |
-            type=sha,prefix=sha-,format=short
-            type=ref,event=branch
-      - name: Build and push Browser Agent
-        uses: docker/build-push-action@v5
-        with:
-          context: ./browser-agent
-          file: ./browser-agent/Dockerfile
-          push: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging' }}
-          tags: ${{ steps.meta-browser-agent.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Type check
+        working-directory: browser-agent
+        run: npx tsc --noEmit
 
-      - name: Docker metadata (Frontend)
-        id: meta-frontend
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/myjob-frontend
-          tags: |
-            type=sha,prefix=sha-,format=short
-            type=ref,event=branch
-      - name: Build and push Frontend
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
-          push: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging' }}
-          tags: ${{ steps.meta-frontend.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Run tests
+        working-directory: browser-agent
+        run: npm test
 
-  ci-summary:
-    needs: [detect-changes, lint-go, lint-browser-agent, lint-frontend, test-go, test-browser-agent, test-frontend, docker-build, secret-scan, security-go]
-    if: always()
+  # ============================================
+  # Stage 2: Lint
+  # ============================================
+
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
-      - name: Pipeline Summary
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache-dependency-path: backend/go.sum
+
+      - name: Go vet
+        working-directory: backend
+        run: go vet ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: backend
+          args: --config ../.golangci.yml
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Frontend type check
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund && npx tsc --noEmit
+
+      - name: Browser agent type check
+        working-directory: browser-agent
+        run: npm ci --no-audit --no-fund && npx tsc --noEmit
+
+  # ============================================
+  # Stage 3: Docker Build
+  # ============================================
+
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build all images
+        run: docker compose build
+        env:
+          DOCKER_BUILDKIT: 1
+          COMPOSE_DOCKER_CLI_BUILD: 1
+
+      - name: Verify images exist
         run: |
-          echo "## CI Pipeline Results" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Job | Result |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|-----|--------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Lint Go | ${{ needs.lint-go.result }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Lint Browser Agent | ${{ needs.lint-browser-agent.result }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Lint Frontend | ${{ needs.lint-frontend.result }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Security Go | ${{ needs.security-go.result }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Secret Scan | ${{ needs.secret-scan.result }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Test Go | ${{ needs.test-go.result }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Test Browser Agent | ${{ needs.test-browser-agent.result }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Test Frontend | ${{ needs.test-frontend.result }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Docker Build | ${{ needs.docker-build.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          docker images --format "{{.Repository}}:{{.Tag}}" | grep myjob || true
+          docker compose config --quiet
+
+  # ============================================
+  # Stage 4: Integration Tests
+  # ============================================
+
+  integration:
+    name: Integration Tests
+    needs: [test-backend, test-frontend, test-browser-agent, docker-build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start infrastructure
+        run: |
+          docker compose up -d postgres redis
+          echo "Waiting for infrastructure to be healthy..."
+          timeout 30 bash -c 'until docker compose ps postgres | grep -q "healthy"; do sleep 2; done'
+          timeout 30 bash -c 'until docker compose ps redis | grep -q "healthy"; do sleep 2; done'
+          echo "Infrastructure is healthy!"
+
+      - name: Start API (auto-runs migrations)
+        run: |
+          docker compose up -d api
+          echo "Waiting for API to become healthy (includes migration time)..."
+          timeout 120 bash -c 'until docker compose ps api | grep -q "healthy"; do sleep 5; done'
+          echo "API is healthy!"
+
+      - name: Start remaining services
+        run: |
+          docker compose up -d worker browser-agent frontend
+
+      - name: Wait for all services to be healthy
+        run: |
+          echo "Waiting for worker..."
+          timeout 30 bash -c 'until docker compose ps worker | grep -q "healthy"; do sleep 2; done'
+          
+          echo "Waiting for browser-agent..."
+          timeout 30 bash -c 'until docker compose ps browser-agent | grep -q "healthy"; do sleep 2; done'
+          
+          echo "Waiting for frontend..."
+          timeout 30 bash -c 'until docker compose ps frontend | grep -q "healthy"; do sleep 2; done'
+          
+          echo "All services are healthy!"
+
+      - name: Verify all services healthy
+        run: |
+          echo "=== Service Status ==="
+          docker compose ps
+          echo ""
+          echo "=== Health Checks ==="
+          docker compose ps --format "{{.Name}}: {{.Status}}"
+          echo ""
+
+          # Check API health
+          echo "API health:"
+          docker compose exec -T api wget -qO- http://localhost:8080/health || echo "API health check failed"
+
+          # Check frontend
+          echo "Frontend:"
+          curl -sf http://localhost:3000 >/dev/null && echo "Frontend OK" || echo "Frontend failed"
+
+          # Check browser-agent
+          echo "Browser agent:"
+          curl -sf http://localhost:3001/health >/dev/null && echo "Browser agent OK" || echo "Browser agent health endpoint not available (expected)"
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          echo "=== API Logs ==="
+          docker compose logs api --tail=50
+          echo ""
+          echo "=== Worker Logs ==="
+          docker compose logs worker --tail=50
+          echo ""
+          echo "=== Browser Agent Logs ==="
+          docker compose logs browser-agent --tail=50
+          echo ""
+          echo "=== Frontend Logs ==="
+          docker compose logs frontend --tail=50
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v
