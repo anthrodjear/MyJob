@@ -29,6 +29,7 @@ FROM node:20-bookworm-slim
 # Install minimal runtime dependencies for Chromium
 # These are the runtime-only libraries (not build tools)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
     libnss3 \
     libnspr4 \
     libatk1.0-0 \
