@@ -17,7 +17,7 @@
 
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useSetOverride, executeOverrides } from "@/hooks/useSystemConfig";
 import type { ScoringSection as ScoringSectionType } from "@/lib/types/config";
 import { Button } from "@/components/shared/Button";
@@ -72,47 +72,133 @@ export function ScoringSection({ scoring, onSaved }: ScoringSectionProps) {
     scoring.weights.Description.toString(),
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const clearError = useCallback(() => setError(null), []);
+
+  // Sync state when props change (skip initial mount)
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    setAutoThreshold(scoring.auto_threshold.toString());
+    setReviewThreshold(scoring.review_threshold.toString());
+    setMode(scoring.mode);
+    setHybridRejectMargin(scoring.hybrid_reject_margin.toString());
+    setSkillWeight(scoring.weights.Skill.toString());
+    setExperienceWeight(scoring.weights.Experience.toString());
+    setLocationWeight(scoring.weights.Location.toString());
+    setSalaryWeight(scoring.weights.Salary.toString());
+    setDescriptionWeight(scoring.weights.Description.toString());
+  }, [scoring]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       setIsSaving(true);
+      setError(null);
 
       const overrides: Array<[string, number | string]> = [];
 
+      // Validate and add threshold overrides
       if (autoThreshold !== scoring.auto_threshold.toString()) {
-        overrides.push(["scoring.auto_threshold", parseInt(autoThreshold, 10)]);
+        const parsed = parseInt(autoThreshold, 10);
+        if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) {
+          setError("Auto-Apply Threshold must be a valid number between 0 and 100.");
+          setIsSaving(false);
+          return;
+        }
+        overrides.push(["scoring.auto_threshold", parsed]);
       }
       if (reviewThreshold !== scoring.review_threshold.toString()) {
-        overrides.push(["scoring.review_threshold", parseInt(reviewThreshold, 10)]);
+        const parsed = parseInt(reviewThreshold, 10);
+        if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) {
+          setError("Review Threshold must be a valid number between 0 and 100.");
+          setIsSaving(false);
+          return;
+        }
+        overrides.push(["scoring.review_threshold", parsed]);
       }
       if (mode !== scoring.mode) {
         overrides.push(["scoring.mode", mode]);
       }
       if (hybridRejectMargin !== scoring.hybrid_reject_margin.toString()) {
-        overrides.push([
-          "scoring.hybrid_reject_margin",
-          parseInt(hybridRejectMargin, 10),
-        ]);
-      }
-      if (skillWeight !== scoring.weights.Skill.toString()) {
-        overrides.push(["scoring.weights.skill", parseFloat(skillWeight)]);
-      }
-      if (experienceWeight !== scoring.weights.Experience.toString()) {
-        overrides.push(["scoring.weights.experience", parseFloat(experienceWeight)]);
-      }
-      if (locationWeight !== scoring.weights.Location.toString()) {
-        overrides.push(["scoring.weights.location", parseFloat(locationWeight)]);
-      }
-      if (salaryWeight !== scoring.weights.Salary.toString()) {
-        overrides.push(["scoring.weights.salary", parseFloat(salaryWeight)]);
-      }
-      if (descriptionWeight !== scoring.weights.Description.toString()) {
-        overrides.push(["scoring.weights.description", parseFloat(descriptionWeight)]);
+        const parsed = parseInt(hybridRejectMargin, 10);
+        if (Number.isNaN(parsed) || parsed < 0 || parsed > 50) {
+          setError("Hybrid Reject Margin must be a valid number between 0 and 50.");
+          setIsSaving(false);
+          return;
+        }
+        overrides.push(["scoring.hybrid_reject_margin", parsed]);
       }
 
-      await executeOverrides(overrides, mutateAsync, onSaved);
-      setIsSaving(false);
+      // Validate and add weight overrides
+      if (skillWeight !== scoring.weights.Skill.toString()) {
+        const parsed = parseFloat(skillWeight);
+        if (Number.isNaN(parsed) || parsed < 0 || parsed > 1) {
+          setError("Skill weight must be a valid number between 0 and 1.");
+          setIsSaving(false);
+          return;
+        }
+        overrides.push(["scoring.weights.skill", parsed]);
+      }
+      if (experienceWeight !== scoring.weights.Experience.toString()) {
+        const parsed = parseFloat(experienceWeight);
+        if (Number.isNaN(parsed) || parsed < 0 || parsed > 1) {
+          setError("Experience weight must be a valid number between 0 and 1.");
+          setIsSaving(false);
+          return;
+        }
+        overrides.push(["scoring.weights.experience", parsed]);
+      }
+      if (locationWeight !== scoring.weights.Location.toString()) {
+        const parsed = parseFloat(locationWeight);
+        if (Number.isNaN(parsed) || parsed < 0 || parsed > 1) {
+          setError("Location weight must be a valid number between 0 and 1.");
+          setIsSaving(false);
+          return;
+        }
+        overrides.push(["scoring.weights.location", parsed]);
+      }
+      if (salaryWeight !== scoring.weights.Salary.toString()) {
+        const parsed = parseFloat(salaryWeight);
+        if (Number.isNaN(parsed) || parsed < 0 || parsed > 1) {
+          setError("Salary weight must be a valid number between 0 and 1.");
+          setIsSaving(false);
+          return;
+        }
+        overrides.push(["scoring.weights.salary", parsed]);
+      }
+      if (descriptionWeight !== scoring.weights.Description.toString()) {
+        const parsed = parseFloat(descriptionWeight);
+        if (Number.isNaN(parsed) || parsed < 0 || parsed > 1) {
+          setError("Description weight must be a valid number between 0 and 1.");
+          setIsSaving(false);
+          return;
+        }
+        overrides.push(["scoring.weights.description", parsed]);
+      }
+
+      try {
+        const result = await executeOverrides(overrides, mutateAsync, onSaved);
+        if (result.failed > 0) {
+          setError(
+            result.failed === result.total
+              ? "Failed to save scoring settings. Please try again."
+              : `Partially saved: ${result.succeeded} of ${result.total} settings saved. ${result.failed} failed.`,
+          );
+        }
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to save scoring settings. Please try again.",
+        );
+      } finally {
+        setIsSaving(false);
+      }
     },
     [
       autoThreshold,
@@ -132,9 +218,11 @@ export function ScoringSection({ scoring, onSaved }: ScoringSectionProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="rounded-md bg-danger-light p-3 text-sm text-danger-dark" role="alert">
-        Failed to save scoring settings. Please try again.
-      </div>
+      {error && (
+        <div className="rounded-md bg-danger-light p-3 text-sm text-danger-dark" role="alert">
+          {error}
+        </div>
+      )}
 
       {/* Thresholds */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -151,7 +239,10 @@ export function ScoringSection({ scoring, onSaved }: ScoringSectionProps) {
             min="0"
             max="100"
             value={autoThreshold}
-            onChange={(e) => setAutoThreshold(e.target.value)}
+            onChange={(e) => {
+              setAutoThreshold(e.target.value);
+              clearError();
+            }}
             className={INPUT_CLASS}
           />
           <p className="mt-1 text-xs text-text-secondary">
@@ -171,7 +262,10 @@ export function ScoringSection({ scoring, onSaved }: ScoringSectionProps) {
             min="0"
             max="100"
             value={reviewThreshold}
-            onChange={(e) => setReviewThreshold(e.target.value)}
+            onChange={(e) => {
+              setReviewThreshold(e.target.value);
+              clearError();
+            }}
             className={INPUT_CLASS}
           />
           <p className="mt-1 text-xs text-text-secondary">
@@ -192,7 +286,10 @@ export function ScoringSection({ scoring, onSaved }: ScoringSectionProps) {
           <select
             id="scoring-mode"
             value={mode}
-            onChange={(e) => setMode(e.target.value as ScoringSectionType["mode"])}
+            onChange={(e) => {
+              setMode(e.target.value as ScoringSectionType["mode"]);
+              clearError();
+            }}
             className={INPUT_CLASS}
           >
             <option value="heuristic">Heuristic (fast, keyword-based)</option>
@@ -213,7 +310,10 @@ export function ScoringSection({ scoring, onSaved }: ScoringSectionProps) {
             min="0"
             max="50"
             value={hybridRejectMargin}
-            onChange={(e) => setHybridRejectMargin(e.target.value)}
+            onChange={(e) => {
+              setHybridRejectMargin(e.target.value);
+              clearError();
+            }}
             className={INPUT_CLASS}
           />
           <p className="mt-1 text-xs text-text-secondary">
@@ -242,7 +342,10 @@ export function ScoringSection({ scoring, onSaved }: ScoringSectionProps) {
               min="0"
               max="1"
               value={skillWeight}
-              onChange={(e) => setSkillWeight(e.target.value)}
+              onChange={(e) => {
+                setSkillWeight(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -260,7 +363,10 @@ export function ScoringSection({ scoring, onSaved }: ScoringSectionProps) {
               min="0"
               max="1"
               value={experienceWeight}
-              onChange={(e) => setExperienceWeight(e.target.value)}
+              onChange={(e) => {
+                setExperienceWeight(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -278,7 +384,10 @@ export function ScoringSection({ scoring, onSaved }: ScoringSectionProps) {
               min="0"
               max="1"
               value={locationWeight}
-              onChange={(e) => setLocationWeight(e.target.value)}
+              onChange={(e) => {
+                setLocationWeight(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -296,7 +405,10 @@ export function ScoringSection({ scoring, onSaved }: ScoringSectionProps) {
               min="0"
               max="1"
               value={salaryWeight}
-              onChange={(e) => setSalaryWeight(e.target.value)}
+              onChange={(e) => {
+                setSalaryWeight(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -314,7 +426,10 @@ export function ScoringSection({ scoring, onSaved }: ScoringSectionProps) {
               min="0"
               max="1"
               value={descriptionWeight}
-              onChange={(e) => setDescriptionWeight(e.target.value)}
+              onChange={(e) => {
+                setDescriptionWeight(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>

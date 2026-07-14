@@ -15,7 +15,7 @@
 
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useSetOverride, executeOverrides } from "@/hooks/useSystemConfig";
 import type {
   EmailSection as EmailSectionType,
@@ -76,19 +76,51 @@ export function EmailInterviewSection({
     interview.planner.min_substantive_length.toString(),
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const clearError = useCallback(() => setError(null), []);
+
+  // Sync state when props change (skip initial mount)
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    setEmailProvider(email.provider);
+    setCheckInterval(email.check_interval);
+    setFolders(email.folders.join(", "));
+    setMaxRecentSegments(interview.memory.max_recent_segments.toString());
+    setKeepAfterSummarize(interview.memory.keep_after_summarize.toString());
+    setLlmTimeoutMs(interview.responder.llm.timeout_ms.toString());
+    setLlmRetries(interview.responder.llm.retries.toString());
+    setDuplicateThreshold(interview.planner.duplicate_threshold.toString());
+    setMinSubstantiveLength(interview.planner.min_substantive_length.toString());
+  }, [email, interview]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       setIsSaving(true);
+      setError(null);
 
       const overrides: Array<[string, unknown]> = [];
 
       // Email overrides
       if (emailProvider !== email.provider) {
+        if (!emailProvider.trim()) {
+          setError("Email provider cannot be empty.");
+          setIsSaving(false);
+          return;
+        }
         overrides.push(["email.provider", emailProvider]);
       }
       if (checkInterval !== email.check_interval) {
+        if (!checkInterval.trim()) {
+          setError("Check interval cannot be empty.");
+          setIsSaving(false);
+          return;
+        }
         overrides.push(["email.check_interval", checkInterval]);
       }
       const parsedFolders = folders
@@ -101,30 +133,82 @@ export function EmailInterviewSection({
 
       // Interview memory overrides
       if (maxRecentSegments !== interview.memory.max_recent_segments.toString()) {
-        overrides.push(["interview.memory.max_recent_segments", parseInt(maxRecentSegments, 10)]);
+        const parsed = parseInt(maxRecentSegments, 10);
+        if (Number.isNaN(parsed) || parsed < 1 || parsed > 100) {
+          setError("Max Recent Segments must be a valid number between 1 and 100.");
+          setIsSaving(false);
+          return;
+        }
+        overrides.push(["interview.memory.max_recent_segments", parsed]);
       }
       if (keepAfterSummarize !== interview.memory.keep_after_summarize.toString()) {
-        overrides.push(["interview.memory.keep_after_summarize", parseInt(keepAfterSummarize, 10)]);
+        const parsed = parseInt(keepAfterSummarize, 10);
+        if (Number.isNaN(parsed) || parsed < 0 || parsed > 50) {
+          setError("Keep After Summarize must be a valid number between 0 and 50.");
+          setIsSaving(false);
+          return;
+        }
+        overrides.push(["interview.memory.keep_after_summarize", parsed]);
       }
 
       // Interview responder overrides
       if (llmTimeoutMs !== interview.responder.llm.timeout_ms.toString()) {
-        overrides.push(["interview.responder.llm.timeout_ms", parseInt(llmTimeoutMs, 10)]);
+        const parsed = parseInt(llmTimeoutMs, 10);
+        if (Number.isNaN(parsed) || parsed < 1000 || parsed > 120000) {
+          setError("LLM Timeout must be a valid number between 1000 and 120000 ms.");
+          setIsSaving(false);
+          return;
+        }
+        overrides.push(["interview.responder.llm.timeout_ms", parsed]);
       }
       if (llmRetries !== interview.responder.llm.retries.toString()) {
-        overrides.push(["interview.responder.llm.retries", parseInt(llmRetries, 10)]);
+        const parsed = parseInt(llmRetries, 10);
+        if (Number.isNaN(parsed) || parsed < 0 || parsed > 10) {
+          setError("LLM Retries must be a valid number between 0 and 10.");
+          setIsSaving(false);
+          return;
+        }
+        overrides.push(["interview.responder.llm.retries", parsed]);
       }
 
       // Interview planner overrides
       if (duplicateThreshold !== interview.planner.duplicate_threshold.toString()) {
-        overrides.push(["interview.planner.duplicate_threshold", parseFloat(duplicateThreshold)]);
+        const parsed = parseFloat(duplicateThreshold);
+        if (Number.isNaN(parsed) || parsed < 0 || parsed > 1) {
+          setError("Duplicate Threshold must be a valid number between 0 and 1.");
+          setIsSaving(false);
+          return;
+        }
+        overrides.push(["interview.planner.duplicate_threshold", parsed]);
       }
       if (minSubstantiveLength !== interview.planner.min_substantive_length.toString()) {
-        overrides.push(["interview.planner.min_substantive_length", parseInt(minSubstantiveLength, 10)]);
+        const parsed = parseInt(minSubstantiveLength, 10);
+        if (Number.isNaN(parsed) || parsed < 1 || parsed > 500) {
+          setError("Min Substantive Length must be a valid number between 1 and 500.");
+          setIsSaving(false);
+          return;
+        }
+        overrides.push(["interview.planner.min_substantive_length", parsed]);
       }
 
-      await executeOverrides(overrides, mutateAsync, onSaved);
-      setIsSaving(false);
+      try {
+        const result = await executeOverrides(overrides, mutateAsync, onSaved);
+        if (result.failed > 0) {
+          setError(
+            result.failed === result.total
+              ? "Failed to save email/interview settings. Please try again."
+              : `Partially saved: ${result.succeeded} of ${result.total} settings saved. ${result.failed} failed.`,
+          );
+        }
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to save email/interview settings. Please try again.",
+        );
+      } finally {
+        setIsSaving(false);
+      }
     },
     [
       emailProvider, checkInterval, folders,
@@ -137,9 +221,11 @@ export function EmailInterviewSection({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="rounded-md bg-danger-light p-3 text-sm text-danger-dark" role="alert">
-        Failed to save email/interview settings. Please try again.
-      </div>
+      {error && (
+        <div className="rounded-md bg-danger-light p-3 text-sm text-danger-dark" role="alert">
+          {error}
+        </div>
+      )}
 
       {/* Email Settings */}
       <fieldset className="space-y-4">
@@ -153,7 +239,10 @@ export function EmailInterviewSection({
               id="email-provider"
               type="text"
               value={emailProvider}
-              onChange={(e) => setEmailProvider(e.target.value)}
+              onChange={(e) => {
+                setEmailProvider(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -165,7 +254,10 @@ export function EmailInterviewSection({
               id="check-interval"
               type="text"
               value={checkInterval}
-              onChange={(e) => setCheckInterval(e.target.value)}
+              onChange={(e) => {
+                setCheckInterval(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
             <p className="mt-1 text-xs text-text-secondary">
@@ -181,7 +273,10 @@ export function EmailInterviewSection({
             id="email-folders"
             type="text"
             value={folders}
-            onChange={(e) => setFolders(e.target.value)}
+            onChange={(e) => {
+              setFolders(e.target.value);
+              clearError();
+            }}
             className={INPUT_CLASS}
           />
           <p className="mt-1 text-xs text-text-secondary">
@@ -204,7 +299,10 @@ export function EmailInterviewSection({
               min="1"
               max="100"
               value={maxRecentSegments}
-              onChange={(e) => setMaxRecentSegments(e.target.value)}
+              onChange={(e) => {
+                setMaxRecentSegments(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -218,7 +316,10 @@ export function EmailInterviewSection({
               min="0"
               max="50"
               value={keepAfterSummarize}
-              onChange={(e) => setKeepAfterSummarize(e.target.value)}
+              onChange={(e) => {
+                setKeepAfterSummarize(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -239,7 +340,10 @@ export function EmailInterviewSection({
               min="1000"
               max="120000"
               value={llmTimeoutMs}
-              onChange={(e) => setLlmTimeoutMs(e.target.value)}
+              onChange={(e) => {
+                setLlmTimeoutMs(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -253,7 +357,10 @@ export function EmailInterviewSection({
               min="0"
               max="10"
               value={llmRetries}
-              onChange={(e) => setLlmRetries(e.target.value)}
+              onChange={(e) => {
+                setLlmRetries(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -275,7 +382,10 @@ export function EmailInterviewSection({
               min="0"
               max="1"
               value={duplicateThreshold}
-              onChange={(e) => setDuplicateThreshold(e.target.value)}
+              onChange={(e) => {
+                setDuplicateThreshold(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -289,7 +399,10 @@ export function EmailInterviewSection({
               min="1"
               max="500"
               value={minSubstantiveLength}
-              onChange={(e) => setMinSubstantiveLength(e.target.value)}
+              onChange={(e) => {
+                setMinSubstantiveLength(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -298,7 +411,7 @@ export function EmailInterviewSection({
 
       <div className="flex justify-end">
         <Button type="submit" variant="primary" disabled={isSaving} loading={isSaving}>
-          Save Email &amp; Interview Settings
+          Save Email & Interview Settings
         </Button>
       </div>
     </form>

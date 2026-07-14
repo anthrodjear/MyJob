@@ -16,7 +16,7 @@
 
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useSetOverride, executeOverrides } from "@/hooks/useSystemConfig";
 import type { VoiceSection as VoiceSectionType } from "@/lib/types/config";
 import { Button } from "@/components/shared/Button";
@@ -50,38 +50,84 @@ export function VoiceSection({ voice, onSaved }: VoiceSectionProps) {
   const [livekitUrl, setLivekitUrl] = useState(voice.livekit.url);
   const [livekitApiKey, setLivekitApiKey] = useState(voice.livekit.api_key);
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const clearError = useCallback(() => setError(null), []);
+
+  // Sync state when props change (skip initial mount)
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    setProvider(voice.provider);
+    setModel(voice.model);
+    setLivekitUrl(voice.livekit.url);
+    setLivekitApiKey(voice.livekit.api_key);
+  }, [voice]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       setIsSaving(true);
+      setError(null);
 
       const overrides: Array<[string, string]> = [];
 
       if (provider !== voice.provider) {
+        if (!provider.trim()) {
+          setError("Provider name cannot be empty.");
+          setIsSaving(false);
+          return;
+        }
         overrides.push(["voice.provider", provider]);
       }
       if (model !== voice.model) {
         overrides.push(["voice.model", model]);
       }
       if (livekitUrl !== voice.livekit.url) {
+        const trimmedUrl = livekitUrl.trim();
+        if (trimmedUrl && !/^wss?:\/\//.test(trimmedUrl)) {
+          setError("LiveKit URL must start with ws:// or wss://");
+          setIsSaving(false);
+          return;
+        }
         overrides.push(["voice.livekit.url", livekitUrl]);
       }
       if (livekitApiKey !== voice.livekit.api_key) {
         overrides.push(["voice.livekit.api_key", livekitApiKey]);
       }
 
-      await executeOverrides(overrides, mutateAsync, onSaved);
-      setIsSaving(false);
+      try {
+        const result = await executeOverrides(overrides, mutateAsync, onSaved);
+        if (result.failed > 0) {
+          setError(
+            result.failed === result.total
+              ? "Failed to save voice settings. Please try again."
+              : `Partially saved: ${result.succeeded} of ${result.total} settings saved. ${result.failed} failed.`,
+          );
+        }
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to save voice settings. Please try again.",
+        );
+      } finally {
+        setIsSaving(false);
+      }
     },
     [provider, model, livekitUrl, livekitApiKey, voice, mutateAsync, onSaved],
   );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="rounded-md bg-danger-light p-3 text-sm text-danger-dark" role="alert">
-        Failed to save voice settings. Please try again.
-      </div>
+      {error && (
+        <div className="rounded-md bg-danger-light p-3 text-sm text-danger-dark" role="alert">
+          {error}
+        </div>
+      )}
 
       {/* Provider Settings */}
       <fieldset className="space-y-4">
@@ -95,7 +141,10 @@ export function VoiceSection({ voice, onSaved }: VoiceSectionProps) {
               id="voice-provider"
               type="text"
               value={provider}
-              onChange={(e) => setProvider(e.target.value)}
+              onChange={(e) => {
+                setProvider(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -107,7 +156,10 @@ export function VoiceSection({ voice, onSaved }: VoiceSectionProps) {
               id="voice-model"
               type="text"
               value={model}
-              onChange={(e) => setModel(e.target.value)}
+              onChange={(e) => {
+                setModel(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -125,7 +177,10 @@ export function VoiceSection({ voice, onSaved }: VoiceSectionProps) {
             id="livekit-url"
             type="text"
             value={livekitUrl}
-            onChange={(e) => setLivekitUrl(e.target.value)}
+            onChange={(e) => {
+              setLivekitUrl(e.target.value);
+              clearError();
+            }}
             className={INPUT_CLASS}
           />
           <p className="mt-1 text-xs text-text-secondary">
@@ -140,7 +195,10 @@ export function VoiceSection({ voice, onSaved }: VoiceSectionProps) {
             id="livekit-api-key"
             type="password"
             value={livekitApiKey}
-            onChange={(e) => setLivekitApiKey(e.target.value)}
+            onChange={(e) => {
+              setLivekitApiKey(e.target.value);
+              clearError();
+            }}
             className={INPUT_CLASS}
           />
           <p className="mt-1 text-xs text-text-secondary">

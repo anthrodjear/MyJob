@@ -15,7 +15,7 @@
 
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useSetOverride, executeOverrides } from "@/hooks/useSystemConfig";
 import type { ApprovalTiersSection as ApprovalTiersSectionType } from "@/lib/types/config";
 import { Button } from "@/components/shared/Button";
@@ -59,20 +59,63 @@ export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSe
   const [rejectAction, setRejectAction] = useState(approvalTiers.reject.action);
   const [rejectNotify, setRejectNotify] = useState(approvalTiers.reject.notify ?? false);
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const clearError = useCallback(() => setError(null), []);
+
+  // Sync state when props change (skip initial mount)
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    setAutoMin(approvalTiers.auto_apply.min_score.toString());
+    setAutoMax(approvalTiers.auto_apply.max_score?.toString() ?? "");
+    setAutoAction(approvalTiers.auto_apply.action);
+    setAutoNotify(approvalTiers.auto_apply.notify ?? false);
+
+    setReviewMin(approvalTiers.review.min_score.toString());
+    setReviewMax(approvalTiers.review.max_score?.toString() ?? "");
+    setReviewAction(approvalTiers.review.action);
+    setReviewNotify(approvalTiers.review.notify ?? false);
+
+    setRejectMin(approvalTiers.reject.min_score.toString());
+    setRejectMax(approvalTiers.reject.max_score?.toString() ?? "");
+    setRejectAction(approvalTiers.reject.action);
+    setRejectNotify(approvalTiers.reject.notify ?? false);
+  }, [approvalTiers]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       setIsSaving(true);
+      setError(null);
 
       const overrides: Array<[string, unknown]> = [];
 
       // Auto-apply tier
       if (autoMin !== approvalTiers.auto_apply.min_score.toString()) {
-        overrides.push(["approval_tiers.auto_apply.min_score", parseInt(autoMin, 10)]);
+        const parsed = parseInt(autoMin, 10);
+        if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) {
+          setError("Auto-apply min score must be a valid number between 0 and 100.");
+          setIsSaving(false);
+          return;
+        }
+        overrides.push(["approval_tiers.auto_apply.min_score", parsed]);
       }
       if (autoMax !== (approvalTiers.auto_apply.max_score?.toString() ?? "")) {
-        overrides.push(["approval_tiers.auto_apply.max_score", autoMax ? parseInt(autoMax, 10) : null]);
+        if (autoMax !== "") {
+          const parsed = parseInt(autoMax, 10);
+          if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) {
+            setError("Auto-apply max score must be a valid number between 0 and 100.");
+            setIsSaving(false);
+            return;
+          }
+          overrides.push(["approval_tiers.auto_apply.max_score", parsed]);
+        } else {
+          overrides.push(["approval_tiers.auto_apply.max_score", null]);
+        }
       }
       if (autoAction !== approvalTiers.auto_apply.action) {
         overrides.push(["approval_tiers.auto_apply.action", autoAction]);
@@ -83,10 +126,26 @@ export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSe
 
       // Review tier
       if (reviewMin !== approvalTiers.review.min_score.toString()) {
-        overrides.push(["approval_tiers.review.min_score", parseInt(reviewMin, 10)]);
+        const parsed = parseInt(reviewMin, 10);
+        if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) {
+          setError("Review min score must be a valid number between 0 and 100.");
+          setIsSaving(false);
+          return;
+        }
+        overrides.push(["approval_tiers.review.min_score", parsed]);
       }
       if (reviewMax !== (approvalTiers.review.max_score?.toString() ?? "")) {
-        overrides.push(["approval_tiers.review.max_score", reviewMax ? parseInt(reviewMax, 10) : null]);
+        if (reviewMax !== "") {
+          const parsed = parseInt(reviewMax, 10);
+          if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) {
+            setError("Review max score must be a valid number between 0 and 100.");
+            setIsSaving(false);
+            return;
+          }
+          overrides.push(["approval_tiers.review.max_score", parsed]);
+        } else {
+          overrides.push(["approval_tiers.review.max_score", null]);
+        }
       }
       if (reviewAction !== approvalTiers.review.action) {
         overrides.push(["approval_tiers.review.action", reviewAction]);
@@ -97,10 +156,26 @@ export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSe
 
       // Reject tier
       if (rejectMin !== approvalTiers.reject.min_score.toString()) {
-        overrides.push(["approval_tiers.reject.min_score", parseInt(rejectMin, 10)]);
+        const parsed = parseInt(rejectMin, 10);
+        if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) {
+          setError("Reject min score must be a valid number between 0 and 100.");
+          setIsSaving(false);
+          return;
+        }
+        overrides.push(["approval_tiers.reject.min_score", parsed]);
       }
       if (rejectMax !== (approvalTiers.reject.max_score?.toString() ?? "")) {
-        overrides.push(["approval_tiers.reject.max_score", rejectMax ? parseInt(rejectMax, 10) : null]);
+        if (rejectMax !== "") {
+          const parsed = parseInt(rejectMax, 10);
+          if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) {
+            setError("Reject max score must be a valid number between 0 and 100.");
+            setIsSaving(false);
+            return;
+          }
+          overrides.push(["approval_tiers.reject.max_score", parsed]);
+        } else {
+          overrides.push(["approval_tiers.reject.max_score", null]);
+        }
       }
       if (rejectAction !== approvalTiers.reject.action) {
         overrides.push(["approval_tiers.reject.action", rejectAction]);
@@ -109,8 +184,24 @@ export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSe
         overrides.push(["approval_tiers.reject.notify", rejectNotify]);
       }
 
-      await executeOverrides(overrides, mutateAsync, onSaved);
-      setIsSaving(false);
+      try {
+        const result = await executeOverrides(overrides, mutateAsync, onSaved);
+        if (result.failed > 0) {
+          setError(
+            result.failed === result.total
+              ? "Failed to save approval tier settings. Please try again."
+              : `Partially saved: ${result.succeeded} of ${result.total} settings saved. ${result.failed} failed.`,
+          );
+        }
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to save approval tier settings. Please try again.",
+        );
+      } finally {
+        setIsSaving(false);
+      }
     },
     [
       autoMin, autoMax, autoAction, autoNotify,
@@ -124,9 +215,11 @@ export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSe
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="rounded-md bg-danger-light p-3 text-sm text-danger-dark" role="alert">
-        Failed to save approval tier settings. Please try again.
-      </div>
+      {error && (
+        <div className="rounded-md bg-danger-light p-3 text-sm text-danger-dark" role="alert">
+          {error}
+        </div>
+      )}
 
       {/* Auto-Apply Tier */}
       <fieldset className={tierClass}>
@@ -140,7 +233,10 @@ export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSe
               min="0"
               max="100"
               value={autoMin}
-              onChange={(e) => setAutoMin(e.target.value)}
+              onChange={(e) => {
+                setAutoMin(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -152,7 +248,10 @@ export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSe
               min="0"
               max="100"
               value={autoMax}
-              onChange={(e) => setAutoMax(e.target.value)}
+              onChange={(e) => {
+                setAutoMax(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -162,7 +261,10 @@ export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSe
               id="auto-action"
               type="text"
               value={autoAction}
-              onChange={(e) => setAutoAction(e.target.value)}
+              onChange={(e) => {
+                setAutoAction(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -172,7 +274,10 @@ export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSe
             <input
               type="checkbox"
               checked={autoNotify}
-              onChange={(e) => setAutoNotify(e.target.checked)}
+              onChange={(e) => {
+                setAutoNotify(e.target.checked);
+                clearError();
+              }}
               className="rounded border-border text-primary focus:ring-primary"
             />
             <span className="text-sm text-text-primary">Send notification</span>
@@ -192,7 +297,10 @@ export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSe
               min="0"
               max="100"
               value={reviewMin}
-              onChange={(e) => setReviewMin(e.target.value)}
+              onChange={(e) => {
+                setReviewMin(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -204,7 +312,10 @@ export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSe
               min="0"
               max="100"
               value={reviewMax}
-              onChange={(e) => setReviewMax(e.target.value)}
+              onChange={(e) => {
+                setReviewMax(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -214,7 +325,10 @@ export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSe
               id="review-action"
               type="text"
               value={reviewAction}
-              onChange={(e) => setReviewAction(e.target.value)}
+              onChange={(e) => {
+                setReviewAction(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -224,7 +338,10 @@ export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSe
             <input
               type="checkbox"
               checked={reviewNotify}
-              onChange={(e) => setReviewNotify(e.target.checked)}
+              onChange={(e) => {
+                setReviewNotify(e.target.checked);
+                clearError();
+              }}
               className="rounded border-border text-primary focus:ring-primary"
             />
             <span className="text-sm text-text-primary">Send notification</span>
@@ -244,7 +361,10 @@ export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSe
               min="0"
               max="100"
               value={rejectMin}
-              onChange={(e) => setRejectMin(e.target.value)}
+              onChange={(e) => {
+                setRejectMin(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -256,7 +376,10 @@ export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSe
               min="0"
               max="100"
               value={rejectMax}
-              onChange={(e) => setRejectMax(e.target.value)}
+              onChange={(e) => {
+                setRejectMax(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -266,7 +389,10 @@ export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSe
               id="reject-action"
               type="text"
               value={rejectAction}
-              onChange={(e) => setRejectAction(e.target.value)}
+              onChange={(e) => {
+                setRejectAction(e.target.value);
+                clearError();
+              }}
               className={INPUT_CLASS}
             />
           </div>
@@ -276,7 +402,10 @@ export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSe
             <input
               type="checkbox"
               checked={rejectNotify}
-              onChange={(e) => setRejectNotify(e.target.checked)}
+              onChange={(e) => {
+                setRejectNotify(e.target.checked);
+                clearError();
+              }}
               className="rounded border-border text-primary focus:ring-primary"
             />
             <span className="text-sm text-text-primary">Send notification</span>
