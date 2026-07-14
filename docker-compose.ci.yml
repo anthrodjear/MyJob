@@ -19,7 +19,7 @@ services:
       LLM_PRIMARY_PROVIDER: none
       LLM_FALLBACK_PROVIDER: none
       VOICE_PROVIDER: none
-      APP_ENV: ci
+      APP_ENV: test
       CONFIG_PATH: /app/config/application.yaml
       LOG_LEVEL: warn
     deploy:
@@ -44,7 +44,7 @@ services:
       OLLAMA_BASE_URL: ""
       LLM_PRIMARY_PROVIDER: none
       LLM_FALLBACK_PROVIDER: none
-      APP_ENV: ci
+      APP_ENV: test
       CONFIG_PATH: /app/config/application.yaml
       LOG_LEVEL: warn
     deploy:
