@@ -13,6 +13,7 @@ node_modules/
 # Build outputs
 dist/
 build/
+storage/
 
 # Test files (not needed in production image)
 coverage/

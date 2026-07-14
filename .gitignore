@@ -19,6 +19,7 @@ context/
 AGENTS.md
 CLAUDE.md
 docs/
+!backend/docs/
 
 # AI agent config & skills
 .config/

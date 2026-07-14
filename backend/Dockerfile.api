@@ -7,10 +7,11 @@ WORKDIR /app
 
 # Copy go.mod and go.sum
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
-# Install swag for Swagger docs generation
-RUN go install github.com/swaggo/swag/cmd/swag@latest
+# Install swag for Swagger docs generation (pinned for reproducibility)
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go install github.com/swaggo/swag/cmd/swag@v1.16.4
 
 # Copy source code
 COPY . .
@@ -19,12 +20,14 @@ COPY . .
 RUN swag init -g cmd/api/main.go
 
 # Build the API binary (CGO disabled for static binary — no gcc needed)
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /app/api ./cmd/api
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /app/api ./cmd/api
 
-# Runtime stage — minimal distroless-style image
+# Runtime stage — minimal image
 FROM alpine:3.19
 
-RUN apk add --no-cache ca-certificates tzdata postgresql-client \
+RUN apk add --no-cache ca-certificates tzdata wget \
     && addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
@@ -33,8 +36,8 @@ WORKDIR /app
 COPY --from=builder --chown=appuser:appgroup /app/api .
 COPY --from=builder --chown=appuser:appgroup /app/internal/database/migrations ./migrations
 
-# Copy scripts
-COPY --chown=appuser:appgroup scripts/ ./scripts/
+# Copy scripts from builder (not build context) to avoid leaking source into runtime
+COPY --from=builder --chown=appuser:appgroup /app/scripts/ ./scripts/
 RUN chmod +x ./scripts/*.sh
 
 # Version metadata
@@ -47,5 +50,8 @@ ENV BUILD_TIME=${BUILD_TIME}
 USER appuser
 
 EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
 CMD ["./api"]
