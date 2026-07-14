@@ -83,17 +83,17 @@ type PatchProfileRequest struct {
 // All fields are pointers so nil means "don't change" and non-nil means "set this".
 // This solves the bool/int zero-value ambiguity.
 type PatchPreferences struct {
-	TargetTitles    *[]string `json:"target_titles,omitempty"`
-	TargetLocations *[]string `json:"target_locations,omitempty"`
-	RemoteOnly      *bool     `json:"remote_only,omitempty"`
-	MinSalary       *int      `json:"min_salary,omitempty"`
-	MaxSalary       *int      `json:"max_salary,omitempty"`
-	WorkAuthorization *string `json:"work_authorization,omitempty"`
-	YearsExperience *int      `json:"years_experience,omitempty"`
-	ResumeTone      *string   `json:"resume_tone,omitempty"`
-	ResumeStyle     *string   `json:"resume_style,omitempty"`
-	AutoApplyThreshold *int   `json:"auto_apply_threshold,omitempty"`
-	CoverLetterStyle   *string `json:"cover_letter_style,omitempty"`
+	TargetTitles       *[]string `json:"target_titles,omitempty"`
+	TargetLocations    *[]string `json:"target_locations,omitempty"`
+	RemoteOnly         *bool     `json:"remote_only,omitempty"`
+	MinSalary          *int      `json:"min_salary,omitempty"`
+	MaxSalary          *int      `json:"max_salary,omitempty"`
+	WorkAuthorization  *string   `json:"work_authorization,omitempty"`
+	YearsExperience    *int      `json:"years_experience,omitempty"`
+	ResumeTone         *string   `json:"resume_tone,omitempty"`
+	ResumeStyle        *string   `json:"resume_style,omitempty"`
+	AutoApplyThreshold *int      `json:"auto_apply_threshold,omitempty"`
+	CoverLetterStyle   *string   `json:"cover_letter_style,omitempty"`
 }
 
 // PatchLinks is the links sub-object for PATCH requests.
@@ -123,20 +123,20 @@ type PatchLinks struct {
 //	  "updated_at": "2026-06-20T14:30:00Z"
 //	}
 type ProfileResponse struct {
-	ID        uuid.UUID             `json:"id"`
-	Data      ProfileData           `json:"data"`
-	Stats     ProfileStatsResponse  `json:"stats"`
-	CreatedAt time.Time             `json:"created_at"`
-	UpdatedAt time.Time             `json:"updated_at"`
+	ID        uuid.UUID            `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Data      ProfileData          `json:"data"`
+	Stats     ProfileStatsResponse `json:"stats"`
+	CreatedAt time.Time            `json:"created_at" example:"2026-06-19T10:00:00Z"`
+	UpdatedAt time.Time            `json:"updated_at" example:"2026-06-20T14:30:00Z"`
 }
 
 // ProfileStatsResponse is embedded in ProfileResponse.
 // Computed on every GET — cheap for a single-user local system.
 type ProfileStatsResponse struct {
-	SkillCount     int  `json:"skill_count"`
-	EducationCount int  `json:"education_count"`
-	HasResumePrefs bool `json:"has_resume_preferences"`
-	HasLinks       bool `json:"has_links"`
+	SkillCount     int  `json:"skill_count" example:"8"`
+	EducationCount int  `json:"education_count" example:"2"`
+	HasResumePrefs bool `json:"has_resume_preferences" example:"true"`
+	HasLinks       bool `json:"has_links" example:"true"`
 }
 
 // ---------------------------------------------------------------------------

@@ -32,11 +32,11 @@ import (
 //	}
 type CreateInterviewRequest struct {
 	// ApplicationID links this interview to a job application.
-	ApplicationID uuid.UUID `json:"application_id" binding:"required"`
+	ApplicationID uuid.UUID `json:"application_id" binding:"required" example:"550e8400-e29b-41d4-a716-446655440000"`
 
 	// Mode determines who drives the conversation.
 	// Valid values: "assist", "autonomous".
-	Mode string `json:"mode" binding:"required,oneof=assist autonomous"`
+	Mode string `json:"mode" binding:"required,oneof=assist autonomous" example:"autonomous" enums:"assist,autonomous"`
 }
 
 // StartInterviewRequest is the payload for POST /api/v1/interviews/:id/start.
@@ -56,11 +56,11 @@ type CreateInterviewRequest struct {
 type StartInterviewRequest struct {
 	// Provider is the voice backend (e.g., "openai_realtime", "elevenlabs").
 	// Empty string means "use config default".
-	Provider string `json:"provider"`
+	Provider string `json:"provider" example:"openai_realtime"`
 
 	// Model is the specific model for the provider (e.g., "gpt-4o-realtime-preview").
 	// Empty string means "use config default".
-	Model string `json:"model"`
+	Model string `json:"model" example:"gpt-4o-realtime-preview"`
 }
 
 // StopInterviewRequest is the payload for POST /api/v1/interviews/:id/stop.
@@ -76,7 +76,7 @@ type StartInterviewRequest struct {
 type StopInterviewRequest struct {
 	// Reason is a free-text explanation for stopping (for audit trail).
 	// Optional — empty string is acceptable.
-	Reason string `json:"reason"`
+	Reason string `json:"reason" example:"user_cancelled"`
 }
 
 // InterviewEventRequest is the payload for POST /internal/interviews/:id/events.
@@ -109,34 +109,34 @@ type StopInterviewRequest struct {
 type InterviewEventRequest struct {
 	// Type identifies the kind of event. Valid values:
 	// "transcript", "status", "score", "feedback".
-	Type string `json:"type" binding:"required,oneof=transcript status score feedback"`
+	Type string `json:"type" binding:"required,oneof=transcript status score feedback" example:"transcript" enums:"transcript,status,score,feedback"`
 
 	// Status is the new session status. Only used when Type="status".
 	// Must be a valid transition from the current status.
-	Status string `json:"status,omitempty"`
+	Status string `json:"status,omitempty" example:"active" enums:"pending,active,completed,cancelled"`
 
 	// --- Transcript fields (Type="transcript") ---
 
 	// Speaker identifies who is talking. Use "candidate", "ai", or "system".
-	Speaker string `json:"speaker,omitempty"`
+	Speaker string `json:"speaker,omitempty" example:"candidate" enums:"candidate,ai,system"`
 
 	// Content is the spoken text or transcription.
-	Content string `json:"content,omitempty"`
+	Content string `json:"content,omitempty" example:"I have 5 years of experience in Go"`
 
 	// Timestamp is when this turn occurred. Use *time.Time so that
 	// omitting it produces nil (not "0001-01-01T00:00:00Z").
-	Timestamp *time.Time `json:"timestamp,omitempty"`
+	Timestamp *time.Time `json:"timestamp,omitempty" example:"2026-06-19T10:30:00Z"`
 
 	// --- Score field (Type="score") ---
 
 	// Score is the AI's evaluation (0.0–100.0). Only used when Type="score".
-	Score *float64 `json:"score,omitempty"`
+	Score *float64 `json:"score,omitempty" example:"85.5"`
 
 	// --- Feedback field (Type="feedback") ---
 
 	// Feedback is the full evaluation payload. Only used when Type="feedback".
 	// Stored as raw JSON because the schema varies by evaluation model.
-	Feedback json.RawMessage `json:"feedback,omitempty"`
+	Feedback json.RawMessage `json:"feedback,omitempty" swaggertype:"object"`
 }
 
 // ---------------------------------------------------------------------------
@@ -151,20 +151,20 @@ type InterviewEventRequest struct {
 //   - POST /api/v1/interviews/:id/start (started session)
 //   - POST /internal/interviews/:id/events (updated session)
 type InterviewResponse struct {
-	ID                uuid.UUID          `json:"id"`
-	ApplicationID     uuid.UUID          `json:"application_id"`
-	Mode              string             `json:"mode"`
-	Status            string             `json:"status"`
-	ExternalSessionID *string            `json:"external_session_id,omitempty"`
-	Provider          string             `json:"provider"`
-	Model             string             `json:"model"`
-	Transcript        []TranscriptEntry  `json:"transcript"`
-	Score             *float64           `json:"score,omitempty"`
-	Feedback          json.RawMessage    `json:"feedback,omitempty"`
-	StartedAt         *time.Time         `json:"started_at,omitempty"`
-	EndedAt           *time.Time         `json:"ended_at,omitempty"`
-	CreatedAt         time.Time          `json:"created_at"`
-	UpdatedAt         time.Time          `json:"updated_at"`
+	ID                uuid.UUID       `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	ApplicationID     uuid.UUID       `json:"application_id" example:"550e8400-e29b-41d4-a716-446655440001"`
+	Mode              string          `json:"mode" example:"autonomous" enums:"assist,autonomous"`
+	Status            string          `json:"status" example:"active" enums:"pending,active,completed,cancelled"`
+	ExternalSessionID *string         `json:"external_session_id,omitempty" example:"livekit-session-123"`
+	Provider          string          `json:"provider" example:"openai_realtime"`
+	Model             string          `json:"model" example:"gpt-4o-realtime-preview"`
+	Transcript        Transcript      `json:"transcript"`
+	Score             *float64        `json:"score,omitempty" example:"85.5"`
+	Feedback          json.RawMessage `json:"feedback,omitempty" swaggertype:"object"`
+	StartedAt         *time.Time      `json:"started_at,omitempty" example:"2026-06-19T10:00:00Z"`
+	EndedAt           *time.Time      `json:"ended_at,omitempty" example:"2026-06-19T10:30:00Z"`
+	CreatedAt         time.Time       `json:"created_at" example:"2026-06-19T09:55:00Z"`
+	UpdatedAt         time.Time       `json:"updated_at" example:"2026-06-19T10:30:00Z"`
 }
 
 // InterviewListResponse is the API response for listing interview sessions.
@@ -172,9 +172,9 @@ type InterviewResponse struct {
 // Returned by: GET /api/v1/interviews
 type InterviewListResponse struct {
 	Interviews []InterviewResponse `json:"interviews"`
-	Total      int64               `json:"total"`
-	Limit      int                 `json:"limit"`
-	Offset     int                 `json:"offset"`
+	Total      int64               `json:"total" example:"15"`
+	Limit      int                 `json:"limit" example:"20"`
+	Offset     int                 `json:"offset" example:"0"`
 }
 
 // ---------------------------------------------------------------------------

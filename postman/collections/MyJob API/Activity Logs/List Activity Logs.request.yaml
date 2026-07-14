@@ -1,0 +1,25 @@
+$kind: http-request
+name: List Activity Logs
+method: GET
+url: '{{baseUrl}}/api/v1/activity-logs'
+order: 1000
+queryParams:
+  - key: entity_type
+    value: ''
+    disabled: true
+  - key: entity_id
+    value: ''
+    disabled: true
+  - key: event_type
+    value: ''
+    disabled: true
+  - key: start_time
+    value: ''
+    disabled: true
+  - key: end_time
+    value: ''
+    disabled: true
+  - key: limit
+    value: '20'
+  - key: offset
+    value: '0'

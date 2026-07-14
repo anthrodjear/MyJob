@@ -1,0 +1,8 @@
+$kind: http-request
+name: Reclassify Email
+method: POST
+url: '{{baseUrl}}/api/v1/emails/{{emailId}}/classify'
+order: 5000
+pathVariables:
+  - key: emailId
+    value: '{{emailId}}'

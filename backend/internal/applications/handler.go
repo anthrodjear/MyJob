@@ -40,14 +40,30 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 
 // listApplicationsQuery holds query parameters for listing applications.
 type listApplicationsQuery struct {
-	Status     string  `form:"status"`
-	JobID      string  `form:"job_id"`
-	PortalType string  `form:"portal_type"`
-	Limit      int     `form:"limit"`
-	Offset     int     `form:"offset"`
+	Status     string `form:"status"`
+	JobID      string `form:"job_id"`
+	PortalType string `form:"portal_type"`
+	Limit      int    `form:"limit"`
+	Offset     int    `form:"offset"`
 }
 
 // ListApplications handles GET /applications.
+// @Summary List applications
+// @Description Get paginated list of applications with optional filters
+// @Tags Applications
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param status query string false "Filter by status" Enums(pending,applied,rejected,responded,interviewed,archived)
+// @Param job_id query string false "Filter by job UUID"
+// @Param portal_type query string false "Filter by portal type" Enums(greenhouse,lever,remoteok,indeed,manual,email)
+// @Param limit query int false "Results per page (max 100)" default(20) minimum(1) maximum(100)
+// @Param offset query int false "Pagination offset" default(0) minimum(0)
+// @Success 200 {object} ApplicationListResponse "Paginated applications"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid query parameters"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /applications [get]
 func (h *Handler) ListApplications(c *gin.Context) {
 	var q listApplicationsQuery
 	if err := c.ShouldBindQuery(&q); err != nil {
@@ -109,6 +125,19 @@ func (h *Handler) ListApplications(c *gin.Context) {
 }
 
 // GetApplication handles GET /applications/:id.
+// @Summary Get application by ID
+// @Description Get detailed information about a specific application
+// @Tags Applications
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Application UUID" format(uuid)
+// @Success 200 {object} ApplicationResponse "Application details"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid application ID"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Application not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /applications/{id} [get]
 func (h *Handler) GetApplication(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -131,6 +160,18 @@ func (h *Handler) GetApplication(c *gin.Context) {
 }
 
 // CreateApplication handles POST /applications.
+// @Summary Create application
+// @Description Create a new application for a job
+// @Tags Applications
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body CreateApplicationRequest true "Application creation request"
+// @Success 201 {object} ApplicationResponse "Created application"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /applications [post]
 func (h *Handler) CreateApplication(c *gin.Context) {
 	var req CreateApplicationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -149,6 +190,20 @@ func (h *Handler) CreateApplication(c *gin.Context) {
 }
 
 // UpdateStatus handles PUT /applications/:id/status.
+// @Summary Update application status
+// @Description Update the status of an application with optional notes (audit trail)
+// @Tags Applications
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Application UUID" format(uuid)
+// @Param request body UpdateStatusRequest true "Status update"
+// @Success 200 {object} map[string]string "Status updated"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body or status"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Application not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /applications/{id}/status [put]
 func (h *Handler) UpdateStatus(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -180,6 +235,20 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 }
 
 // UpdateNotes handles PATCH /applications/:id/notes.
+// @Summary Update application notes
+// @Description Update permanent notes on an application
+// @Tags Applications
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Application UUID" format(uuid)
+// @Param request body UpdateApplicationNotesRequest true "Notes update"
+// @Success 200 {object} map[string]string "Notes updated"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Application not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /applications/{id}/notes [patch]
 func (h *Handler) UpdateNotes(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -207,6 +276,19 @@ func (h *Handler) UpdateNotes(c *gin.Context) {
 }
 
 // GetTimeline handles GET /applications/:id/events.
+// @Summary Get application timeline
+// @Description Get the audit trail of status changes for an application
+// @Tags Applications
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Application UUID" format(uuid)
+// @Success 200 {object} ApplicationTimelineResponse "Timeline of events"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid application ID"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Application not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /applications/{id}/events [get]
 func (h *Handler) GetTimeline(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -237,6 +319,16 @@ func (h *Handler) GetTimeline(c *gin.Context) {
 }
 
 // GetStats handles GET /applications/stats.
+// @Summary Get application statistics
+// @Description Get dashboard statistics for applications
+// @Tags Applications
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} ApplicationStatsResponse "Application statistics"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /applications/stats [get]
 func (h *Handler) GetStats(c *gin.Context) {
 	stats, err := h.svc.GetStats(c.Request.Context())
 	if err != nil {

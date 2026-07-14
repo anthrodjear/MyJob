@@ -1,0 +1,19 @@
+$kind: http-request
+name: Semantic Search
+method: POST
+url: '{{baseUrl}}/api/v1/rag/search'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "query": "Go backend engineer with Kubernetes experience",
+      "filter": {
+        "source_type": "job",
+        "limit": 10,
+        "similarity": 0.7
+      }
+    }

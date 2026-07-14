@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get Application Stats
+method: GET
+url: '{{baseUrl}}/api/v1/applications/stats'
+order: 2000

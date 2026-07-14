@@ -1,0 +1,23 @@
+$kind: collection
+name: MyJob API
+description: AI Job Search Agent — Backend API. All protected routes require a Bearer token (JWT) obtained from POST /auth/login.
+variables:
+  baseUrl: http://172.27.96.66:3000
+  accessToken: ""
+  refreshToken: ""
+  jobId: ""
+  sourceId: ""
+  applicationId: ""
+  resumeId: ""
+  coverLetterId: ""
+  interviewId: ""
+  approvalId: ""
+  embeddingId: ""
+  emailId: ""
+  activityId: ""
+  configKey: ""
+  version: ""
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"

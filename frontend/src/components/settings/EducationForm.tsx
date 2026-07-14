@@ -2,7 +2,7 @@
  * EducationForm — profile education editor.
  *
  * Displays education entries as cards with inline editing (institution,
- * degree, field, years, GPA). Supports add/remove operations.
+ * degree, field, description, years, GPA). Supports add/remove operations.
  * On submit, replaces the entire education array via PATCH.
  *
  * Does NOT:
@@ -31,7 +31,7 @@ interface EducationFormProps {
 /**
  * Form for editing the profile education list.
  *
- * Each education row has institution, degree, field, start/end year, and GPA.
+ * Each education row has institution, degree, field, description, start/end year, and GPA.
  * Users can add new rows and remove existing ones.
  *
  * @example
@@ -41,6 +41,7 @@ export function EducationForm({ education, onSaved }: EducationFormProps) {
   const patchMutation = usePatchProfile();
   const [rows, setRows] = useState<Education[]>(education);
   const [errors, setErrors] = useState<Record<number, Record<string, string>>>({});
+  const [serverError, setServerError] = useState<string | null>(null);
 
   // ---------------------------------------------------------------------------
   // Row Operations
@@ -50,8 +51,9 @@ export function EducationForm({ education, onSaved }: EducationFormProps) {
   const addRow = useCallback(() => {
     setRows((prev) => [
       ...prev,
-      { institution: "", degree: "", field: undefined, start_year: undefined, end_year: undefined, gpa: undefined },
+      { institution: "", degree: "", field: undefined, description: undefined, start_year: undefined, end_year: undefined, gpa: undefined },
     ]);
+    setServerError(null);
   }, []);
 
   /** Remove an education row by index. */
@@ -62,6 +64,7 @@ export function EducationForm({ education, onSaved }: EducationFormProps) {
       delete next[index];
       return next;
     });
+    setServerError(null);
   }, []);
 
   /** Update a single field in an education row. */
@@ -82,6 +85,7 @@ export function EducationForm({ education, onSaved }: EducationFormProps) {
         }
         return next;
       });
+      setServerError(null);
     },
     [],
   );
@@ -99,6 +103,10 @@ export function EducationForm({ education, onSaved }: EducationFormProps) {
       }
       if (!rows[i].degree.trim()) {
         rowErrors.degree = "Degree is required";
+      }
+      // If degree is filled but institution is empty, institution is required
+      if (rows[i].degree.trim() && !rows[i].institution.trim()) {
+        rowErrors.institution = "Institution is required when degree is provided";
       }
       const startYear = rows[i].start_year;
       const endYear = rows[i].end_year;
@@ -123,11 +131,18 @@ export function EducationForm({ education, onSaved }: EducationFormProps) {
       if (!validate()) return;
 
       // Filter out empty rows
-      const validEntries = rows.filter((r) => r.institution.trim() && r.degree.trim());
+      const validEntries = rows.filter((r) => r.institution.trim() || r.degree.trim());
 
       patchMutation.mutate(
         { education: validEntries.length > 0 ? validEntries : [] },
-        { onSuccess: onSaved },
+        {
+          onSuccess: onSaved,
+          onError: (error) => {
+            // Show the actual error message from the backend
+            const message = error instanceof Error ? error.message : "Failed to save education. Please try again.";
+            setServerError(message);
+          },
+        },
       );
     },
     [rows, validate, patchMutation, onSaved],
@@ -140,9 +155,9 @@ export function EducationForm({ education, onSaved }: EducationFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Error feedback */}
-      {patchMutation.isError && (
+      {serverError && (
         <div className="rounded-md bg-error/10 p-3 text-sm text-error-dark" role="alert">
-          Failed to save education. Please try again.
+          {serverError}
         </div>
       )}
 
@@ -157,7 +172,7 @@ export function EducationForm({ education, onSaved }: EducationFormProps) {
         {rows.map((entry, index) => (
           <div
             key={index}
-            className="rounded-md border border-border p-4"
+            className="rounded-md border border-border p-4 transition-colors hover:border-primary/30"
           >
             {/* Header row: institution + remove */}
             <div className="flex items-start justify-between gap-2">
@@ -166,7 +181,7 @@ export function EducationForm({ education, onSaved }: EducationFormProps) {
                   htmlFor={`edu-institution-${index}`}
                   className="block text-xs font-medium text-text-secondary"
                 >
-                  Institution
+                  Institution <span className="text-error">*</span>
                 </label>
                 <input
                   id={`edu-institution-${index}`}
@@ -208,7 +223,7 @@ export function EducationForm({ education, onSaved }: EducationFormProps) {
                   htmlFor={`edu-degree-${index}`}
                   className="block text-xs font-medium text-text-secondary"
                 >
-                  Degree
+                  Degree <span className="text-error">*</span>
                 </label>
                 <input
                   id={`edu-degree-${index}`}
@@ -299,6 +314,24 @@ export function EducationForm({ education, onSaved }: EducationFormProps) {
                   </p>
                 )}
               </div>
+            </div>
+
+            {/* Description */}
+            <div className="mt-3">
+              <label
+                htmlFor={`edu-description-${index}`}
+                className="block text-xs font-medium text-text-secondary"
+              >
+                Description
+              </label>
+              <textarea
+                id={`edu-description-${index}`}
+                value={entry.description ?? ""}
+                onChange={(e) => updateRow(index, "description", e.target.value || undefined)}
+                placeholder="Relevant coursework, achievements, activities..."
+                rows={2}
+                className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
             </div>
 
             {/* GPA */}

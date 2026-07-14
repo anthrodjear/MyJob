@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -31,7 +32,7 @@ func TestLogging_SuccessfulRequest(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/jobs?page=1", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "/api/v1/jobs?page=1", nil)
 	req.RemoteAddr = "192.168.1.10:54321"
 	r.ServeHTTP(w, req)
 
@@ -69,7 +70,7 @@ func TestLogging_SkipsHealthCheck(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/health", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "/health", nil)
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
@@ -90,7 +91,7 @@ func TestLogging_FiveHundredLogsAtError(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/crash", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "/crash", nil)
 	r.ServeHTTP(w, req)
 
 	entries := recorded.All()
@@ -111,7 +112,7 @@ func TestLogging_FourHundredLogsAtWarn(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/notfound", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "/notfound", nil)
 	r.ServeHTTP(w, req)
 
 	entries := recorded.All()
@@ -137,7 +138,7 @@ func TestLogging_ErrorFieldPresent(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/with-error", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "/with-error", nil)
 	r.ServeHTTP(w, req)
 
 	entries := recorded.All()
@@ -161,7 +162,7 @@ func TestLogging_LatencyNonNegative(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/fast", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "/fast", nil)
 	r.ServeHTTP(w, req)
 
 	entries := recorded.All()

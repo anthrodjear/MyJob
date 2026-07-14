@@ -1,12 +1,15 @@
-.PHONY: help setup migrate seed start stop clean build
+.PHONY: help setup migrate seed start stop clean build _export-env
 
 # Default target
 help:
 	@echo "AI Job Search Agent - Commands:"
 	@echo ""
-	@echo "  Setup & Start:"
+	@echo "  Quick Start (zero-config):"
+	@echo "  docker compose up -d         # Just works — configure via /setup wizard"
+	@echo ""
+	@echo "  Setup & Start (with .env):"
 	@echo "  make setup       - First-time setup (create .env, start infra, run migrations)"
-	@echo "  make start       - Start all services"
+	@echo "  make start       - Start all services (auto-generates .env if missing)"
 	@echo "  make stop        - Stop all services"
 	@echo "  make build       - Build all Docker images"
 	@echo "  make clean       - Remove containers and volumes"
@@ -50,14 +53,21 @@ help:
 	@echo "  Utils:"
 	@echo "  make hash-password PASSWORD=yourpass - Generate bcrypt hash for AUTH_PASSWORD_HASH"
 
-# First-time setup
+# First-time setup (optional — docker compose works without it)
 setup:
-	@if not exist .env copy .env.example .env
-	@echo "Created .env file. Please edit it with your API keys."
-	docker compose up -d postgres redis ollama
-	docker compose exec ollama ollama pull mxbai-embed-large
-	docker compose exec ollama ollama pull qwen2.5:latest
-	@echo "Setup complete! Run 'make migrate' to initialize the database."
+	@bash scripts/setup-env.sh
+	@echo ""
+	@echo "Setup complete! Starting infrastructure..."
+	$(MAKE) _export-env
+	docker compose up -d postgres redis
+	@echo ""
+	@echo "Infrastructure started. Run 'make build' then 'make start'."
+
+# Internal: export AUTH_PASSWORD_HASH from .env so docker-compose
+# can pass it to containers without $-escaping issues.
+_export-env:
+	@if [ ! -f .env ]; then bash scripts/setup-env.sh; fi
+	@export AUTH_PASSWORD_HASH="$$(grep '^AUTH_PASSWORD_HASH=' .env | cut -d= -f2-)"
 
 # Run migrations
 migrate:
@@ -67,9 +77,21 @@ migrate:
 seed:
 	docker compose exec api ./seed.sh
 
-# Start all services
+# Start all services (auto-generates .env if missing)
+# Two-phase start: infra first, then app services (avoids dependency timeout)
 start:
-	docker compose up -d
+	@if [ ! -f .env ]; then bash scripts/setup-env.sh; fi
+	@export AUTH_PASSWORD_HASH="$$(cat .env.auth 2>/dev/null)" && \
+	 docker compose up -d postgres redis livekit
+	@echo "Waiting for infrastructure..."
+	@sleep 5
+	@export AUTH_PASSWORD_HASH="$$(cat .env.auth 2>/dev/null)" && \
+	 docker compose up -d api
+	@echo "Waiting for API to become healthy..."
+	@timeout 120 bash -c 'until docker compose exec api wget -qO- http://localhost:8080/health >/dev/null 2>&1; do sleep 3; done'
+	@export AUTH_PASSWORD_HASH="$$(cat .env.auth 2>/dev/null)" && \
+	 docker compose up -d worker browser-agent frontend
+	@echo "All services started."
 
 # Stop all services
 stop:
@@ -77,7 +99,9 @@ stop:
 
 # Build Docker images
 build:
-	docker compose build
+	@if [ ! -f .env ]; then bash scripts/setup-env.sh; fi
+	@export AUTH_PASSWORD_HASH="$$(cat .env.auth 2>/dev/null)" && \
+	 docker compose build
 
 # Clean everything
 clean:
@@ -184,3 +208,100 @@ test-api:
 
 test-frontend:
 	cd frontend && npm test
+
+# ============================================
+# CI / Lint
+# ============================================
+
+lint: lint-go lint-frontend lint-browser-agent
+
+lint-go:
+	cd backend && go vet ./...
+	golangci-lint run --config ../.golangci.yml ./...
+
+lint-frontend:
+	cd frontend && npm run lint
+	cd frontend && npx tsc --noEmit
+
+lint-browser-agent:
+	cd browser-agent && npx eslint src/ --max-warnings 0 || true
+	cd browser-agent && npx tsc --noEmit
+
+# Verify swagger docs are up to date (regenerate and check for diff)
+verify-swagger:
+	cd backend && go install github.com/swaggo/swag/cmd/swag@latest && \
+	swag init -g cmd/api/main.go --output docs && \
+	cd .. && git diff --exit-code backend/docs/docs.go backend/docs/swagger.json backend/docs/swagger.yaml
+
+# Run full CI locally (lint + test + docker build)
+ci-local: lint test build
+
+# Docker compose CI mode (clean state, no host dependencies)
+docker-ci:
+	@if [ ! -f .env ]; then bash scripts/setup-env.sh; fi
+	@export AUTH_PASSWORD_HASH="$$(cat .env.auth 2>/dev/null)" && \
+	 docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build
+
+docker-ci-down:
+	docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v
+
+# Health check
+health-check:
+	bash scripts/ci-health-check.sh
+
+# ============================================
+# Kubernetes / Helm
+# ============================================
+
+# Lint Helm chart
+helm-lint:
+	helm lint k8s/helm/myjob
+
+# Dry-run Helm template (local rendering)
+helm-template:
+	helm template myjob k8s/helm/myjob
+
+# Install/upgrade staging
+helm-staging:
+	helm upgrade --install myjob-staging k8s/helm/myjob \
+		--namespace myjob-staging \
+		--create-namespace \
+		--values k8s/helm/myjob/values.yaml \
+		--set api.image.tag=$(TAG) \
+		--set worker.image.tag=$(TAG) \
+		--set browserAgent.image.tag=$(TAG) \
+		--set frontend.image.tag=$(TAG)
+
+# Install/upgrade production
+helm-production:
+	helm upgrade --install myjob-production k8s/helm/myjob \
+		--namespace myjob-production \
+		--create-namespace \
+		--values k8s/helm/myjob/values.yaml \
+		--set api.image.tag=$(TAG) \
+		--set worker.image.tag=$(TAG) \
+		--set browserAgent.image.tag=$(TAG) \
+		--set frontend.image.tag=$(TAG) \
+		--set api.replicaCount=3 \
+		--set worker.replicaCount=3 \
+		--set frontend.replicaCount=3
+
+# Rollback Helm release
+helm-rollback:
+	helm rollback $(RELEASE) -n $(NAMESPACE)
+
+# Check HPA status
+kubectl-hpa:
+	kubectl get hpa -n $(NAMESPACE)
+
+# Check all pods
+kubectl-pods:
+	kubectl get pods -n $(NAMESPACE) -o wide
+
+# Tail logs
+kubectl-logs:
+	kubectl logs -n $(NAMESPACE) -l app.kubernetes.io/name=myjob --tail=100 -f
+
+# Kustomize build
+kustomize-build:
+	kubectl kustomize k8s/kustomize/overlays/$(ENV)

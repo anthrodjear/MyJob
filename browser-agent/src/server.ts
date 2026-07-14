@@ -238,15 +238,5 @@ async function startServer() {
   }
 }
 
-// Auto-start only when run directly (not imported for testing)
-const isMainModule = require.main === module;
-if (isMainModule) {
-  startServer().catch(err => {
-    logger.error({ err }, 'Failed to start server');
-    process.exit(1);
-  });
-}
-
 export { app, startServer };
-export type { ScrapeJobsRequest, FillFormRequest, CheckEmailsRequest };
 

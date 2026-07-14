@@ -86,7 +86,6 @@ func (r *Repository) List(ctx context.Context, status, taskType string, limit, o
 	if taskType != "" {
 		countQuery += ` AND type = ` + ph(argIdx)
 		countArgs = append(countArgs, taskType)
-		argIdx++
 	}
 
 	err := r.db.GetContext(ctx, &total, countQuery, countArgs...)

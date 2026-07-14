@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -32,12 +33,12 @@ func AuthMiddleware(authService *auth.Service) gin.HandlerFunc {
 		tokenString := parts[1]
 		claims, err := authService.ValidateTokenWithSession(c.Request.Context(), tokenString)
 		if err != nil {
-			if err == auth.ErrTokenExpired {
+			if errors.Is(err, auth.ErrTokenExpired) {
 				httpresp.Unauthorized(c, "TOKEN_EXPIRED", "token has expired")
 				c.Abort()
 				return
 			}
-			if err == auth.ErrSessionInvalidated {
+			if errors.Is(err, auth.ErrSessionInvalidated) {
 				httpresp.Unauthorized(c, "SESSION_INVALIDATED", "session invalidated, please log in again")
 				c.Abort()
 				return

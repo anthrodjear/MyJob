@@ -7,11 +7,26 @@ import (
 // User represents the single local user.
 // For a local-first app, this is minimal — just enough to support JWT auth.
 type User struct {
-	ID                string     `db:"id" json:"id"`
-	PasswordHash      string     `db:"password_hash" json:"-"`
-	SessionVersion    int        `db:"session_version" json:"session_version"`
-	LastLoginAt       *time.Time `db:"last_login_at" json:"last_login_at,omitempty"`
-	PasswordChangedAt time.Time  `db:"password_changed_at" json:"-"`
-	CreatedAt         time.Time  `db:"created_at" json:"created_at"`
-	UpdatedAt         time.Time  `db:"updated_at" json:"updated_at"`
+	ID                    string     `db:"id" json:"id"`
+	Username              string     `db:"username" json:"username"`
+	Email                 string     `db:"email" json:"email"`
+	PasswordHash          string     `db:"password_hash" json:"-"`
+	SessionVersion        int        `db:"session_version" json:"session_version"`
+	LastLoginAt           *time.Time `db:"last_login_at" json:"last_login_at,omitempty"`
+	PasswordChangedAt     time.Time  `db:"password_changed_at" json:"-"`
+	OnboardingCompletedAt *time.Time `db:"onboarding_completed_at" json:"onboarding_completed_at,omitempty"`
+	OnboardingStep        string     `db:"onboarding_step" json:"onboarding_step"`
+	CreatedAt             time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt             time.Time  `db:"updated_at" json:"updated_at"`
+}
+
+// RefreshToken represents a stored refresh token (SHA-256 hash, not plaintext).
+type RefreshToken struct {
+	ID        string     `db:"id" json:"id"`
+	UserID    string     `db:"user_id" json:"-"`
+	TokenHash string     `db:"token_hash" json:"-"` // never expose hash
+	ExpiresAt time.Time  `db:"expires_at" json:"expires_at"`
+	CreatedAt time.Time  `db:"created_at" json:"created_at"`
+	RevokedAt *time.Time `db:"revoked_at" json:"revoked_at,omitempty"`
+	UpdatedAt time.Time  `db:"updated_at" json:"updated_at"`
 }

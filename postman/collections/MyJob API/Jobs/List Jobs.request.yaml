@@ -1,0 +1,22 @@
+$kind: http-request
+name: List Jobs
+method: GET
+url: '{{baseUrl}}/api/v1/jobs'
+order: 1000
+queryParams:
+  - key: status
+    value: ''
+    disabled: true
+  - key: company
+    value: ''
+    disabled: true
+  - key: source_id
+    value: ''
+    disabled: true
+  - key: min_score
+    value: ''
+    disabled: true
+  - key: limit
+    value: '20'
+  - key: offset
+    value: '0'

@@ -88,26 +88,26 @@ type FillFormRequest struct {
 
 // FillFormResponse is the response from the browser agent after form filling.
 type FillFormResponse struct {
-	Success   bool   `json:"success"`
-	Message   string `json:"message,omitempty"`
+	Success       bool   `json:"success"`
+	Message       string `json:"message,omitempty"`
 	ScreenshotURL string `json:"screenshot_url,omitempty"`
 }
 
 // CheckEmailsRequest is the payload sent to the browser agent for email checking.
 type CheckEmailsRequest struct {
-	TenantID     string `json:"tenant_id"`
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
-	Folders      []string `json:"folders"`
-	ApplicationID string `json:"application_id,omitempty"`
+	TenantID      string   `json:"tenant_id"`
+	ClientID      string   `json:"client_id"`
+	ClientSecret  string   `json:"client_secret"`
+	Folders       []string `json:"folders"`
+	ApplicationID string   `json:"application_id,omitempty"`
 }
 
 // CheckedEmail represents a single email checked by the browser agent.
 type CheckedEmail struct {
-	From        string `json:"from"`
-	Subject     string `json:"subject"`
-	Body        string `json:"body"`
-	ReceivedAt  string `json:"received_at"`
+	From           string `json:"from"`
+	Subject        string `json:"subject"`
+	Body           string `json:"body"`
+	ReceivedAt     string `json:"received_at"`
 	Classification string `json:"classification"` // "rejection", "interview", "offer", "spam", "other"
 }
 
@@ -233,6 +233,7 @@ func (c *HTTPBrowserAgentClient) FillForm(ctx context.Context, req FillFormReque
 
 // CheckEmails calls the browser agent's email checking endpoint.
 func (c *HTTPBrowserAgentClient) CheckEmails(ctx context.Context, req CheckEmailsRequest) (*CheckEmailsResponse, error) {
+	// #nosec G117 -- ClientSecret is needed by local browser agent for Microsoft Graph auth
 	data, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("browser-agent: marshal check emails request: %w", err)

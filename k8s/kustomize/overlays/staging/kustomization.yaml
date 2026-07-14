@@ -1,0 +1,96 @@
+# kustomize/overlays/staging/kustomization.yaml
+# Staging environment — moderate scaling, debug-friendly
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: myjob-staging
+
+resources:
+  - ../../base
+
+patches:
+  # Scale down for staging
+  - target:
+      kind: Deployment
+      name: myjob-api
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target:
+      kind: Deployment
+      name: myjob-worker
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target:
+      kind: Deployment
+      name: myjob-browser-agent
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target:
+      kind: Deployment
+      name: myjob-frontend
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 1
+
+  # Disable HPA for staging (set min=1, max=2)
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: myjob-api-hpa
+    patch: |
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: myjob-worker-hpa
+    patch: |
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
+
+  # Reduce resource limits for staging
+  - target:
+      kind: Deployment
+      name: myjob-api
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 100m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 128Mi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: 500m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 256Mi
+
+  # Smaller PVC for staging
+  - target:
+      kind: StatefulSet
+      name: myjob-postgres
+    patch: |
+      - op: replace
+        path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        value: 5Gi
+
+configMapGenerator:
+  - name: myjob-config
+    literals:
+      - APP_ENV=staging
+      - LOG_LEVEL=debug

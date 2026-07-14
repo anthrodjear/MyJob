@@ -1,0 +1,19 @@
+$kind: http-request
+name: Generate Resume Content
+method: POST
+url: '{{baseUrl}}/api/v1/resumes/{{resumeId}}/generate'
+order: 8000
+pathVariables:
+  - key: resumeId
+    value: '{{resumeId}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "job_id": "{{jobId}}",
+      "job_title": "Senior Backend Engineer",
+      "job_requirements": "5+ years Go experience..."
+    }

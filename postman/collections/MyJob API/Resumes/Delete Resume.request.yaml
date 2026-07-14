@@ -1,0 +1,8 @@
+$kind: http-request
+name: Delete Resume
+method: DELETE
+url: '{{baseUrl}}/api/v1/resumes/{{resumeId}}'
+order: 5000
+pathVariables:
+  - key: resumeId
+    value: '{{resumeId}}'

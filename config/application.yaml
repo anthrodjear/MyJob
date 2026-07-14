@@ -30,8 +30,8 @@ queue:
 
 llm:
   primary:
-    provider: "openai"
-    model: "gpt-4o"
+    provider: "ollama"
+    model: "qwen2.5:latest"
   local:
     provider: "ollama"
     model: "qwen2.5:latest"

@@ -1,0 +1,1 @@
+$kind: http-request`r`nname: Login`r`ndescription: ""``r`nmethod: POST`r`nurl: "{{baseUrl}}/api/v1/auth/login"`r`norder: 1000`r`nauth:`r`n  type: noauth`r`nheaders:`r`n  - key: Content-Type`r`n    value: application/json`r`n    disabled: true`r`nbody:`r`n  type: json`r`n  content: |-`r`n    {`r`n        "password": "athda123."`r`n    }

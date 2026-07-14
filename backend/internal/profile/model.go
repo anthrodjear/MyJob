@@ -114,6 +114,7 @@ type Education struct {
 	Institution string `json:"institution"`
 	Degree      string `json:"degree"`
 	Field       string `json:"field,omitempty"`
+	Description string `json:"description,omitempty"`
 	StartYear   int    `json:"start_year,omitempty"`
 	EndYear     int    `json:"end_year,omitempty"`
 	GPA         string `json:"gpa,omitempty"`

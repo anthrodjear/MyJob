@@ -21,8 +21,10 @@
 package interviews
 
 import (
+	"database/sql/driver"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -192,6 +194,118 @@ type TranscriptEntry struct {
 }
 
 // ---------------------------------------------------------------------------
+// JSONB helper: Transcript
+// ---------------------------------------------------------------------------
+
+// Transcript is a named slice of TranscriptEntry that implements sql.Scanner
+// and driver.Valuer for PostgreSQL JSONB round-trips.
+//
+// Without these methods, database/sql cannot scan JSONB rows into
+// []TranscriptEntry — the standard library only knows how to scan into
+// types that either have explicit scanner support (e.g., json.RawMessage)
+// or implement the sql.Scanner interface. Unlike other common JSONB types,
+// unnamed slice types lack built-in scanning, so we provide a named type.
+//
+// Usage is identical to []TranscriptEntry:
+//
+//	var t Transcript
+//	json.Unmarshal(data, &t)   // works (underlying type is []TranscriptEntry)
+//	t[0].Speaker                // works
+//	len(t)                       // works
+type Transcript []TranscriptEntry
+
+// Scan implements sql.Scanner for Transcript.
+func (t *Transcript) Scan(src interface{}) error {
+	if src == nil {
+		*t = nil
+		return nil
+	}
+	var data []byte
+	switch v := src.(type) {
+	case []byte:
+		data = v
+	case string:
+		data = []byte(v)
+	default:
+		return fmt.Errorf("interviews: scan transcript: unsupported type %T", src)
+	}
+	if len(data) == 0 {
+		*t = Transcript{}
+		return nil
+	}
+	return json.Unmarshal(data, t)
+}
+
+// Value implements driver.Valuer for Transcript.
+func (t Transcript) Value() (driver.Value, error) {
+	return json.Marshal(t)
+}
+
+// ---------------------------------------------------------------------------
+// JSONB helper: Feedback
+// ---------------------------------------------------------------------------
+
+// Feedback is a named json.RawMessage that implements sql.Scanner and
+// driver.Valuer for PostgreSQL JSONB round-trips.
+//
+// Go 1.23 removed the special-case handling of json.RawMessage from
+// database/sql, so scanning nil (SQL NULL) into a raw json.RawMessage
+// field now fails with "unsupported Scan". This wrapper restores the
+// behaviour via the Scanner interface.
+//
+// Usage is identical to json.RawMessage:
+//
+//	var f Feedback
+//	f = Feedback(`{"score":85}`)
+//	json.Unmarshal(data, &f)  // works (underlying type is json.RawMessage)
+type Feedback json.RawMessage
+
+// Scan implements sql.Scanner for Feedback.
+func (f *Feedback) Scan(src interface{}) error {
+	if src == nil {
+		*f = nil
+		return nil
+	}
+	var data []byte
+	switch v := src.(type) {
+	case []byte:
+		data = v
+	case string:
+		data = []byte(v)
+	default:
+		return fmt.Errorf("interviews: scan feedback: unsupported type %T", src)
+	}
+	if len(data) == 0 {
+		*f = Feedback{}
+		return nil
+	}
+	return json.Unmarshal(data, (*json.RawMessage)(f))
+}
+
+// Value implements driver.Valuer for Feedback.
+func (f Feedback) Value() (driver.Value, error) {
+	if len(f) == 0 {
+		return nil, nil
+	}
+	return []byte(f), nil
+}
+
+// MarshalJSON implements json.Marshaler for Feedback so that json.Marshal
+// emits the raw JSON content rather than base64-encoded bytes.
+func (f Feedback) MarshalJSON() ([]byte, error) {
+	if len(f) == 0 {
+		return []byte("null"), nil
+	}
+	return []byte(f), nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler for Feedback.
+func (f *Feedback) UnmarshalJSON(data []byte) error {
+	*f = append((*f)[:0], data...)
+	return nil
+}
+
+// ---------------------------------------------------------------------------
 // Model: InterviewSession
 // ---------------------------------------------------------------------------
 
@@ -243,7 +357,7 @@ type InterviewSession struct {
 	// 2000+ entries. The voice service MUST enforce a rolling window or
 	// periodic summarization. See code-standards.md: "Unbounded Arrays
 	// in Memory".
-	Transcript []TranscriptEntry `db:"transcript" json:"transcript"`
+	Transcript Transcript `db:"transcript" json:"transcript"`
 
 	// Score is the AI's evaluation of the interview (0.0–100.0).
 	// Populated after interview completes. Nil until scored.

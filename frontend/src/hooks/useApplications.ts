@@ -20,9 +20,8 @@ import {
 import type {
   Application,
   ApplicationListParams,
-  ApplicationStatsResponse,
-  ApplicationEvent,
   ApplicationStatus,
+  ApplicationListResponse,
 } from "@/lib/types/applications";
 
 /** Stable stringify for query keys — sorts keys for consistent references. */
@@ -42,6 +41,9 @@ export const applicationsKeys = {
   timeline: (id: string) => [...applicationsKeys.detail(id), "timeline"] as const,
 };
 
+/** Empty application list response for graceful degradation. */
+const emptyApplications: ApplicationListResponse = { applications: [], total: 0, limit: 0, offset: 0 };
+
 /**
  * Hook to fetch paginated application list with filters.
  *
@@ -54,7 +56,7 @@ export function useApplications(params: ApplicationListParams = {}) {
     queryFn: () => fetchApplications(params),
     staleTime: 60_000,
     gcTime: 5 * 60_000,
-    placeholderData: (previous) => previous,
+    placeholderData: emptyApplications,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30_000),
     structuralSharing: true,

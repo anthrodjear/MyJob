@@ -19,7 +19,7 @@ type Theme = "light" | "dark" | "system";
 const ThemeContext = createContext<{
   theme: Theme;
   setTheme: (t: Theme) => void;
-}>({ theme: "system", setTheme: (t: Theme) => {} });
+}>({ theme: "system", setTheme: () => {} });
 
 /**
  * Hook to access theme context.

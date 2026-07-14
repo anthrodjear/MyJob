@@ -1,0 +1,388 @@
+# .github/workflows/cd.yml
+# CD Pipeline — deploy via Kubernetes (Helm) or Docker Compose
+#
+# Triggers: after CI passes on main, or manual dispatch
+# Staging: auto-deploy on push to main
+# Production: manual approval required via GitHub Environments
+
+name: CD Pipeline
+
+on:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      image_tag:
+        description: 'Image tag to deploy (e.g., sha-abc1234)'
+        required: false
+        default: ''
+      deploy_method:
+        description: 'Deploy method'
+        required: true
+        default: 'kubernetes'
+        type: choice
+        options:
+          - kubernetes
+          - docker-compose
+
+concurrency:
+  group: cd-${{ github.event.inputs.environment || 'staging' }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Determine what to deploy
+  # ---------------------------------------------------------------------------
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.resolve-tag.outputs.tag }}
+      environment: ${{ steps.resolve-env.outputs.env }}
+      deploy_method: ${{ steps.resolve-method.outputs.method }}
+    steps:
+      - name: Resolve environment
+        id: resolve-env
+        env:
+          INPUT_ENV: ${{ github.event.inputs.environment }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "env=$INPUT_ENV" >> $GITHUB_OUTPUT
+          else
+            echo "env=staging" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Resolve image tag
+        id: resolve-tag
+        env:
+          INPUT_IMAGE_TAG: ${{ github.event.inputs.image_tag }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ -n "$INPUT_IMAGE_TAG" ]; then
+            echo "tag=$INPUT_IMAGE_TAG" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "tag=sha-${RUN_SHA::7}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=sha-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Resolve deploy method
+        id: resolve-method
+        env:
+          INPUT_DEPLOY_METHOD: ${{ github.event.inputs.deploy_method }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "method=$INPUT_DEPLOY_METHOD" >> $GITHUB_OUTPUT
+          else
+            echo "method=kubernetes" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate CI passed
+        if: github.event_name == 'workflow_run'
+        run: |
+          if [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
+            echo "ERROR: CI pipeline did not pass"
+            exit 1
+          fi
+
+  # ===========================================================================
+  # Kubernetes Deployment (reusable workflow)
+  # ===========================================================================
+  deploy-k8s-staging:
+    needs: prepare
+    if: needs.prepare.outputs.environment == 'staging' && needs.prepare.outputs.deploy_method == 'kubernetes'
+    uses: ./.github/workflows/k8s-deploy.yml
+    with:
+      environment: staging
+      image_tag: ${{ needs.prepare.outputs.image_tag }}
+      namespace: myjob-staging
+      replica_count: 2
+      pdb_min_available: 1
+      health_check_retries: 30
+    secrets:
+      KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+
+  deploy-k8s-production:
+    needs: prepare
+    if: needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.deploy_method == 'kubernetes'
+    uses: ./.github/workflows/k8s-deploy.yml
+    with:
+      environment: production
+      image_tag: ${{ needs.prepare.outputs.image_tag }}
+      namespace: myjob-production
+      replica_count: 3
+      pdb_min_available: 2
+      health_check_retries: 30
+    secrets:
+      KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+
+  # ===========================================================================
+  # Docker Compose Deployment (fallback)
+  # ===========================================================================
+  deploy-docker-staging:
+    needs: prepare
+    if: needs.prepare.outputs.environment == 'staging' && needs.prepare.outputs.deploy_method == 'docker-compose'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: ${{ vars.DEPLOY_URL }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Save previous tag for rollback
+        id: prev-tag
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            DEPLOY_DIR="${{ vars.DEPLOY_DIR || '/opt/myjob' }}"
+            cd "$DEPLOY_DIR" 2>/dev/null || true
+            # Try to read current image tag from running container
+            PREV_TAG=$(docker inspect --format='{{.Config.Image}}' myjob-api-1 2>/dev/null | cut -d: -f2 || echo "")
+            if [ -n "$PREV_TAG" ]; then
+              echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
+              echo "Previous tag: $PREV_TAG"
+            else
+              echo "tag=" >> $GITHUB_OUTPUT
+              echo "No previous deployment found (first deploy)"
+            fi
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            DEPLOY_DIR="${{ vars.DEPLOY_DIR || '/opt/myjob' }}"
+            TAG="${{ needs.prepare.outputs.image_tag }}"
+            cd "$DEPLOY_DIR"
+
+            # Login to GHCR on remote
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            export API_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-api:$TAG"
+            export WORKER_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-worker:$TAG"
+            export BROWSER_AGENT_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-browser-agent:$TAG"
+            export FRONTEND_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:$TAG"
+
+            # Set tag env vars for docker-compose.yml image: directives
+            export GITHUB_REPO_OWNER="${{ env.IMAGE_PREFIX }}"
+            export API_TAG="$TAG"
+            export WORKER_TAG="$TAG"
+            export BROWSER_AGENT_TAG="$TAG"
+            export FRONTEND_TAG="$TAG"
+            export BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+            docker compose pull api worker browser-agent frontend
+            docker compose up -d --force-recreate --no-build api worker browser-agent frontend
+            echo "=== Deploy complete ==="
+
+      - name: Health check
+        run: |
+          chmod +x scripts/ci-health-check.sh
+          API_URL="${{ vars.DEPLOY_URL }}/api" \
+          FRONTEND_URL="${{ vars.DEPLOY_URL }}" \
+          MAX_RETRIES=30 \
+          RETRY_INTERVAL=3 \
+          scripts/ci-health-check.sh
+
+      - name: Rollback on failure
+        if: failure()
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            DEPLOY_DIR="${{ vars.DEPLOY_DIR || '/opt/myjob' }}"
+            PREV_TAG="${{ steps.prev-tag.outputs.tag }}"
+            if [ -z "$PREV_TAG" ]; then
+              echo "No previous tag found — cannot rollback (first deploy)"
+              exit 0
+            fi
+            echo "=== ROLLING BACK to $PREV_TAG ==="
+            cd "$DEPLOY_DIR"
+            export API_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-api:$PREV_TAG"
+            export WORKER_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-worker:$PREV_TAG"
+            export BROWSER_AGENT_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-browser-agent:$PREV_TAG"
+            export FRONTEND_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:$PREV_TAG"
+            export GITHUB_REPO_OWNER="${{ env.IMAGE_PREFIX }}"
+            export API_TAG="$PREV_TAG"
+            export WORKER_TAG="$PREV_TAG"
+            export BROWSER_AGENT_TAG="$PREV_TAG"
+            export FRONTEND_TAG="$PREV_TAG"
+            docker compose pull api worker browser-agent frontend
+            docker compose up -d --force-recreate --no-build
+            echo "=== Rollback complete ==="
+
+  deploy-docker-production:
+    needs: prepare
+    if: needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.deploy_method == 'docker-compose'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.DEPLOY_URL }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Confirm deployment
+        run: |
+          echo "::warning::Deploying ${{ needs.prepare.outputs.image_tag }} to PRODUCTION"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Save previous tag for rollback
+        id: prev-tag
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            DEPLOY_DIR="${{ vars.DEPLOY_DIR || '/opt/myjob' }}"
+            cd "$DEPLOY_DIR" 2>/dev/null || true
+            PREV_TAG=$(docker inspect --format='{{.Config.Image}}' myjob-api-1 2>/dev/null | cut -d: -f2 || echo "")
+            if [ -n "$PREV_TAG" ]; then
+              echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
+              echo "Previous tag: $PREV_TAG"
+            else
+              echo "tag=" >> $GITHUB_OUTPUT
+              echo "No previous deployment found (first deploy)"
+            fi
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            DEPLOY_DIR="${{ vars.DEPLOY_DIR || '/opt/myjob' }}"
+            TAG="${{ needs.prepare.outputs.image_tag }}"
+            cd "$DEPLOY_DIR"
+
+            # Login to GHCR on remote
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Backup database
+            docker compose exec -T postgres pg_dump -U myjob myjob | gzip > /tmp/myjob-db-backup.sql.gz
+
+            export API_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-api:$TAG"
+            export WORKER_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-worker:$TAG"
+            export BROWSER_AGENT_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-browser-agent:$TAG"
+            export FRONTEND_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:$TAG"
+
+            # Set tag env vars for docker-compose.yml image: directives
+            export GITHUB_REPO_OWNER="${{ env.IMAGE_PREFIX }}"
+            export API_TAG="$TAG"
+            export WORKER_TAG="$TAG"
+            export BROWSER_AGENT_TAG="$TAG"
+            export FRONTEND_TAG="$TAG"
+            export BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+            docker compose pull api worker browser-agent frontend
+            docker compose up -d --force-recreate --no-build api worker browser-agent frontend
+            echo "=== Deploy complete ==="
+
+      - name: Health check
+        run: |
+          chmod +x scripts/ci-health-check.sh
+          API_URL="${{ vars.DEPLOY_URL }}/api" \
+          FRONTEND_URL="${{ vars.DEPLOY_URL }}" \
+          MAX_RETRIES=30 \
+          RETRY_INTERVAL=3 \
+          scripts/ci-health-check.sh
+
+      - name: Rollback on failure
+        if: failure()
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            DEPLOY_DIR="${{ vars.DEPLOY_DIR || '/opt/myjob' }}"
+            PREV_TAG="${{ steps.prev-tag.outputs.tag }}"
+            if [ -z "$PREV_TAG" ]; then
+              echo "No previous tag found — cannot rollback (first deploy)"
+              exit 0
+            fi
+            echo "=== ROLLING BACK to $PREV_TAG ==="
+            cd "$DEPLOY_DIR"
+
+            # Restore database
+            if [ -f /tmp/myjob-db-backup.sql.gz ]; then
+              gunzip -c /tmp/myjob-db-backup.sql.gz | docker compose exec -T postgres psql -U myjob myjob
+            fi
+
+            # Restore container images
+            export API_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-api:$PREV_TAG"
+            export WORKER_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-worker:$PREV_TAG"
+            export BROWSER_AGENT_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-browser-agent:$PREV_TAG"
+            export FRONTEND_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:$PREV_TAG"
+            export GITHUB_REPO_OWNER="${{ env.IMAGE_PREFIX }}"
+            export API_TAG="$PREV_TAG"
+            export WORKER_TAG="$PREV_TAG"
+            export BROWSER_AGENT_TAG="$PREV_TAG"
+            export FRONTEND_TAG="$PREV_TAG"
+            docker compose pull api worker browser-agent frontend
+            docker compose up -d --force-recreate --no-build
+            echo "=== Rollback complete ==="
+
+  # ---------------------------------------------------------------------------
+  # CD Summary
+  # ---------------------------------------------------------------------------
+  cd-summary:
+    needs: [prepare, deploy-k8s-staging, deploy-k8s-production, deploy-docker-staging, deploy-docker-production]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deployment Summary
+        run: |
+          echo "## CD Pipeline Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | ${{ needs.prepare.outputs.environment }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image Tag | ${{ needs.prepare.outputs.image_tag }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deploy Method | ${{ needs.prepare.outputs.deploy_method }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| K8s Staging | ${{ needs.deploy-k8s-staging.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| K8s Production | ${{ needs.deploy-k8s-production.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Staging | ${{ needs.deploy-docker-staging.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Production | ${{ needs.deploy-docker-production.result }} |" >> $GITHUB_STEP_SUMMARY

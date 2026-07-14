@@ -35,25 +35,25 @@ import (
 // To add a new event type: define a constant here, use it in LogEvent,
 // and optionally add frontend display logic.
 const (
-	EventJobDiscovered            = "job_discovered"            // New job found by scraper
-	EventJobScored                = "job_scored"                // Job scored by LLM
-	EventApplicationCreated       = "application_created"       // Application record created
-	EventApplicationSubmitted     = "application_submitted"     // Application submitted to employer
+	EventJobDiscovered            = "job_discovered"             // New job found by scraper
+	EventJobScored                = "job_scored"                 // Job scored by LLM
+	EventApplicationCreated       = "application_created"        // Application record created
+	EventApplicationSubmitted     = "application_submitted"      // Application submitted to employer
 	EventApplicationStatusChanged = "application_status_changed" // Status transition (e.g. submitted → interviewed)
-	EventResumeGenerated          = "resume_generated"          // Resume content generated via LLM
-	EventResumeTailored           = "resume_tailored"           // Resume tailored for specific job
-	EventCoverLetterGenerated     = "cover_letter_generated"    // Cover letter generated via LLM
-	EventEmailReceived            = "email_received"            // Incoming email stored
-	EventEmailClassified          = "email_classified"          // Email classified by LLM
-	EventInterviewStarted         = "interview_started"         // LiveKit interview session started
-	EventInterviewCompleted       = "interview_completed"       // Interview session ended
-	EventApprovalRequested        = "approval_requested"        // Application submitted for human approval
-	EventApprovalApproved         = "approval_approved"         // Human approved application
-	EventApprovalRejected         = "approval_rejected"         // Human rejected application
-	EventEmbeddingCreated         = "embedding_created"         // Vector embedding generated for job/resume
-	EventSearchPerformed          = "search_performed"          // RAG similarity search executed
-	EventError                    = "error"                     // System error occurred
-	EventInfo                     = "info"                      // Informational event
+	EventResumeGenerated          = "resume_generated"           // Resume content generated via LLM
+	EventResumeTailored           = "resume_tailored"            // Resume tailored for specific job
+	EventCoverLetterGenerated     = "cover_letter_generated"     // Cover letter generated via LLM
+	EventEmailReceived            = "email_received"             // Incoming email stored
+	EventEmailClassified          = "email_classified"           // Email classified by LLM
+	EventInterviewStarted         = "interview_started"          // LiveKit interview session started
+	EventInterviewCompleted       = "interview_completed"        // Interview session ended
+	EventApprovalRequested        = "approval_requested"         // Application submitted for human approval
+	EventApprovalApproved         = "approval_approved"          // Human approved application
+	EventApprovalRejected         = "approval_rejected"          // Human rejected application
+	EventEmbeddingCreated         = "embedding_created"          // Vector embedding generated for job/resume
+	EventSearchPerformed          = "search_performed"           // RAG similarity search executed
+	EventError                    = "error"                      // System error occurred
+	EventInfo                     = "info"                       // Informational event
 )
 
 // Domain errors for the activity package.

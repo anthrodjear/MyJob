@@ -15,26 +15,26 @@ import (
 // format (via ResumeContentDB.Value/Scan) and the LLM response parsing target.
 // API responses use separate DTOs in dto.go with their own json tags.
 type ResumeContent struct {
-	Summary            string              `json:"summary"`
-	Skills             []string            `json:"skills"`
-	Experience         []ExperienceEntry   `json:"experience"`
-	Projects           []ProjectEntry      `json:"projects"`
-	Education          []EducationEntry    `json:"education"`
-	Certifications     []string            `json:"certifications"`
-	Languages          []LanguageEntry     `json:"languages"`
-	Links              []LinkEntry         `json:"links"`
+	Summary        string            `json:"summary"`
+	Skills         []string          `json:"skills"`
+	Experience     []ExperienceEntry `json:"experience"`
+	Projects       []ProjectEntry    `json:"projects"`
+	Education      []EducationEntry  `json:"education"`
+	Certifications []string          `json:"certifications"`
+	Languages      []LanguageEntry   `json:"languages"`
+	Links          []LinkEntry       `json:"links"`
 }
 
 // ExperienceEntry represents a work experience entry in the structured resume.
 type ExperienceEntry struct {
-	Title        string   `json:"title"`
-	Company      string   `json:"company"`
-	Location     string   `json:"location"`
-	StartDate    string   `json:"start_date"`
-	EndDate      string   `json:"end_date"`
-	Description  string   `json:"description"`
-	SkillsUsed   []string `json:"skills_used"`
-	Highlights   []string `json:"highlights"`
+	Title       string   `json:"title"`
+	Company     string   `json:"company"`
+	Location    string   `json:"location"`
+	StartDate   string   `json:"start_date"`
+	EndDate     string   `json:"end_date"`
+	Description string   `json:"description"`
+	SkillsUsed  []string `json:"skills_used"`
+	Highlights  []string `json:"highlights"`
 }
 
 // ProjectEntry represents a project in the structured resume.
@@ -125,7 +125,7 @@ type Resume struct {
 	TemplatePath        string
 	FocusSkills         []string
 	HighlightExperience []uuid.UUID
-	Content             ResumeContentDB     // Structured resume content (JSONB)
+	Content             ResumeContentDB // Structured resume content (JSONB)
 	PdfKey              *string
 	Version             int32
 	CreatedAt           time.Time
@@ -136,15 +136,15 @@ type Resume struct {
 func NewResume(name, specialization, templatePath string, focusSkills []string) *Resume {
 	now := time.Now().UTC()
 	return &Resume{
-		ID:                uuid.New(),
-		Name:              name,
-		Specialization:    specialization,
-		TemplatePath:      templatePath,
-		FocusSkills:       focusSkills,
-		Content:           ResumeContentDB{}, // Empty content
-		Version:           1,
-		CreatedAt:         now,
-		UpdatedAt:         now,
+		ID:             uuid.New(),
+		Name:           name,
+		Specialization: specialization,
+		TemplatePath:   templatePath,
+		FocusSkills:    focusSkills,
+		Content:        ResumeContentDB{}, // Empty content
+		Version:        1,
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 }
 
@@ -160,21 +160,21 @@ type ResumeVersion struct {
 
 // CoverLetter represents a generated cover letter with LLM traceability.
 type CoverLetter struct {
-	ID             uuid.UUID
-	JobID          *uuid.UUID
-	ResumeID       *uuid.UUID
-	JobTitle       *string        // denormalized job title for quick display
-	Content        string         // plain text cover letter content
-	Model          *string        // LLM model used (e.g., "ollama/qwen2.5")
-	PromptVersion  *string        // prompt version used for traceability
-	ResumeVersion  *int32         // resume version used for generation
-	PdfKey         *string        // storage key for generated PDF
-	Strengths      *StringSliceDB // LLM-identified strengths to highlight
-	Gaps           *StringSliceDB // LLM-identified gaps to address
-	WordCount      *int
-	Version        int32
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID            uuid.UUID
+	JobID         *uuid.UUID
+	ResumeID      *uuid.UUID
+	JobTitle      *string        // denormalized job title for quick display
+	Content       string         // plain text cover letter content
+	Model         *string        // LLM model used (e.g., "ollama/qwen2.5")
+	PromptVersion *string        // prompt version used for traceability
+	ResumeVersion *int32         // resume version used for generation
+	PdfKey        *string        // storage key for generated PDF
+	Strengths     *StringSliceDB // LLM-identified strengths to highlight
+	Gaps          *StringSliceDB // LLM-identified gaps to address
+	WordCount     *int
+	Version       int32
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 // NewCoverLetter creates a new CoverLetter with default values.

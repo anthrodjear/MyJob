@@ -15,7 +15,10 @@ import {
   classifyEmail,
 } from "@/lib/api/emails";
 import type { EmailFilterInput, UpdateEmailInput } from "@/lib/schemas/emails";
-import type { Email } from "@/lib/types/emails";
+import type { Email, EmailListResponse } from "@/lib/types/emails";
+
+/** Empty email list response for graceful degradation. */
+const emptyEmails: EmailListResponse = { emails: [], total: 0, limit: 0, offset: 0 };
 
 /**
  * Fetch paginated email list with optional filters.
@@ -26,6 +29,7 @@ export function useEmails(params?: EmailFilterInput) {
   return useQuery({
     queryKey: ["emails", params],
     queryFn: ({ signal }) => fetchEmails(params, signal),
+    placeholderData: emptyEmails,
   });
 }
 
@@ -70,7 +74,7 @@ export function useUpdateEmail() {
         queryClient.setQueryData(["emails", id], context.previous);
       }
     },
-    onSettled: (_data, _error, { id }) => {
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["emails"] });
     },
   });

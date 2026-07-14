@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/hibiken/asynq"
 	"go.uber.org/zap"
@@ -33,17 +35,30 @@ func main() {
 		logger.Fatal("config validation failed", zap.Error(err))
 	}
 
-	postgres, err := database.NewPostgresDB(cfg.Database.URL, logger)
+	postgres, err := database.NewPostgresDB(cfg.Database, logger)
 	if err != nil {
 		logger.Fatal("Failed to connect to PostgreSQL", zap.Error(err))
 	}
 	defer postgres.Close()
 
+	// Run database migrations
+	if err := database.RunMigrations(cfg.Database.URL); err != nil {
+		logger.Fatal("Failed to run database migrations", zap.Error(err))
+	}
+	logger.Info("Database migrations applied")
+
 	redis, err := database.NewRedisClient(cfg.Redis.URL, logger)
 	if err != nil {
-		logger.Fatal("Failed to connect to Redis", zap.Error(err))
+		logger.Fatal("Failed to create Redis client", zap.Error(err))
 	}
 	defer redis.Close()
+
+	// Test Redis connection
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := redis.Connect(ctx); err != nil {
+		logger.Fatal("Failed to connect to Redis", zap.Error(err))
+	}
 
 	// --- Domain initialization ---
 	scoringRepo := scoring.NewRepository(postgres.DB)

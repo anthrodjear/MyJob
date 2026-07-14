@@ -8,26 +8,35 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
-	"go.uber.org/zap"
 	"backend/internal/config"
+
+	"go.uber.org/zap"
 )
 
 // EmbeddingClient defines the interface for generating embeddings.
 type EmbeddingClient interface {
 	// Embed generates an embedding vector for the given text.
 	Embed(ctx context.Context, text string) ([]float32, error)
+	// EmbedBatch generates embedding vectors for multiple texts concurrently.
+	// Returns one vector per input text, in the same order.
+	// If any embedding fails, returns an error and no vectors.
+	EmbedBatch(ctx context.Context, texts []string) ([][]float32, error)
 	// ModelName returns the identifier of the embedding model.
 	ModelName() string
 }
 
+// maxConcurrentEmbeds limits parallel HTTP calls to avoid overwhelming Ollama.
+const maxConcurrentEmbeds = 5
+
 // OllamaEmbeddingClient calls a local Ollama model for embedding generation.
 type OllamaEmbeddingClient struct {
-	logger   *zap.Logger
-	baseURL  string
-	model    string
-	client   *http.Client
+	logger  *zap.Logger
+	baseURL string
+	model   string
+	client  *http.Client
 }
 
 // NewOllamaEmbeddingClient creates a new Ollama-based embedding client.
@@ -104,6 +113,44 @@ func (o *OllamaEmbeddingClient) Embed(ctx context.Context, text string) ([]float
 	return ollamaResp.Embedding, nil
 }
 
+// EmbedBatch generates embeddings for multiple texts concurrently.
+// Uses a semaphore to limit parallel HTTP calls to maxConcurrentEmbeds.
+// Returns one vector per input text, in the same order.
+func (o *OllamaEmbeddingClient) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
+	if len(texts) == 0 {
+		return nil, nil
+	}
+
+	results := make([][]float32, len(texts))
+	errs := make([]error, len(texts))
+	sem := make(chan struct{}, maxConcurrentEmbeds)
+	var wg sync.WaitGroup
+
+	for i, text := range texts {
+		wg.Add(1)
+		go func(idx int, t string) {
+			defer wg.Done()
+			sem <- struct{}{}        // acquire
+			defer func() { <-sem }() // release
+
+			vec, err := o.Embed(ctx, t)
+			results[idx] = vec
+			errs[idx] = err
+		}(i, text)
+	}
+
+	wg.Wait()
+
+	// If any embedding failed, return the first error.
+	for i, err := range errs {
+		if err != nil {
+			return nil, fmt.Errorf("embed batch: text[%d]: %w", i, err)
+		}
+	}
+
+	return results, nil
+}
+
 // NewEmbeddingClientFromConfig creates an EmbeddingClient based on configuration.
 func NewEmbeddingClientFromConfig(logger *zap.Logger, cfg config.LLMConfig) EmbeddingClient {
 	if cfg.Embeddings.Provider == "ollama" && cfg.Embeddings.BaseURL != "" {
@@ -122,9 +169,17 @@ func NewNoopEmbeddingClient(logger *zap.Logger) *NoopEmbeddingClient {
 	return &NoopEmbeddingClient{logger: logger.Named("embeddings.noop")}
 }
 
-// Embed returns a zero vector — used when embedding generation is disabled.
+// Embed returns nil and an error — callers must check the error before using the slice.
+// Returning nil (not empty slice) prevents downstream code from treating a failed
+// embedding as a valid zero-dimensional vector and crashing on pgvector inserts or
+// similarity calculations.
 func (n *NoopEmbeddingClient) Embed(_ context.Context, _ string) ([]float32, error) {
-	return []float32{}, fmt.Errorf("embedding generation disabled")
+	return nil, fmt.Errorf("embedding generation disabled")
+}
+
+// EmbedBatch returns nil and an error — embedding generation is disabled.
+func (n *NoopEmbeddingClient) EmbedBatch(_ context.Context, texts []string) ([][]float32, error) {
+	return nil, fmt.Errorf("embedding generation disabled")
 }
 
 // ModelName returns the model identifier.

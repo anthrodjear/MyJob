@@ -8,27 +8,31 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Config struct {
-	Server      ServerConfig
-	Database    DatabaseConfig
-	Redis       RedisConfig
-	Auth        AuthConfig
-	LLM         LLMConfig
-	Voice       VoiceConfig
-	Email       EmailConfig
-	Queue       QueueConfig
-	Scoring     ScoringConfig
-	Prompts     PromptsConfig
-	RateLimit   RateLimitConfig
-	Environment string
+	Server        ServerConfig
+	Database      DatabaseConfig
+	Redis         RedisConfig
+	Auth          AuthConfig
+	LLM           LLMConfig
+	Voice         VoiceConfig
+	Email         EmailConfig
+	Queue         QueueConfig
+	Scoring       ScoringConfig
+	Prompts       PromptsConfig
+	RateLimit     RateLimitConfig
+	AuthRateLimit AuthRateLimitConfig
+	Environment   string
 }
 
 type ServerConfig struct {
 	Port         int
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
+	CORSOrigins  []string
 }
 
 type DatabaseConfig struct {
@@ -43,6 +47,11 @@ type RedisConfig struct {
 }
 
 type RateLimitConfig struct {
+	RequestsPerMinute int
+	Burst             int
+}
+
+type AuthRateLimitConfig struct {
 	RequestsPerMinute int
 	Burst             int
 }
@@ -125,9 +134,12 @@ type PromptPair struct {
 }
 
 type AuthConfig struct {
-	PasswordHash string        // bcrypt hash of the single user password
-	JWTSecret    string        // HMAC signing secret for JWT
-	JWTExpiry    time.Duration // Token validity duration
+	PasswordHash       string        // bcrypt hash of the single user password
+	JWTSecret          string        // HMAC signing secret for JWT
+	JWTExpiry          time.Duration // Token validity duration
+	RefreshTokenExpiry time.Duration // Refresh token validity duration (default: 7 days)
+	ResetTokenExpiry   time.Duration // Password reset token validity duration (default: 1 hour)
+	BCryptCost         int           // bcrypt cost factor (default: 12, min: 10)
 }
 
 // IsProduction returns true if running in production environment.
@@ -147,13 +159,15 @@ func (c *Config) IsTest() bool {
 
 func Load() *Config {
 	// Read application.yaml for prompt loading
-	yamlData, _ := os.ReadFile("config/application.yaml")
+	configPath := getEnv("CONFIG_PATH", "config/application.yaml")
+	yamlData, _ := os.ReadFile(configPath) //nolint:gosec // G304: config path is from env var, not user input
 
 	cfg := &Config{
 		Server: ServerConfig{
 			Port:         getEnvInt("SERVER_PORT", 8080),
 			ReadTimeout:  getEnvDuration("SERVER_READ_TIMEOUT", 30*time.Second),
 			WriteTimeout: getEnvDuration("SERVER_WRITE_TIMEOUT", 30*time.Second),
+			CORSOrigins:  parseCommaList(getEnv("CORS_ORIGINS", "http://localhost:3000")),
 		},
 		Database: DatabaseConfig{
 			URL:             getEnv("DATABASE_URL", ""),
@@ -165,9 +179,12 @@ func Load() *Config {
 			URL: getEnv("REDIS_URL", ""),
 		},
 		Auth: AuthConfig{
-			PasswordHash: getEnv("AUTH_PASSWORD_HASH", ""),
-			JWTSecret:    getEnv("AUTH_JWT_SECRET", ""),
-			JWTExpiry:    getEnvDuration("JWT_EXPIRY", 24*time.Hour),
+			PasswordHash:       getEnv("AUTH_PASSWORD_HASH", ""),
+			JWTSecret:          getEnv("AUTH_JWT_SECRET", ""),
+			JWTExpiry:          getEnvDuration("JWT_EXPIRY", 30*time.Minute),
+			RefreshTokenExpiry: getEnvDuration("REFRESH_TOKEN_EXPIRY", 7*24*time.Hour), // 7 days
+			ResetTokenExpiry:   getEnvDuration("RESET_TOKEN_EXPIRY", 1*time.Hour),
+			BCryptCost:         getEnvInt("BCRYPT_COST", 12),
 		},
 		LLM: LLMConfig{
 			Primary: LLMProvider{
@@ -199,8 +216,8 @@ func Load() *Config {
 			},
 		},
 		Voice: VoiceConfig{
-			Provider: "openai_realtime",
-			Model:    getEnv("OPENAI_REALTIME_MODEL", "gpt-4o-realtime-preview"),
+			Provider: getEnv("VOICE_PROVIDER", "ollama"),
+			Model:    getEnv("VOICE_MODEL", "qwen2.5:latest"), //HACK-change to config no hardcodding
 			APIKey:   getEnv("OPENAI_API_KEY", ""),
 			LiveKit: LiveKitConfig{
 				URL:       getEnv("LIVEKIT_WS_URL", "ws://localhost:7880"),
@@ -209,7 +226,7 @@ func Load() *Config {
 			},
 		},
 		Email: EmailConfig{
-			Provider:      "microsoft_graph",
+			Provider:      getEnv("EMAIL_PROVIDER", "microsoft_graph"),
 			TenantID:      getEnv("MS_TENANT_ID", ""),
 			ClientID:      getEnv("MS_CLIENT_ID", ""),
 			ClientSecret:  getEnv("MS_CLIENT_SECRET", ""),
@@ -237,6 +254,10 @@ func Load() *Config {
 			RequestsPerMinute: getEnvInt("RATE_LIMIT_RPM", 60),
 			Burst:             getEnvInt("RATE_LIMIT_BURST", 10),
 		},
+		AuthRateLimit: AuthRateLimitConfig{
+			RequestsPerMinute: getEnvInt("AUTH_RATE_LIMIT_RPM", 60),
+			Burst:             getEnvInt("AUTH_RATE_LIMIT_BURST", 10),
+		},
 		Prompts:     LoadPromptsFromYAML(yamlData),
 		Environment: getEnv("APP_ENV", "development"),
 	}
@@ -260,11 +281,31 @@ func (c *Config) Validate() error {
 	if len(c.Auth.JWTSecret) < 32 {
 		return errors.New("config: JWT secret must be at least 32 characters")
 	}
-	if c.Auth.PasswordHash == "" {
-		return errors.New("config: password hash required")
-	}
-	if !strings.HasPrefix(c.Auth.PasswordHash, "$2") {
+	// PasswordHash is now optional — setup flow creates the user if not set.
+	// When set, validates format for backward compatibility.
+	if c.Auth.PasswordHash != "" && !strings.HasPrefix(c.Auth.PasswordHash, "$2") {
 		return errors.New("config: invalid bcrypt hash format")
+	}
+	// BCrypt cost validation
+	if c.Auth.BCryptCost < bcrypt.MinCost {
+		return fmt.Errorf("config: bcrypt cost must be at least %d, got %d", bcrypt.MinCost, c.Auth.BCryptCost)
+	}
+	if c.Auth.BCryptCost > bcrypt.MaxCost {
+		return fmt.Errorf("config: bcrypt cost must not exceed %d, got %d", bcrypt.MaxCost, c.Auth.BCryptCost)
+	}
+	// Refresh token expiry validation
+	if c.Auth.RefreshTokenExpiry <= 0 {
+		return errors.New("config: refresh token expiry must be positive")
+	}
+	if c.Auth.RefreshTokenExpiry <= c.Auth.JWTExpiry {
+		return errors.New("config: refresh token expiry must be longer than JWT expiry")
+	}
+	// Reset token expiry validation
+	if c.Auth.ResetTokenExpiry <= 0 {
+		return errors.New("config: reset token expiry must be positive")
+	}
+	if c.Auth.ResetTokenExpiry > c.Auth.RefreshTokenExpiry {
+		return errors.New("config: reset token expiry must be shorter than refresh token expiry")
 	}
 
 	// Infrastructure validation
@@ -279,6 +320,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Database.MaxIdleConns > c.Database.MaxOpenConns {
 		return errors.New("config: MaxIdleConns must not exceed MaxOpenConns")
+	}
+	if c.Database.ConnMaxLifetime < 0 {
+		return errors.New("config: ConnMaxLifetime must be non-negative")
 	}
 	if c.Redis.URL == "" {
 		return errors.New("config: Redis URL required")
@@ -300,16 +344,25 @@ func (c *Config) Validate() error {
 		return errors.New("config: LiveKit credentials required")
 	}
 
-	// Email validation — only if provider is set
+	// Email validation — only if provider is microsoft_graph and credentials are provided
 	if c.Email.Provider == "microsoft_graph" {
-		if c.Email.TenantID == "" || c.Email.ClientID == "" || c.Email.ClientSecret == "" {
-			return errors.New("config: Microsoft Graph credentials required")
+		if c.Email.TenantID != "" || c.Email.ClientID != "" || c.Email.ClientSecret != "" {
+			if c.Email.TenantID == "" || c.Email.ClientID == "" || c.Email.ClientSecret == "" {
+				return errors.New("config: Microsoft Graph credentials required when provider is microsoft_graph")
+			}
 		}
+		// If provider is microsoft_graph but no credentials at all, that's OK - it'll just fail at runtime
 	}
 
 	// Scoring validation
 	if c.Scoring.AutoThreshold <= c.Scoring.ReviewThreshold {
 		return errors.New("config: scoring auto threshold must be greater than review threshold")
+	}
+	if c.Scoring.HybridRejectMargin < 0 {
+		return errors.New("config: scoring hybrid reject margin must be non-negative")
+	}
+	if c.Scoring.HybridRejectMargin >= c.Scoring.ReviewThreshold {
+		return errors.New("config: scoring hybrid reject margin must be less than review threshold")
 	}
 	validModes := map[string]struct{}{"heuristic": {}, "llm": {}, "hybrid": {}}
 	if _, ok := validModes[c.Scoring.Mode]; !ok {
@@ -374,6 +427,21 @@ func parseFolders(s string) []string {
 	return folders
 }
 
+func parseCommaList(s string) []string {
+	if s == "" {
+		return []string{}
+	}
+	parts := strings.Split(s, ",")
+	var result []string
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			result = append(result, part)
+		}
+	}
+	return result
+}
+
 func (c *Config) validateScoringWeights() error {
 	weights := []struct {
 		name  string
@@ -398,5 +466,3 @@ func (c *Config) validateScoringWeights() error {
 	}
 	return nil
 }
-
-

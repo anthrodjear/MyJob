@@ -1,0 +1,10 @@
+$kind: http-request
+name: List Resumes
+method: GET
+url: '{{baseUrl}}/api/v1/resumes'
+order: 1000
+queryParams:
+  - key: limit
+    value: '20'
+  - key: offset
+    value: '0'

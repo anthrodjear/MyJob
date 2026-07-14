@@ -1,0 +1,14 @@
+$kind: http-request
+name: Batch Score Jobs
+method: POST
+url: '{{baseUrl}}/api/v1/scoring/batch'
+order: 3000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "job_ids": ["{{jobId}}"]
+    }

@@ -9,7 +9,6 @@ import { type ActivityResponse, type ActivityEventType } from "@/lib/types/activ
 import { Card } from "@/components/shared/Card";
 import { Badge } from "@/components/shared/Badge";
 import { formatDate } from "@/lib/utils";
-import { cn } from "@/lib/utils";
 import { ClipboardList } from "lucide-react";
 import {
   FileText,

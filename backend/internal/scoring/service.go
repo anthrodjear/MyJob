@@ -21,12 +21,12 @@ import (
 
 // Profile represents the user's master profile data.
 type Profile struct {
-	Skills           []string           `json:"skills"`
-	Experience       []ProfileExperience `json:"experience"`
-	Preferences      ProfilePreferences  `json:"preferences"`
-	Specializations  []string           `json:"specializations"`   // e.g., "Backend Engineering", "Cloud Infrastructure"
-	Industries       []string           `json:"industries"`        // e.g., "Fintech", "SaaS"
-	CareerGoals      []string           `json:"career_goals"`      // e.g., "Senior Backend Engineer"
+	Skills          []string            `json:"skills"`
+	Experience      []ProfileExperience `json:"experience"`
+	Preferences     ProfilePreferences  `json:"preferences"`
+	Specializations []string            `json:"specializations"` // e.g., "Backend Engineering", "Cloud Infrastructure"
+	Industries      []string            `json:"industries"`      // e.g., "Fintech", "SaaS"
+	CareerGoals     []string            `json:"career_goals"`    // e.g., "Senior Backend Engineer"
 }
 
 // ProfileExperience represents a work experience entry.
@@ -67,93 +67,101 @@ func (s *Service) GetJob(ctx context.Context, id uuid.UUID) (JobData, error) {
 	return s.repo.GetJob(ctx, id)
 }
 
-	// ScoreJob computes a match score for a job against the user's profile.
-	// Flow depends on ScoringConfig.Mode:
-	//   - "heuristic": fast keyword-based scoring only (no LLM cost)
-	//   - "llm": LLM-based semantic scoring only
-	//   - "hybrid": heuristic pre-filter (auto-reject obvious mismatches), LLM owns final score
-	func (s *Service) ScoreJob(ctx context.Context, jobID uuid.UUID) (*ScoreResult, error) {
-		job, err := s.repo.GetJob(ctx, jobID)
-		if err != nil {
-			return nil, fmt.Errorf("scoring: get job: %w", err)
-		}
-
-		profile, err := s.repo.GetProfile(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("scoring: get profile: %w", err)
-		}
-
-		// Validate that profile has minimum data for scoring
-		if err := validateProfile(profile); err != nil {
-			return nil, fmt.Errorf("scoring: profile not configured: %w", err)
-		}
-
-		switch s.cfg.Mode {
-		case "llm":
-			// LLM-only: no heuristic computation, LLM owns the decision
-			return s.scoreWithLLM(ctx, job, profile, jobID)
-
-		case "hybrid":
-			// Hybrid: heuristic pre-filter, then LLM for final decision
-			// First, compute fast heuristics for pre-filtering
-			heuristicDetails := computeFactors(job, profile)
-			weights := Weights{
-				Skill:       s.cfg.Weights.Skill,
-				Experience:  s.cfg.Weights.Experience,
-				Location:    s.cfg.Weights.Location,
-				Salary:      s.cfg.Weights.Salary,
-				Description: s.cfg.Weights.Description,
-			}
-			heuristicScore := ComputeScore(heuristicDetails, weights)
-			heuristicTier := Tier(heuristicScore, s.cfg.AutoThreshold, s.cfg.ReviewThreshold)
-
-			// Fast-path: auto-reject obvious mismatches without LLM cost
-			margin := s.cfg.HybridRejectMargin
-			if margin == 0 {
-				margin = 20
-			}
-			if heuristicTier == TierReject && heuristicScore < float64(s.cfg.ReviewThreshold)-float64(margin) {
-				s.logger.Debug("heuristic auto-reject, skipping LLM",
-					zap.String("job_id", jobID.String()),
-					zap.Float64("heuristic_score", heuristicScore),
-				)
-				return s.persistAndReturn(ctx, jobID, heuristicScore, heuristicTier, "heuristic", "", &heuristicDetails)
-			}
-
-			// Not an obvious reject → LLM owns the final score (no blending)
-			llmResult, err := s.llm.ScoreJob(ctx, job, profile)
-			if err != nil {
-				s.logger.Warn("LLM scoring failed, falling back to heuristics",
-					zap.String("job_id", jobID.String()),
-					zap.Error(err),
-				)
-				return s.persistAndReturn(ctx, jobID, heuristicScore, Tier(heuristicScore, s.cfg.AutoThreshold, s.cfg.ReviewThreshold), "heuristic", "", &heuristicDetails)
-			}
-
-			// LLM result is the final score (no blending)
-			details := llmResult.Details
-			if details == nil {
-				details = &heuristicDetails // fallback for transparency
-			}
-
-			llmTier := Tier(llmResult.Score, s.cfg.AutoThreshold, s.cfg.ReviewThreshold)
-			return s.persistAndReturn(ctx, jobID, llmResult.Score, llmTier, "hybrid", llmResult.Reasoning, details)
-
-		default: // "heuristic"
-			// Heuristic-only: fast keyword-based scoring
-			heuristicDetails := computeFactors(job, profile)
-			weights := Weights{
-				Skill:       s.cfg.Weights.Skill,
-				Experience:  s.cfg.Weights.Experience,
-				Location:    s.cfg.Weights.Location,
-				Salary:      s.cfg.Weights.Salary,
-				Description: s.cfg.Weights.Description,
-			}
-			heuristicScore := ComputeScore(heuristicDetails, weights)
-			tier := Tier(heuristicScore, s.cfg.AutoThreshold, s.cfg.ReviewThreshold)
-			return s.persistAndReturn(ctx, jobID, heuristicScore, tier, "heuristic", "", &heuristicDetails)
-		}
+// ScoreJob computes a match score for a job against the user's profile.
+// Flow depends on ScoringConfig.Mode:
+//   - "heuristic": fast keyword-based scoring only (no LLM cost)
+//   - "llm": LLM-based semantic scoring only
+//   - "hybrid": heuristic pre-filter (auto-reject obvious mismatches), LLM owns final score
+func (s *Service) ScoreJob(ctx context.Context, jobID uuid.UUID) (*ScoreResult, error) {
+	job, err := s.repo.GetJob(ctx, jobID)
+	if err != nil {
+		return nil, fmt.Errorf("scoring: get job: %w", err)
 	}
+
+	profile, err := s.repo.GetProfile(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("scoring: get profile: %w", err)
+	}
+
+	// Validate that profile has minimum data for scoring
+	if err := validateProfile(profile); err != nil {
+		return nil, fmt.Errorf("scoring: profile not configured: %w", err)
+	}
+
+	switch s.cfg.Mode {
+	case "llm":
+		// LLM-only: no heuristic computation, LLM owns the decision
+		return s.scoreWithLLM(ctx, job, profile, jobID)
+
+	case "hybrid":
+		// Hybrid: heuristic pre-filter, then LLM for final decision
+		// First, compute fast heuristics for pre-filtering
+		heuristicDetails := computeFactors(job, profile)
+		weights := Weights{
+			Skill:       s.cfg.Weights.Skill,
+			Experience:  s.cfg.Weights.Experience,
+			Location:    s.cfg.Weights.Location,
+			Salary:      s.cfg.Weights.Salary,
+			Description: s.cfg.Weights.Description,
+		}
+		heuristicScore := ComputeScore(heuristicDetails, weights)
+		heuristicTier := Tier(heuristicScore, s.cfg.AutoThreshold, s.cfg.ReviewThreshold)
+
+		// Fast-path: auto-reject obvious mismatches without LLM cost.
+		// The auto-reject threshold is reviewThreshold - margin.
+		// If a job scores below this, it's so far from qualifying that
+		// the LLM won't change the outcome — skip the API call.
+		margin := s.cfg.HybridRejectMargin
+		if margin == 0 {
+			margin = 20
+		}
+		autoRejectThreshold := float64(s.cfg.ReviewThreshold) - float64(margin)
+		if autoRejectThreshold < 0 {
+			autoRejectThreshold = 0
+		}
+		if heuristicTier == TierReject && heuristicScore < autoRejectThreshold {
+			s.logger.Debug("heuristic auto-reject, skipping LLM",
+				zap.String("job_id", jobID.String()),
+				zap.Float64("heuristic_score", heuristicScore),
+				zap.Float64("auto_reject_threshold", autoRejectThreshold),
+			)
+			return s.persistAndReturn(ctx, jobID, heuristicScore, heuristicTier, "heuristic", "", &heuristicDetails)
+		}
+
+		// Not an obvious reject → LLM owns the final score (no blending)
+		llmResult, err := s.llm.ScoreJob(ctx, job, profile)
+		if err != nil {
+			s.logger.Warn("LLM scoring failed, falling back to heuristics",
+				zap.String("job_id", jobID.String()),
+				zap.Error(err),
+			)
+			return s.persistAndReturn(ctx, jobID, heuristicScore, Tier(heuristicScore, s.cfg.AutoThreshold, s.cfg.ReviewThreshold), "heuristic", "", &heuristicDetails)
+		}
+
+		// LLM result is the final score (no blending)
+		details := llmResult.Details
+		if details == nil {
+			details = &heuristicDetails // fallback for transparency
+		}
+
+		llmTier := Tier(llmResult.Score, s.cfg.AutoThreshold, s.cfg.ReviewThreshold)
+		return s.persistAndReturn(ctx, jobID, llmResult.Score, llmTier, "hybrid", llmResult.Reasoning, details)
+
+	default: // "heuristic"
+		// Heuristic-only: fast keyword-based scoring
+		heuristicDetails := computeFactors(job, profile)
+		weights := Weights{
+			Skill:       s.cfg.Weights.Skill,
+			Experience:  s.cfg.Weights.Experience,
+			Location:    s.cfg.Weights.Location,
+			Salary:      s.cfg.Weights.Salary,
+			Description: s.cfg.Weights.Description,
+		}
+		heuristicScore := ComputeScore(heuristicDetails, weights)
+		tier := Tier(heuristicScore, s.cfg.AutoThreshold, s.cfg.ReviewThreshold)
+		return s.persistAndReturn(ctx, jobID, heuristicScore, tier, "heuristic", "", &heuristicDetails)
+	}
+}
 
 // scoreWithLLM uses only the LLM for scoring (mode = "llm").
 func (s *Service) scoreWithLLM(ctx context.Context, job JobData, profile Profile, jobID uuid.UUID) (*ScoreResult, error) {

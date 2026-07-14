@@ -1,36 +1,59 @@
 # Build stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.26-alpine AS builder
+
+ARG BUILD_TIME=unknown
 
 WORKDIR /app
 
-# Install dependencies
-RUN apk add --no-cache gcc musl-dev
-
 # Copy go.mod and go.sum
-COPY go.mod go.sum* ./
-RUN go mod download
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+
+# Install swag for Swagger docs generation (pinned for reproducibility)
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go install github.com/swaggo/swag/cmd/swag@v1.16.4
 
 # Copy source code
 COPY . .
 
-# Build the API binary
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/api ./cmd/api
+# Generate Swagger docs (required for _ "backend/docs" import)
+RUN swag init -g cmd/api/main.go
 
-# Runtime stage
-FROM alpine:3.19
+# Build the API binary (CGO disabled for static binary — no gcc needed)
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /app/api ./cmd/api
 
-RUN apk add --no-cache ca-certificates tzdata
+# Runtime stage — minimal image
+# NOTE: alpine:3.19 is EOL; the self-hosted deploy runner cannot reach its
+# repos on dl-cdn. Use a currently-supported Alpine (matches golang:1.26-alpine).
+FROM alpine:3.22
+
+RUN apk add --no-cache ca-certificates tzdata wget \
+    && addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
 
 # Copy binary from builder
-COPY --from=builder /app/api .
-COPY --from=builder /app/internal/database/migrations ./migrations
+COPY --from=builder --chown=appuser:appgroup /app/api .
+COPY --from=builder --chown=appuser:appgroup /app/internal/database/migrations ./migrations
 
-# Copy scripts
-COPY scripts/ ./scripts/
+# Copy scripts from builder (not build context) to avoid leaking source into runtime
+COPY --from=builder --chown=appuser:appgroup /app/scripts/ ./scripts/
 RUN chmod +x ./scripts/*.sh
 
+# Version metadata
+ARG APP_VERSION=dev
+ARG GIT_COMMIT=unknown
+ENV APP_VERSION=${APP_VERSION}
+ENV GIT_COMMIT=${GIT_COMMIT}
+ENV BUILD_TIME=${BUILD_TIME}
+
+USER appuser
+
 EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
 CMD ["./api"]

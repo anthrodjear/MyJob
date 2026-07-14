@@ -2,37 +2,53 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"backend/internal/config"
+	"backend/internal/systemconfig"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var (
-	ErrInvalidCredentials = errors.New("auth: invalid credentials")
-	ErrTokenInvalid       = errors.New("auth: token invalid")
-	ErrTokenExpired       = errors.New("auth: token expired")
-	ErrUserNotFound       = errors.New("auth: user not found")
-	ErrSessionInvalidated = errors.New("auth: session invalidated")
-	ErrPasswordSame       = errors.New("auth: new password must differ from current password")
+	ErrInvalidCredentials   = errors.New("auth: invalid credentials")
+	ErrTokenInvalid         = errors.New("auth: token invalid")
+	ErrTokenExpired         = errors.New("auth: token expired")
+	ErrUserNotFound         = errors.New("auth: user not found")
+	ErrSessionInvalidated   = errors.New("auth: session invalidated")
+	ErrPasswordSame         = errors.New("auth: new password must differ from current password")
+	ErrSetupAlreadyComplete = errors.New("auth: setup already complete — users exist")
+	ErrRefreshTokenInvalid  = errors.New("auth: refresh token invalid")
+	ErrRefreshTokenExpired  = errors.New("auth: refresh token expired")
+	ErrRefreshTokenRevoked  = errors.New("auth: refresh token revoked")
 )
 
 // Service handles authentication business logic.
 type Service struct {
-	repo *Repository
-	cfg  config.AuthConfig
+	repo      *Repository
+	cfg       config.AuthConfig
+	configSvc *systemconfig.Service
+	logger    *zap.Logger
 }
 
 // NewService creates a new auth service.
-func NewService(repo *Repository, cfg config.AuthConfig) *Service {
+func NewService(repo *Repository, cfg config.AuthConfig, configSvc *systemconfig.Service, logger *zap.Logger) *Service {
 	return &Service{
-		repo: repo,
-		cfg:  cfg,
+		repo:      repo,
+		cfg:       cfg,
+		configSvc: configSvc,
+		logger:    logger.Named("auth"),
 	}
 }
 
@@ -57,21 +73,33 @@ func (s *Service) Login(ctx context.Context, password string) (*LoginResponse, e
 		return nil, fmt.Errorf("auth: login: generate token: %w", err)
 	}
 
+	// Generate refresh token
+	refreshToken, refreshTokenHash, refreshTokenID, refreshTokenExpiresAt, err := s.generateRefreshToken()
+	if err != nil {
+		return nil, fmt.Errorf("auth: login: generate refresh token: %w", err)
+	}
+
+	// Store refresh token hash
+	if err := s.repo.CreateRefreshToken(ctx, refreshTokenID, "local-user", refreshTokenHash, refreshTokenExpiresAt); err != nil {
+		return nil, fmt.Errorf("auth: login: store refresh token: %w", err)
+	}
+
 	return &LoginResponse{
-		AccessToken: token,
-		ExpiresAt:   expiresAt,
+		AccessToken:  token,
+		RefreshToken: refreshToken,
+		ExpiresAt:    expiresAt,
 	}, nil
 }
 
 // ValidateToken parses and validates a JWT, returning the claims.
-// Uses strict validation: issuer must match "myjob".
+// Uses strict validation: issuer must match "myjob", algorithm must be HS256.
 func (s *Service) ValidateToken(tokenString string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("auth: unexpected signing method: %v", t.Header["alg"])
 		}
 		return []byte(s.cfg.JWTSecret), nil
-	}, jwt.WithIssuer("myjob"))
+	}, jwt.WithIssuer("myjob"), jwt.WithValidMethods([]string{"HS256"}), jwt.WithLeeway(30*time.Second))
 
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {
@@ -124,7 +152,7 @@ func (s *Service) ChangePassword(ctx context.Context, currentPassword, newPasswo
 		return ErrInvalidCredentials
 	}
 
-	newHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	newHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), s.cfg.BCryptCost)
 	if err != nil {
 		return fmt.Errorf("auth: change password: hash: %w", err)
 	}
@@ -133,11 +161,20 @@ func (s *Service) ChangePassword(ctx context.Context, currentPassword, newPasswo
 		return fmt.Errorf("auth: change password: update: %w", err)
 	}
 
+	// Revoke all refresh tokens on password change
+	if err := s.repo.RevokeAllRefreshTokens(ctx, "local-user"); err != nil {
+		return fmt.Errorf("auth: change password: revoke tokens: %w", err)
+	}
+
 	return nil
 }
 
 // Logout increments session version to invalidate all existing tokens (logout everywhere).
 func (s *Service) Logout(ctx context.Context) error {
+	// Revoke all refresh tokens
+	if err := s.repo.RevokeAllRefreshTokens(ctx, "local-user"); err != nil {
+		return fmt.Errorf("auth: logout: revoke tokens: %w", err)
+	}
 	return s.repo.IncrementSessionVersion(ctx)
 }
 
@@ -199,7 +236,7 @@ func (s *Service) generateToken(ctx context.Context) (string, int64, error) {
 	return tokenString, expiresAt.Unix(), nil
 }
 
-// UpdateLastLogin updates the user's last login timestamp implimente in handler.
+// UpdateLastLogin updates the user's last login timestamp implemented in handler.
 func (s *Service) UpdateLastLogin(ctx context.Context) error {
 	return s.repo.UpdateLastLogin(ctx)
 }
@@ -207,4 +244,406 @@ func (s *Service) UpdateLastLogin(ctx context.Context) error {
 // IncrementSessionVersion manually increments the session version (for logout everywhere).
 func (s *Service) IncrementSessionVersion(ctx context.Context) error {
 	return s.repo.IncrementSessionVersion(ctx)
+}
+
+// Refresh validates a refresh token and returns new access + refresh token pair.
+// Implements token rotation: old refresh token is revoked, new pair is issued.
+func (s *Service) Refresh(ctx context.Context, refreshTokenString string) (*RefreshResponse, error) {
+	// Hash the incoming token to look it up
+	tokenHash := hashRefreshToken(refreshTokenString)
+
+	// Find the token in the database
+	storedToken, err := s.repo.GetRefreshTokenByHash(ctx, tokenHash)
+	if err != nil {
+		return nil, ErrRefreshTokenInvalid
+	}
+
+	// Check if revoked
+	if storedToken.RevokedAt != nil {
+		// Potential token reuse attack — revoke all tokens for this user
+		if err := s.repo.RevokeAllRefreshTokens(ctx, storedToken.UserID); err != nil {
+			s.logger.Error("refresh token reuse detected but failed to revoke all tokens",
+				zap.String("user_id", storedToken.UserID),
+				zap.Error(err),
+			)
+		}
+		return nil, ErrRefreshTokenRevoked
+	}
+
+	// Check if expired
+	if time.Now().After(storedToken.ExpiresAt) {
+		return nil, ErrRefreshTokenExpired
+	}
+
+	// Revoke the old refresh token (rotation)
+	if err := s.repo.RevokeRefreshToken(ctx, storedToken.ID); err != nil {
+		return nil, fmt.Errorf("auth: refresh: revoke old token: %w", err)
+	}
+
+	// Generate new access token
+	accessToken, expiresAt, err := s.generateToken(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("auth: refresh: generate access token: %w", err)
+	}
+
+	// Generate new refresh token
+	refreshToken, refreshTokenHash, refreshTokenID, refreshTokenExpiresAt, err := s.generateRefreshToken()
+	if err != nil {
+		return nil, fmt.Errorf("auth: refresh: generate refresh token: %w", err)
+	}
+
+	// Store new refresh token hash
+	if err := s.repo.CreateRefreshToken(ctx, refreshTokenID, storedToken.UserID, refreshTokenHash, refreshTokenExpiresAt); err != nil {
+		return nil, fmt.Errorf("auth: refresh: store refresh token: %w", err)
+	}
+
+	return &RefreshResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresAt:    expiresAt,
+	}, nil
+}
+
+// generateRefreshToken creates a new refresh token and returns:
+// - plaintext token (to send to client)
+// - SHA-256 hash (to store in database)
+// - token ID (UUID for database primary key)
+// - expiration time
+func (s *Service) generateRefreshToken() (plaintext, hash, id string, expiresAt time.Time, err error) {
+	// Generate 64 random bytes (128 hex characters)
+	buf := make([]byte, 64)
+	if _, err := rand.Read(buf); err != nil {
+		return "", "", "", time.Time{}, fmt.Errorf("auth: generate random bytes: %w", err)
+	}
+	plaintext = hex.EncodeToString(buf)
+
+	// Hash for storage
+	hash = hashRefreshToken(plaintext)
+
+	// UUID for primary key
+	id = uuid.NewString()
+
+	// Expiration from config
+	expiresAt = time.Now().Add(s.cfg.RefreshTokenExpiry)
+
+	return plaintext, hash, id, expiresAt, nil
+}
+
+// hashRefreshToken returns the SHA-256 hex hash of a refresh token.
+func hashRefreshToken(token string) string {
+	h := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(h[:])
+}
+
+// GetSetupStatus returns whether setup is required (no users exist)
+// and onboarding status for resume capability.
+func (s *Service) GetSetupStatus(ctx context.Context) (*SetupStatusResponse, error) {
+	required, err := s.repo.IsSetupRequired(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("auth: get setup status: %w", err)
+	}
+
+	// If setup is not required (user exists), check onboarding status
+	step := ""
+	onboardingCompleted := false
+	if !required {
+		completed, err := s.repo.IsOnboardingCompleted(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("auth: get onboarding status: %w", err)
+		}
+		onboardingCompleted = completed
+
+		if !completed {
+			step, err = s.repo.GetOnboardingStep(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("auth: get onboarding step: %w", err)
+			}
+		}
+	}
+
+	return &SetupStatusResponse{
+		SetupRequired:       required,
+		Step:                step,
+		OnboardingCompleted: onboardingCompleted,
+	}, nil
+}
+
+// CompleteSetup creates the first admin user.
+// Validates input, hashes password, and inserts the user.
+// Returns ErrSetupAlreadyComplete if users already exist.
+func (s *Service) CompleteSetup(ctx context.Context, username, email, password string) error {
+	// Check if setup is still needed
+	required, err := s.repo.IsSetupRequired(ctx)
+	if err != nil {
+		return fmt.Errorf("auth: complete setup: %w", err)
+	}
+	if !required {
+		return ErrSetupAlreadyComplete
+	}
+
+	// Hash the password
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), s.cfg.BCryptCost)
+	if err != nil {
+		return fmt.Errorf("auth: complete setup: hash password: %w", err)
+	}
+
+	// Create the user
+	if err := s.repo.CreateAdminUser(ctx, username, email, string(hash)); err != nil {
+		return fmt.Errorf("auth: complete setup: %w", err)
+	}
+
+	return nil
+}
+
+// IsOnboardingCompleted returns true if onboarding has been completed.
+func (s *Service) IsOnboardingCompleted(ctx context.Context) (bool, error) {
+	completed, err := s.repo.IsOnboardingCompleted(ctx)
+	if err != nil {
+		return false, fmt.Errorf("auth: is onboarding completed: %w", err)
+	}
+	return completed, nil
+}
+
+// CompleteOnboarding marks onboarding as finished.
+func (s *Service) CompleteOnboarding(ctx context.Context) error {
+	if err := s.repo.SetOnboardingCompleted(ctx, time.Now()); err != nil {
+		return fmt.Errorf("auth: complete onboarding: %w", err)
+	}
+	return nil
+}
+
+// UpdateOnboardingStep tracks progress for resume capability.
+func (s *Service) UpdateOnboardingStep(ctx context.Context, step string) error {
+	if err := s.repo.UpdateOnboardingStep(ctx, step); err != nil {
+		return fmt.Errorf("auth: update onboarding step: %w", err)
+	}
+	return nil
+}
+
+// SaveOnboardingConfig persists all onboarding config overrides.
+func (s *Service) SaveOnboardingConfig(ctx context.Context, req *OnboardingConfigRequest) error {
+	configs := map[string]string{}
+	if req.OpenAIKey != "" {
+		configs["llm.primary.api_key"] = req.OpenAIKey
+	}
+	if req.AnthropicKey != "" {
+		configs["llm.fallback.api_key"] = req.AnthropicKey
+	}
+	if req.LivekitURL != "" {
+		configs["voice.livekit.url"] = req.LivekitURL
+	}
+	if req.LivekitKey != "" {
+		configs["voice.livekit.api_key"] = req.LivekitKey
+	}
+	if req.LivekitSecret != "" {
+		configs["voice.livekit.api_secret"] = req.LivekitSecret
+	}
+	if req.MSTenantID != "" {
+		configs["email.ms_365.tenant_id"] = req.MSTenantID
+	}
+	if req.MSClientID != "" {
+		configs["email.ms_365.client_id"] = req.MSClientID
+	}
+	if req.MSClientSecret != "" {
+		configs["email.ms_365.client_secret"] = req.MSClientSecret
+	}
+
+	for key, value := range configs {
+		if err := s.configSvc.SetOverride(ctx, key, []byte(value)); err != nil {
+			return fmt.Errorf("auth: save config %s: %w", key, err)
+		}
+	}
+	return nil
+}
+
+// TestLLMKey validates an LLM API key by calling the provider's API.
+func (s *Service) TestLLMKey(ctx context.Context, provider, apiKey string) (bool, error) {
+	switch provider {
+	case "openai":
+		return s.testOpenAIKey(ctx, apiKey)
+	case "anthropic":
+		return s.testAnthropicKey(ctx, apiKey)
+	default:
+		return false, fmt.Errorf("auth: unsupported provider: %s", provider)
+	}
+}
+
+// testHTTPClient is a shared HTTP client with timeout for provider validation.
+var testHTTPClient = &http.Client{Timeout: 10 * time.Second}
+
+func (s *Service) testOpenAIKey(ctx context.Context, apiKey string) (bool, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.openai.com/v1/models", nil)
+	if err != nil {
+		return false, fmt.Errorf("auth: create openai request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	resp, err := testHTTPClient.Do(req)
+	if err != nil {
+		return false, nil // network error, not invalid key
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == 200, nil
+}
+
+func (s *Service) testAnthropicKey(ctx context.Context, apiKey string) (bool, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.anthropic.com/v1/models", nil)
+	if err != nil {
+		return false, fmt.Errorf("auth: create anthropic request: %w", err)
+	}
+	req.Header.Set("x-api-key", apiKey)
+	req.Header.Set("anthropic-version", "2023-06-01")
+	resp, err := testHTTPClient.Do(req)
+	if err != nil {
+		return false, nil
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == 200, nil
+}
+
+// TestVoiceConfig validates LiveKit credentials by listing rooms.
+func (s *Service) TestVoiceConfig(ctx context.Context, livekitURL, apiKey, apiSecret string) (bool, error) {
+	listURL := strings.TrimSuffix(livekitURL, "/") + "/rooms"
+	req, err := http.NewRequestWithContext(ctx, "GET", listURL, nil)
+	if err != nil {
+		return false, fmt.Errorf("auth: create livekit request: %w", err)
+	}
+	req.SetBasicAuth(apiKey, apiSecret)
+	resp, err := testHTTPClient.Do(req)
+	if err != nil {
+		return false, nil // connection failed
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == 200, nil
+}
+
+// TestEmailConfig validates Microsoft Graph credentials via client_credentials flow.
+func (s *Service) TestEmailConfig(ctx context.Context, tenantID, clientID, clientSecret string) (bool, error) {
+	// Validate tenantID is a valid GUID to prevent URL injection
+	if _, err := uuid.Parse(tenantID); err != nil {
+		return false, fmt.Errorf("auth: invalid tenant ID format: %w", err)
+	}
+	tokenURL := fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", tenantID)
+	data := url.Values{}
+	data.Set("grant_type", "client_credentials")
+	data.Set("client_id", clientID)
+	data.Set("client_secret", clientSecret)
+	data.Set("scope", "https://graph.microsoft.com/.default")
+
+	body := strings.NewReader(data.Encode())
+	req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, body)
+	if err != nil {
+		return false, fmt.Errorf("auth: create email test request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := testHTTPClient.Do(req)
+	if err != nil {
+		return false, nil
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == 200, nil
+}
+
+// RequestPasswordReset generates a password reset token and returns it.
+// In a local-first app (no outbound email), the token is returned in the API
+// response body for the user to copy.
+func (s *Service) RequestPasswordReset(ctx context.Context) (string, error) {
+	// Check if user exists
+	_, err := s.getUser(ctx)
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			// Don't reveal if user exists — return generic success
+			s.logger.Info("password reset requested for non-existent user")
+			return "", nil
+		}
+		return "", fmt.Errorf("auth: request password reset: %w", err)
+	}
+
+	// Invalidate any outstanding tokens so only the latest one remains valid.
+	if err := s.repo.DeleteOutstandingPasswordResetTokens(ctx, "local-user"); err != nil {
+		return "", fmt.Errorf("auth: request password reset: invalidate prior: %w", err)
+	}
+
+	// Generate secure random token (32 bytes = 256 bits)
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return "", fmt.Errorf("auth: generate reset token: %w", err)
+	}
+	token := hex.EncodeToString(tokenBytes)
+	tokenHash := hashRefreshToken(token) // Reuse SHA-256 hashing
+
+	// Token expires based on config
+	expiresAt := time.Now().Add(s.cfg.ResetTokenExpiry)
+	tokenID := uuid.NewString()
+
+	// Store token hash (never the plaintext token)
+	if err := s.repo.CreatePasswordResetToken(ctx, tokenID, "local-user", tokenHash, expiresAt); err != nil {
+		return "", fmt.Errorf("auth: store reset token: %w", err)
+	}
+
+	s.logger.Info("password reset token generated",
+		zap.String("token_id", tokenID),
+		zap.Time("expires_at", expiresAt),
+	)
+
+	// Return the plaintext token (returned in the API response body for the user to copy)
+	return token, nil
+}
+
+// ResetTokenExpiry returns the configured password reset token lifetime.
+// Exposed so handlers can report the token's TTL to clients without holding
+// the full config.
+func (s *Service) ResetTokenExpiry() time.Duration {
+	return s.cfg.ResetTokenExpiry
+}
+
+// ResetPassword validates the reset token and updates the user's password.
+func (s *Service) ResetPassword(ctx context.Context, token, newPassword string) error {
+	tokenHash := hashRefreshToken(token)
+
+	storedToken, err := s.repo.GetPasswordResetTokenByHash(ctx, tokenHash)
+	if err != nil {
+		// Log the underlying error server-side; return a generic error to the
+		// client to avoid token enumeration.
+		s.logger.Warn("password reset token lookup failed", zap.Error(err))
+		return ErrInvalidCredentials
+	}
+
+	// Defense-in-depth: reject expired or already-used tokens before claiming.
+	if time.Now().After(storedToken.ExpiresAt) {
+		return ErrInvalidCredentials
+	}
+	if storedToken.UsedAt != nil {
+		return ErrInvalidCredentials
+	}
+
+	// Atomically claim the token (single-use). The WHERE clause also enforces
+	// unused + unexpired, so a concurrent request or a partial failure cannot
+	// reuse this token. Fail closed if the claim did not take effect.
+	claimed, err := s.repo.ClaimPasswordResetToken(ctx, storedToken.ID)
+	if err != nil {
+		return fmt.Errorf("auth: reset password: claim token: %w", err)
+	}
+	if !claimed {
+		return ErrInvalidCredentials
+	}
+
+	// Hash new password
+	newHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), s.cfg.BCryptCost)
+	if err != nil {
+		return fmt.Errorf("auth: reset password: hash: %w", err)
+	}
+
+	// Update password hash
+	if err := s.repo.UpdatePasswordHash(ctx, string(newHash)); err != nil {
+		return fmt.Errorf("auth: reset password: update: %w", err)
+	}
+
+	// Revoke all refresh tokens (logout everywhere)
+	if err := s.repo.RevokeAllRefreshTokens(ctx, "local-user"); err != nil {
+		return fmt.Errorf("auth: reset password: revoke tokens: %w", err)
+	}
+
+	s.logger.Info("password reset successful")
+	return nil
 }

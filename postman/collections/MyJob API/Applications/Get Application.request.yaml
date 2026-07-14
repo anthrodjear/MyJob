@@ -1,0 +1,8 @@
+$kind: http-request
+name: Get Application
+method: GET
+url: '{{baseUrl}}/api/v1/applications/{{applicationId}}'
+order: 3000
+pathVariables:
+  - key: applicationId
+    value: '{{applicationId}}'

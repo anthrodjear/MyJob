@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -41,7 +42,7 @@ func TestRateLimit_AllowedRequest(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/test", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	req.RemoteAddr = "192.168.1.1:12345"
 	r.ServeHTTP(w, req)
 
@@ -61,7 +62,7 @@ func TestRateLimit_ExceedsLimit(t *testing.T) {
 	// Exhaust the burst
 	for i := 0; i < 2; i++ {
 		w := httptest.NewRecorder()
-		req, _ := http.NewRequest("GET", "/test", nil)
+		req, _ := http.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 		req.RemoteAddr = "10.0.0.1:9999"
 		r.ServeHTTP(w, req)
 		if w.Code != http.StatusOK {
@@ -71,7 +72,7 @@ func TestRateLimit_ExceedsLimit(t *testing.T) {
 
 	// Third request should be rate-limited
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/test", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	req.RemoteAddr = "10.0.0.1:9999"
 	r.ServeHTTP(w, req)
 
@@ -119,7 +120,7 @@ func TestRateLimit_DifferentIPs(t *testing.T) {
 
 	// IP A exhausts its bucket
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/test", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	req.RemoteAddr = "172.16.0.1:1111"
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
@@ -128,7 +129,7 @@ func TestRateLimit_DifferentIPs(t *testing.T) {
 
 	// IP A is now limited
 	w = httptest.NewRecorder()
-	req, _ = http.NewRequest("GET", "/test", nil)
+	req, _ = http.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	req.RemoteAddr = "172.16.0.1:1111"
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusTooManyRequests {
@@ -137,7 +138,7 @@ func TestRateLimit_DifferentIPs(t *testing.T) {
 
 	// IP B should still be allowed — independent bucket
 	w = httptest.NewRecorder()
-	req, _ = http.NewRequest("GET", "/test", nil)
+	req, _ = http.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	req.RemoteAddr = "172.16.0.2:2222"
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
@@ -155,7 +156,7 @@ func TestRateLimit_InvalidConfig(t *testing.T) {
 
 	// A single request should be allowed (burst defaults to 1)
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/test", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	req.RemoteAddr = "10.99.0.1:5555"
 	r.ServeHTTP(w, req)
 
@@ -173,7 +174,7 @@ func TestRateLimit_BurstDefaultsToOne(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/test", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	req.RemoteAddr = "10.88.0.1:7777"
 	r.ServeHTTP(w, req)
 
@@ -193,13 +194,13 @@ func TestRateLimit_RetryAfterIsDynamic(t *testing.T) {
 
 	// Exhaust burst
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/test", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	req.RemoteAddr = "10.77.0.1:8888"
 	r.ServeHTTP(w, req)
 
 	// Get rate-limited response
 	w = httptest.NewRecorder()
-	req, _ = http.NewRequest("GET", "/test", nil)
+	req, _ = http.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	req.RemoteAddr = "10.77.0.1:8888"
 	r.ServeHTTP(w, req)
 
@@ -237,7 +238,7 @@ func TestRateLimit_ContextAborted(t *testing.T) {
 
 	// Exhaust burst
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/test", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	req.RemoteAddr = "10.66.0.1:3333"
 	r.ServeHTTP(w, req)
 
@@ -246,7 +247,7 @@ func TestRateLimit_ContextAborted(t *testing.T) {
 
 	// Rate-limited — downstream handler should NOT execute
 	w = httptest.NewRecorder()
-	req, _ = http.NewRequest("GET", "/test", nil)
+	req, _ = http.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 	req.RemoteAddr = "10.66.0.1:3333"
 	r.ServeHTTP(w, req)
 
@@ -273,7 +274,7 @@ func TestRateLimit_CleanupRemovesStaleClients(t *testing.T) {
 	// Simulate multiple IPs making requests
 	for i := 0; i < 5; i++ {
 		w := httptest.NewRecorder()
-		req, _ := http.NewRequest("GET", "/test", nil)
+		req, _ := http.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 		req.RemoteAddr = "10.0.0." + strconv.Itoa(i) + ":1234"
 		r.ServeHTTP(w, req)
 		if w.Code != http.StatusOK {

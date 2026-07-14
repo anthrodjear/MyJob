@@ -51,6 +51,23 @@ type listJobsQuery struct {
 }
 
 // ListJobs handles GET /jobs.
+// @Summary List jobs
+// @Description Get paginated list of jobs with optional filters
+// @Tags Jobs
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param status query string false "Filter by status" Enums(discovered,matched,applied,archived)
+// @Param company query string false "Filter by company name"
+// @Param source_id query string false "Filter by source UUID"
+// @Param min_score query number false "Minimum match score (0-100)" minimum(0) maximum(100)
+// @Param limit query int false "Results per page (max 100)" default(20) minimum(1) maximum(100)
+// @Param offset query int false "Pagination offset" default(0) minimum(0)
+// @Success 200 {object} JobListResponse "Successful response"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid query parameters"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /jobs [get]
 func (h *Handler) ListJobs(c *gin.Context) {
 	var q listJobsQuery
 	if err := c.ShouldBindQuery(&q); err != nil {
@@ -119,6 +136,19 @@ func (h *Handler) ListJobs(c *gin.Context) {
 }
 
 // GetJob handles GET /jobs/:id.
+// @Summary Get job by ID
+// @Description Get detailed information about a specific job
+// @Tags Jobs
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Job UUID" format(uuid)
+// @Success 200 {object} JobResponse "Job details"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid job ID"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Job not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /jobs/{id} [get]
 func (h *Handler) GetJob(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -141,6 +171,20 @@ func (h *Handler) GetJob(c *gin.Context) {
 }
 
 // UpdateJob handles PATCH /jobs/:id.
+// @Summary Update job status
+// @Description Update the status of a job (e.g., mark as applied, archived)
+// @Tags Jobs
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Job UUID" format(uuid)
+// @Param request body UpdateJobRequest true "New status"
+// @Success 200 {object} map[string]string "Job updated"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body or status"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Job not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /jobs/{id} [patch]
 func (h *Handler) UpdateJob(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -173,10 +217,23 @@ func (h *Handler) UpdateJob(c *gin.Context) {
 
 // scanRequest is the payload for POST /job-discovery/scan.
 type scanRequest struct {
-	SourceIDs []string `json:"source_ids" binding:"required,min=1"`
+	SourceIDs []string `json:"source_ids" binding:"required,min=1" example:"[\"550e8400-e29b-41d4-a716-446655440000\"]"`
 }
 
 // TriggerScan handles POST /job-discovery/scan.
+// @Summary Trigger job discovery scan
+// @Description Start asynchronous job discovery from configured sources
+// @Tags Jobs
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body scanRequest true "Source IDs to scan"
+// @Success 201 {object} map[string][]string "Task IDs for polling"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 202 {object} map[string]interface{} "Partial failure - some tasks dispatched"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /job-discovery/scan [post]
 func (h *Handler) TriggerScan(c *gin.Context) {
 	var req scanRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

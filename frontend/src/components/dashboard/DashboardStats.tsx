@@ -8,7 +8,6 @@
 import { type ApplicationStatsResponse } from "@/lib/types/applications";
 import { Card } from "@/components/shared/Card";
 import { Badge } from "@/components/shared/Badge";
-import { cn } from "@/lib/utils";
 import { FileText, Clock, Target, XCircle } from "lucide-react";
 
 interface DashboardStatsProps {

@@ -75,7 +75,21 @@ func parseApprovalID(c *gin.Context) (uuid.UUID, bool) {
 // ---------------------------------------------------------------------------
 
 // ListApprovals handles GET /approvals.
-// Query params: status, application_id, limit, offset.
+// @Summary List approval requests
+// @Description Get paginated list of approval requests with optional filters
+// @Tags Approvals
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param status query string false "Filter by status" Enums(pending,approved,rejected)
+// @Param application_id query string false "Filter by application UUID"
+// @Param limit query int false "Results per page (max 100)" default(50) minimum(1) maximum(100)
+// @Param offset query int false "Pagination offset" default(0) minimum(0)
+// @Success 200 {object} ApprovalListResponse "Paginated approval requests"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid query parameters"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /approvals [get]
 func (h *Handler) ListApprovals(c *gin.Context) {
 	var filter ListFilter
 
@@ -140,6 +154,19 @@ func (h *Handler) ListApprovals(c *gin.Context) {
 }
 
 // GetApproval handles GET /approvals/:id.
+// @Summary Get approval request by ID
+// @Description Get detailed approval request with job snapshot and previews
+// @Tags Approvals
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Approval UUID" format(uuid)
+// @Success 200 {object} ApprovalResponse "Approval request details"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid approval ID"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Approval request not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /approvals/{id} [get]
 func (h *Handler) GetApproval(c *gin.Context) {
 	id, ok := parseApprovalID(c)
 	if !ok {
@@ -161,7 +188,22 @@ func (h *Handler) GetApproval(c *gin.Context) {
 }
 
 // ApproveApproval handles POST /approvals/:id/approve.
-// Runs the full approve→submit workflow and returns the updated approval.
+// @Summary Approve application
+// @Description Approve the application and trigger automatic submission workflow
+// @Tags Approvals
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Approval UUID" format(uuid)
+// @Param request body ApproveRequest true "Empty body - approval decision is in endpoint"
+// @Success 200 {object} ApprovalResponse "Application approved and submission queued"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid approval ID"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Approval not found"
+// @Failure 409 {object} httpresp.ErrorResponse "Invalid status transition"
+// @Failure 207 {object} ApprovePartialResponse "Approved but submission dispatch failed (queued for retry)"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /approvals/{id}/approve [post]
 func (h *Handler) ApproveApproval(c *gin.Context) {
 	id, ok := parseApprovalID(c)
 	if !ok {
@@ -200,7 +242,21 @@ func (h *Handler) ApproveApproval(c *gin.Context) {
 }
 
 // RejectApproval handles POST /approvals/:id/reject.
-// Rejects the approval request with a required reason.
+// @Summary Reject application
+// @Description Reject the application with a required reason
+// @Tags Approvals
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Approval UUID" format(uuid)
+// @Param request body RejectRequest true "Rejection reason"
+// @Success 200 {object} ApprovalResponse "Application rejected"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid approval ID or missing reason"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Approval not found"
+// @Failure 409 {object} httpresp.ErrorResponse "Invalid status transition"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /approvals/{id}/reject [post]
 func (h *Handler) RejectApproval(c *gin.Context) {
 	id, ok := parseApprovalID(c)
 	if !ok {

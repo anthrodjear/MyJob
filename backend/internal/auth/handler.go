@@ -23,16 +23,18 @@ func NewHandler(service *Service, logger *zap.Logger) *Handler {
 	}
 }
 
-// RegisterRoutes registers auth routes on the router group.
-func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
-	auth := rg.Group("/auth")
-	{
-		auth.POST("/login", h.Login)
-		auth.POST("/change-password", h.ChangePassword)
-	}
-}
-
 // Login handles POST /auth/login.
+// @Summary User login
+// @Description Authenticate user with password and return JWT tokens
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body LoginRequest true "Login credentials"
+// @Success 200 {object} LoginResponse "Successful login with tokens"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 401 {object} httpresp.ErrorResponse "Invalid credentials"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /auth/login [post]
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -62,6 +64,18 @@ func (h *Handler) Login(c *gin.Context) {
 }
 
 // ChangePassword handles POST /auth/change-password.
+// @Summary Change password
+// @Description Change the current user's password (requires authentication)
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body ChangePasswordRequest true "Current and new password"
+// @Success 200 {object} OnboardingConfigResponse "Password changed successfully"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 401 {object} httpresp.ErrorResponse "Current password incorrect or unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /auth/change-password [post]
 func (h *Handler) ChangePassword(c *gin.Context) {
 	var req ChangePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -79,5 +93,360 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	httpresp.OK(c, gin.H{"message": "password changed"})
+	httpresp.OK(c, OnboardingConfigResponse{Message: "password changed"})
+}
+
+// SetupStatus handles GET /auth/setup/status.
+// @Summary Get setup status
+// @Description Check if initial setup is required and get current onboarding step
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Success 200 {object} SetupStatusResponse "Setup status"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /auth/setup/status [get]
+func (h *Handler) SetupStatus(c *gin.Context) {
+	resp, err := h.service.GetSetupStatus(c.Request.Context())
+	if err != nil {
+		h.logger.Error("get setup status error", zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, resp)
+}
+
+// Logout handles POST /auth/logout.
+// @Summary User logout
+// @Description Revoke all refresh tokens and increment session version (requires authentication)
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} LogoutResponse "Logged out successfully"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /auth/logout [post]
+func (h *Handler) Logout(c *gin.Context) {
+	if err := h.service.Logout(c.Request.Context()); err != nil {
+		h.logger.Error("logout error", zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, LogoutResponse{Message: "logged out"})
+}
+
+// CompleteSetup handles POST /auth/setup.
+// @Summary Complete initial setup
+// @Description Create the first user account and complete initial setup
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body SetupRequest true "Setup credentials"
+// @Success 200 {object} SetupResponse "Setup completed successfully"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 409 {object} httpresp.ErrorResponse "Setup already completed"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /auth/setup [post]
+func (h *Handler) CompleteSetup(c *gin.Context) {
+	var req SetupRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpresp.BadRequest(c, "INVALID_REQUEST", "invalid request body")
+		return
+	}
+
+	if err := h.service.CompleteSetup(c.Request.Context(), req.Username, req.Email, req.Password); err != nil {
+		if errors.Is(err, ErrSetupAlreadyComplete) {
+			httpresp.Conflict(c, "SETUP_COMPLETE", "setup already completed")
+			return
+		}
+		h.logger.Error("complete setup error", zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, SetupResponse{Message: "setup completed successfully"})
+}
+
+// TestLLMKey handles POST /auth/setup/test-llm.
+// @Summary Test LLM API key
+// @Description Validate an LLM provider API key during onboarding
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body TestLLMRequest true "LLM provider and API key"
+// @Success 200 {object} TestLLMResponse "Validation result"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /auth/setup/test-llm [post]
+func (h *Handler) TestLLMKey(c *gin.Context) {
+	var req TestLLMRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpresp.BadRequest(c, "INVALID_REQUEST", "invalid request body")
+		return
+	}
+
+	valid, err := h.service.TestLLMKey(c.Request.Context(), req.Provider, req.APIKey)
+	if err != nil {
+		h.logger.Error("test llm key error", zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, TestLLMResponse{Valid: valid})
+}
+
+// TestVoiceConfig handles POST /auth/setup/test-voice.
+// @Summary Test voice configuration
+// @Description Validate LiveKit voice configuration during onboarding
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body TestVoiceRequest true "Voice configuration"
+// @Success 200 {object} TestLLMResponse "Validation result"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /auth/setup/test-voice [post]
+func (h *Handler) TestVoiceConfig(c *gin.Context) {
+	var req TestVoiceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpresp.BadRequest(c, "INVALID_REQUEST", "invalid request body")
+		return
+	}
+
+	valid, err := h.service.TestVoiceConfig(c.Request.Context(), req.URL, req.APIKey, req.APISecret)
+	if err != nil {
+		h.logger.Error("test voice config error", zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, TestLLMResponse{Valid: valid})
+}
+
+// TestEmailConfig handles POST /auth/setup/test-email.
+// @Summary Test email configuration
+// @Description Validate Microsoft Graph email configuration during onboarding
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body TestEmailRequest true "Email configuration"
+// @Success 200 {object} TestLLMResponse "Validation result"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body or tenant ID"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /auth/setup/test-email [post]
+func (h *Handler) TestEmailConfig(c *gin.Context) {
+	var req TestEmailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpresp.BadRequest(c, "INVALID_REQUEST", "invalid request body")
+		return
+	}
+
+	valid, err := h.service.TestEmailConfig(c.Request.Context(), req.TenantID, req.ClientID, req.ClientSecret)
+	if err != nil {
+		if errors.Is(err, ErrInvalidCredentials) {
+			httpresp.BadRequest(c, "INVALID_TENANT_ID", "invalid tenant ID format")
+			return
+		}
+		h.logger.Error("test email config error", zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, TestLLMResponse{Valid: valid})
+}
+
+// SaveOnboardingConfig handles POST /auth/setup/config.
+// @Summary Save onboarding configuration
+// @Description Save LLM keys, voice config, email config, and preferences during onboarding
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body OnboardingConfigRequest true "Onboarding configuration"
+// @Success 200 {object} OnboardingConfigResponse "Configuration saved"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /auth/setup/config [post]
+func (h *Handler) SaveOnboardingConfig(c *gin.Context) {
+	var req OnboardingConfigRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpresp.BadRequest(c, "INVALID_REQUEST", "invalid request body")
+		return
+	}
+
+	if err := h.service.SaveOnboardingConfig(c.Request.Context(), &req); err != nil {
+		h.logger.Error("save onboarding config", zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, OnboardingConfigResponse{Message: "configuration saved"})
+}
+
+// UpdateOnboardingStep handles POST /auth/setup/onboarding-step.
+// @Summary Update onboarding step
+// @Description Update the current onboarding step to track progress
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body OnboardingStepRequest true "Step to set"
+// @Success 200 {object} OnboardingConfigResponse "Step updated"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /auth/setup/onboarding-step [post]
+func (h *Handler) UpdateOnboardingStep(c *gin.Context) {
+	var req OnboardingStepRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpresp.BadRequest(c, "INVALID_REQUEST", "invalid request body")
+		return
+	}
+
+	if err := h.service.UpdateOnboardingStep(c.Request.Context(), req.Step); err != nil {
+		h.logger.Error("update onboarding step", zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, OnboardingConfigResponse{Message: "step updated"})
+}
+
+// CompleteOnboarding handles POST /auth/setup/complete-onboarding.
+// @Summary Complete onboarding
+// @Description Mark onboarding as complete and enable full API access
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} OnboardingConfigResponse "Onboarding completed"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /auth/setup/complete-onboarding [post]
+func (h *Handler) CompleteOnboarding(c *gin.Context) {
+	if err := h.service.CompleteOnboarding(c.Request.Context()); err != nil {
+		h.logger.Error("complete onboarding", zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, OnboardingConfigResponse{Message: "onboarding completed"})
+}
+
+// Refresh handles POST /auth/refresh.
+// @Summary Refresh access token
+// @Description Get a new access token using a valid refresh token
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body RefreshRequest true "Refresh token"
+// @Success 200 {object} RefreshResponse "New access and refresh tokens"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 401 {object} httpresp.ErrorResponse "Invalid or expired refresh token"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /auth/refresh [post]
+func (h *Handler) Refresh(c *gin.Context) {
+	var req RefreshRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpresp.BadRequest(c, "INVALID_REQUEST", "invalid request body")
+		return
+	}
+
+	resp, err := h.service.Refresh(c.Request.Context(), req.RefreshToken)
+	if err != nil {
+		if errors.Is(err, ErrRefreshTokenInvalid) || errors.Is(err, ErrRefreshTokenExpired) || errors.Is(err, ErrRefreshTokenRevoked) {
+			httpresp.Unauthorized(c, "INVALID_REFRESH_TOKEN", "refresh token is invalid or expired")
+			return
+		}
+		h.logger.Error("refresh token error", zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, resp)
+}
+
+// RequestPasswordReset handles POST /auth/password/reset.
+// @Summary Request password reset
+// @Description Generate a password reset token for the user. In local-first mode, token is returned in response.
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body ForgotPasswordRequest true "User email"
+// @Success 200 {object} ForgotPasswordResponse "Reset token generated"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /auth/password/reset [post]
+func (h *Handler) RequestPasswordReset(c *gin.Context) {
+	var req ForgotPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpresp.BadRequest(c, "INVALID_REQUEST", "invalid request body")
+		return
+	}
+
+	// In a single-user app, we just verify the email matches the stored user.
+	// NOTE: returning the token only when the email matches exactly reveals
+	// which email is the account's. This is an accepted trade-off for a
+	// local-first app (single local user, no outbound email delivery).
+	user, err := h.service.Me(c.Request.Context())
+	if err != nil {
+		// Don't reveal if user exists — return generic success
+		h.logger.Warn("password reset requested for non-existent user")
+		httpresp.OK(c, ForgotPasswordResponse{
+			Message: "If an account with that email exists, a reset token has been generated. Check server logs.",
+		})
+		return
+	}
+
+	if user.Email != req.Email {
+		// Don't reveal if email doesn't match — return generic success
+		h.logger.Warn("password reset requested with incorrect email")
+		httpresp.OK(c, ForgotPasswordResponse{
+			Message: "If an account with that email exists, a reset token has been generated. Check server logs.",
+		})
+		return
+	}
+
+	token, err := h.service.RequestPasswordReset(c.Request.Context())
+	if err != nil {
+		h.logger.Error("request password reset error", zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	// Token is returned in the response body for the user to copy.
+	httpresp.OK(c, ForgotPasswordResponse{
+		ResetToken: token,
+		ExpiresIn:  int(h.service.ResetTokenExpiry().Seconds()),
+		Message:    "Password reset token generated. Copy the token above and use it to reset your password.",
+	})
+}
+
+// ResetPassword handles POST /auth/password/reset/confirm.
+// @Summary Confirm password reset
+// @Description Reset the password using a valid reset token
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body ResetPasswordRequest true "Reset token and new password"
+// @Success 200 {object} ResetPasswordResponse "Password reset successful"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid request body"
+// @Failure 401 {object} httpresp.ErrorResponse "Invalid or expired token"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /auth/password/reset/confirm [post]
+func (h *Handler) ResetPassword(c *gin.Context) {
+	var req ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpresp.BadRequest(c, "INVALID_REQUEST", "invalid request body")
+		return
+	}
+
+	if err := h.service.ResetPassword(c.Request.Context(), req.Token, req.NewPassword); err != nil {
+		if errors.Is(err, ErrInvalidCredentials) {
+			httpresp.Unauthorized(c, "INVALID_TOKEN", "reset token is invalid, expired, or already used")
+			return
+		}
+		h.logger.Error("reset password error", zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, ResetPasswordResponse{Message: "Password has been reset. You can now log in with your new password."})
 }

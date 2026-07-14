@@ -14,9 +14,9 @@ import (
 
 // Domain errors for applications.
 var (
-	ErrNotFound        = errors.New("application not found")
-	ErrNoRowsAffected  = errors.New("no rows affected")
-	ErrInvalidStatus   = errors.New("invalid status transition")
+	ErrNotFound       = errors.New("application not found")
+	ErrNoRowsAffected = errors.New("no rows affected")
+	ErrInvalidStatus  = errors.New("invalid status transition")
 )
 
 // Repository handles database operations for applications.
@@ -59,22 +59,18 @@ type ListFilter struct {
 func (f ListFilter) buildWhere() (string, []interface{}) {
 	var conditions []string
 	var args []interface{}
-	argIdx := 1
 
 	if f.Status != "" {
-		conditions = append(conditions, fmt.Sprintf("status = $%d", argIdx))
+		conditions = append(conditions, fmt.Sprintf("status = $%d", len(args)+1))
 		args = append(args, f.Status)
-		argIdx++
 	}
 	if f.JobID != uuid.Nil {
-		conditions = append(conditions, fmt.Sprintf("job_id = $%d", argIdx))
+		conditions = append(conditions, fmt.Sprintf("job_id = $%d", len(args)+1))
 		args = append(args, f.JobID)
-		argIdx++
 	}
 	if f.PortalType != "" {
-		conditions = append(conditions, fmt.Sprintf("portal_type = $%d", argIdx))
+		conditions = append(conditions, fmt.Sprintf("portal_type = $%d", len(args)+1))
 		args = append(args, f.PortalType)
-		argIdx++
 	}
 
 	if len(conditions) == 0 {
@@ -264,6 +260,9 @@ func (r *Repository) GetStats(ctx context.Context) (*ApplicationStatsResponse, e
 		}
 		stats.ByStatus[status] = count
 	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate status rows: %w", err)
+	}
 
 	// By tier
 	rows2, err := r.db.QueryContext(ctx, "SELECT approval_tier, COUNT(*) FROM applications GROUP BY approval_tier")
@@ -278,6 +277,9 @@ func (r *Repository) GetStats(ctx context.Context) (*ApplicationStatsResponse, e
 			return nil, fmt.Errorf("scan tier count: %w", err)
 		}
 		stats.ByTier[tier] = count
+	}
+	if err = rows2.Err(); err != nil {
+		return nil, fmt.Errorf("iterate tier rows: %w", err)
 	}
 
 	return stats, nil

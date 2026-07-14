@@ -1,0 +1,22 @@
+$kind: http-request
+name: Save Onboarding Config
+method: POST
+url: '{{baseUrl}}/api/v1/auth/setup/config'
+order: 6000
+auth:
+  type: noauth
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "openai_key": "sk-...",
+      "livekit_url": "wss://...",
+      "livekit_key": "...",
+      "livekit_secret": "...",
+      "auto_threshold": 95,
+      "review_threshold": 80,
+      "job_sources": []
+    }

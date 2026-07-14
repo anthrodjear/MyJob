@@ -1,0 +1,17 @@
+$kind: http-request
+name: Reject Application
+method: POST
+url: '{{baseUrl}}/api/v1/approvals/{{approvalId}}/reject'
+order: 4000
+pathVariables:
+  - key: approvalId
+    value: '{{approvalId}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "reason": "Salary expectations too high"
+    }

@@ -91,7 +91,7 @@ export default function JobsPage() {
   }, [filters, router]);
 
   /** Fetch jobs with current filters. */
-  const { data, isLoading, error } = useJobs(filters);
+  const { data, isLoading, isPlaceholderData } = useJobs(filters);
 
   /** Mutations for job actions. */
   const applyMutation = useApplyToJob();
@@ -122,18 +122,10 @@ export default function JobsPage() {
             aria-live="polite"
             aria-atomic="true"
           >
-            {isLoading ? "Loading jobs..." : `${data?.total ?? 0} jobs found`}
+            {isLoading && !isPlaceholderData ? "Loading jobs..." : `${data?.total ?? 0} jobs found`}
           </p>
         </div>
       </div>
-
-      {/* Error state */}
-      {error && !isLoading && (
-        <div role="alert" className="rounded-md border border-danger-light bg-danger-light/10 p-4 text-danger-dark">
-          <p className="font-medium">Failed to load jobs</p>
-          <p className="text-sm">{error.message}</p>
-        </div>
-      )}
 
       {/* Filters */}
       <JobFilters filters={filters} onFilterChange={handleFilterChange} />
@@ -141,8 +133,7 @@ export default function JobsPage() {
       {/* Results */}
       <JobList
         jobs={data?.jobs ?? []}
-        isLoading={isLoading}
-        error={error?.message}
+        isLoading={isLoading && !isPlaceholderData}
         onApply={(jobId) => applyMutation.mutate({ jobId })}
         onScore={(jobId) => scoreMutation.mutate({ jobId })}
         onSave={(jobId, saved) => saveMutation.mutate({ jobId, save: saved })}

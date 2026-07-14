@@ -1,0 +1,11 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\backend",
+    "\\backend\\bin",
+    "\\backend\\cmd",
+    "\\backend\\internal"
+  ],
+  "SelectedNode": "\\backend\\go.mod",
+  "PreviewInSolutionExplorer": false
+}

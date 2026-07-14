@@ -1,4 +1,7 @@
 // Entry point — server lifecycle is managed in server.ts
-import './server.js';
+import { startServer } from './server.js';
 
-// This file intentionally left minimal.
+startServer().catch(err => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});

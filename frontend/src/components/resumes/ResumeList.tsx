@@ -1,10 +1,12 @@
 /**
- * ResumeList — renders a list of resumes with empty state.
+ * ResumeList — renders a list of resumes with loading and empty states.
  *
- * Uses ResumeCard for each item. Shows EmptyState when no resumes exist.
+ * Uses ResumeCard for each item. Shows skeleton loader during initial load.
+ * Shows EmptyState when no resumes exist.
+ * Uses SkeletonWrapper to enforce min/max display times and prevent pop-ins.
  *
  * @example
- *   <ResumeList resumes={resumes} />
+ *   <ResumeList resumes={resumes} isLoading={false} />
  */
 
 "use client";
@@ -13,13 +15,32 @@ import { FileText } from "lucide-react";
 import type { Resume } from "@/lib/types/resumes";
 import { ResumeCard } from "./ResumeCard";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { ResumeCardSkeleton, SkeletonWrapper } from "@/components/shared/LoadingSkeleton";
 
 interface ResumeListProps {
+  /** Array of resumes to display. */
   resumes: Resume[];
+  /** Whether data is currently loading (initial load, not placeholder). */
+  isLoading?: boolean;
 }
 
-export function ResumeList({ resumes }: ResumeListProps) {
-  if (resumes.length === 0) {
+/** Skeleton placeholder matching the list layout. */
+function ResumeListSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="Loading resumes">
+      <span className="sr-only" aria-live="polite">Loading resumes…</span>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <ResumeCardSkeleton key={i} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function ResumeList({ resumes, isLoading = false }: ResumeListProps) {
+  // Empty state
+  if (resumes.length === 0 && !isLoading) {
     return (
       <EmptyState
         icon={<FileText className="h-12 w-12" />}
@@ -33,11 +54,20 @@ export function ResumeList({ resumes }: ResumeListProps) {
     );
   }
 
+  // Render list with SkeletonWrapper
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {resumes.map((resume) => (
-        <ResumeCard key={resume.id} resume={resume} />
-      ))}
-    </div>
+    <SkeletonWrapper
+      isLoading={isLoading}
+      skeleton={<ResumeListSkeleton />}
+      minDisplayMs={300}
+      maxDisplayMs={5000}
+      ariaLiveRegion="Resumes loaded"
+    >
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {resumes.map((resume) => (
+          <ResumeCard key={resume.id} resume={resume} />
+        ))}
+      </div>
+    </SkeletonWrapper>
   );
 }

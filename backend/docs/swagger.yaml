@@ -1,0 +1,5137 @@
+basePath: /api/v1
+definitions:
+  backend_internal_httpresp.ErrorBody:
+    properties:
+      code:
+        type: string
+      message:
+        type: string
+    type: object
+  backend_internal_httpresp.ErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/backend_internal_httpresp.ErrorBody'
+    type: object
+  internal_activity.ActivityListResponse:
+    properties:
+      activities:
+        items:
+          $ref: '#/definitions/internal_activity.ActivityResponse'
+        type: array
+      limit:
+        example: 20
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      total:
+        example: 150
+        type: integer
+    type: object
+  internal_activity.ActivityResponse:
+    properties:
+      created_at:
+        example: "2026-06-19T14:30:00Z"
+        type: string
+      details:
+        $ref: '#/definitions/internal_activity.DetailsResponse'
+      entity_id:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      entity_type:
+        enum:
+        - job
+        - application
+        - resume
+        - cover_letter
+        - interview
+        - email
+        - approval
+        example: application
+        type: string
+      event_type:
+        enum:
+        - created
+        - updated
+        - deleted
+        - status_changed
+        - scored
+        - applied
+        - email_received
+        - interview_scheduled
+        example: status_changed
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+    type: object
+  internal_activity.DetailsResponse:
+    additionalProperties: {}
+    type: object
+  internal_applications.ApplicationEventResponse:
+    properties:
+      created_at:
+        example: "2026-01-20T10:00:00Z"
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440004
+        type: string
+      new_status:
+        example: applied
+        type: string
+      notes:
+        example: Applied via Greenhouse portal
+        type: string
+      old_status:
+        example: pending
+        type: string
+    type: object
+  internal_applications.ApplicationListResponse:
+    properties:
+      applications:
+        items:
+          $ref: '#/definitions/internal_applications.ApplicationResponse'
+        type: array
+      limit:
+        example: 20
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      total:
+        example: 42
+        type: integer
+    type: object
+  internal_applications.ApplicationResponse:
+    properties:
+      applied_at:
+        example: "2026-01-20T10:00:00Z"
+        type: string
+      approval_tier:
+        enum:
+        - AUTO
+        - REVIEW
+        - REJECT
+        example: AUTO
+        type: string
+      cover_letter_id:
+        example: 550e8400-e29b-41d4-a716-446655440003
+        type: string
+      created_at:
+        example: "2026-01-15T08:00:00Z"
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      interview_at:
+        example: "2026-01-25T10:00:00Z"
+        type: string
+      job_id:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      notes:
+        example: Applied via Greenhouse portal
+        type: string
+      portal_type:
+        example: greenhouse
+        type: string
+      portal_url:
+        example: https://boards.greenhouse.io/openai/jobs/12345
+        type: string
+      response_at:
+        example: "2026-01-22T14:30:00Z"
+        type: string
+      resume_id:
+        example: 550e8400-e29b-41d4-a716-446655440002
+        type: string
+      status:
+        enum:
+        - pending
+        - approved
+        - applied
+        - interviewed
+        - offered
+        - rejected
+        - archived
+        example: applied
+        type: string
+      updated_at:
+        example: "2026-01-20T10:00:00Z"
+        type: string
+    type: object
+  internal_applications.ApplicationStatsResponse:
+    properties:
+      by_status:
+        additionalProperties:
+          format: int64
+          type: integer
+        type: object
+      by_tier:
+        additionalProperties:
+          format: int64
+          type: integer
+        type: object
+      total:
+        example: 42
+        type: integer
+    type: object
+  internal_applications.ApplicationTimelineResponse:
+    properties:
+      application_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      events:
+        items:
+          $ref: '#/definitions/internal_applications.ApplicationEventResponse'
+        type: array
+    type: object
+  internal_applications.CreateApplicationRequest:
+    properties:
+      cover_letter_id:
+        example: 550e8400-e29b-41d4-a716-446655440002
+        type: string
+      job_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      portal_type:
+        example: greenhouse
+        type: string
+      portal_url:
+        example: https://boards.greenhouse.io/openai/jobs/12345
+        type: string
+      resume_id:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+    required:
+    - job_id
+    type: object
+  internal_applications.UpdateApplicationNotesRequest:
+    properties:
+      notes:
+        example: Follow up with recruiter on Monday
+        type: string
+    required:
+    - notes
+    type: object
+  internal_applications.UpdateStatusRequest:
+    properties:
+      notes:
+        example: Applied via Greenhouse portal
+        type: string
+      status:
+        enum:
+        - pending
+        - approved
+        - applied
+        - interviewed
+        - offered
+        - rejected
+        - archived
+        example: applied
+        type: string
+    required:
+    - status
+    type: object
+  internal_approvals.ApprovalListResponse:
+    properties:
+      approvals:
+        items:
+          $ref: '#/definitions/internal_approvals.ApprovalResponse'
+        type: array
+      limit:
+        example: 50
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      total:
+        example: 15
+        type: integer
+    type: object
+  internal_approvals.ApprovalResponse:
+    properties:
+      application_id:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      cover_letter_preview:
+        example: /storage/cover-letters/550e8400-e29b-41d4-a716-446655440001.pdf
+        type: string
+      created_at:
+        example: "2026-06-19T10:00:00Z"
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      job_snapshot:
+        $ref: '#/definitions/internal_approvals.JobSnapshot'
+      rejection_reason:
+        example: Salary too low
+        type: string
+      resume_preview_path:
+        example: /storage/resumes/550e8400-e29b-41d4-a716-446655440000.pdf
+        type: string
+      reviewed_at:
+        example: "2026-06-20T14:30:00Z"
+        type: string
+      status:
+        enum:
+        - pending
+        - approved
+        - rejected
+        example: pending
+        type: string
+    type: object
+  internal_approvals.ApprovePartialResponse:
+    properties:
+      approval:
+        $ref: '#/definitions/internal_approvals.ApprovalResponse'
+      status:
+        example: approved
+        type: string
+      warning:
+        example: application submission queued for retry
+        type: string
+    type: object
+  internal_approvals.ApproveRequest:
+    type: object
+  internal_approvals.JobSnapshot:
+    properties:
+      company:
+        type: string
+      description:
+        type: string
+      location:
+        type: string
+      requirements:
+        items:
+          type: string
+        type: array
+      score:
+        type: number
+      scored_at:
+        type: string
+      tier:
+        description: '"review" — only review-tier jobs need approval'
+        type: string
+      title:
+        type: string
+      url:
+        type: string
+    type: object
+  internal_approvals.RejectRequest:
+    properties:
+      reason:
+        description: Reason is required for audit trail.
+        example: Salary too low for current market
+        type: string
+    required:
+    - reason
+    type: object
+  internal_auth.ChangePasswordRequest:
+    properties:
+      current_password:
+        example: oldpassword123
+        maxLength: 72
+        type: string
+      new_password:
+        example: newpassword456
+        maxLength: 72
+        minLength: 8
+        type: string
+    required:
+    - current_password
+    - new_password
+    type: object
+  internal_auth.LoginRequest:
+    properties:
+      password:
+        example: securepassword123
+        maxLength: 72
+        type: string
+    required:
+    - password
+    type: object
+  internal_auth.LoginResponse:
+    properties:
+      access_token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      expires_at:
+        example: 1705276800
+        type: integer
+      refresh_token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+    type: object
+  internal_auth.LogoutResponse:
+    properties:
+      message:
+        example: logged out
+        type: string
+    type: object
+  internal_auth.OnboardingConfigRequest:
+    properties:
+      anthropic_key:
+        example: sk-ant-...
+        type: string
+      auto_threshold:
+        example: 95
+        type: integer
+      custom_job_sites:
+        example:
+        - '["https://careers.example.com"]'
+        items:
+          type: string
+        type: array
+      job_sources:
+        example:
+        - '["greenhouse:openai"'
+        - '"lever:figma"]'
+        items:
+          type: string
+        type: array
+      livekit_key:
+        example: APIxxxxxxxxxxxxxxx
+        type: string
+      livekit_secret:
+        example: secretxxxxxxxxxxxxxxxxxxxxxxxxxx
+        type: string
+      livekit_url:
+        example: wss://livekit.example.com
+        type: string
+      ms_client_id:
+        example: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+        type: string
+      ms_client_secret:
+        example: secretxxxxxxxxxxxxxxxxxxxxxxxxxx
+        type: string
+      ms_tenant_id:
+        example: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+        type: string
+      openai_key:
+        example: sk-...
+        type: string
+      review_threshold:
+        example: 80
+        type: integer
+    type: object
+  internal_auth.OnboardingConfigResponse:
+    properties:
+      message:
+        example: configuration saved
+        type: string
+    type: object
+  internal_auth.OnboardingStepRequest:
+    properties:
+      step:
+        enum:
+        - llm
+        - voice
+        - preferences
+        - complete
+        example: llm
+        type: string
+    required:
+    - step
+    type: object
+  internal_auth.RefreshRequest:
+    properties:
+      refresh_token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        minLength: 64
+        type: string
+    required:
+    - refresh_token
+    type: object
+  internal_auth.RefreshResponse:
+    properties:
+      access_token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      expires_at:
+        example: 1705276800
+        type: integer
+      refresh_token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+    type: object
+  internal_auth.SetupRequest:
+    properties:
+      email:
+        example: john@example.com
+        type: string
+      password:
+        example: securepassword123
+        maxLength: 72
+        minLength: 8
+        type: string
+      username:
+        example: john_doe
+        maxLength: 100
+        minLength: 3
+        type: string
+    required:
+    - email
+    - password
+    - username
+    type: object
+  internal_auth.SetupResponse:
+    properties:
+      message:
+        example: setup completed successfully
+        type: string
+    type: object
+  internal_auth.SetupStatusResponse:
+    properties:
+      setup_required:
+        example: true
+        type: boolean
+      step:
+        example: llm
+        type: string
+    type: object
+  internal_auth.TestEmailRequest:
+    properties:
+      client_id:
+        example: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+        type: string
+      client_secret:
+        example: secretxxxxxxxxxxxxxxxxxxxxxxxxxx
+        type: string
+      tenant_id:
+        example: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+        type: string
+    required:
+    - client_id
+    - client_secret
+    - tenant_id
+    type: object
+  internal_auth.TestLLMRequest:
+    properties:
+      api_key:
+        example: sk-...
+        type: string
+      provider:
+        enum:
+        - openai
+        - anthropic
+        example: openai
+        type: string
+    required:
+    - api_key
+    - provider
+    type: object
+  internal_auth.TestLLMResponse:
+    properties:
+      valid:
+        example: true
+        type: boolean
+    type: object
+  internal_auth.TestVoiceRequest:
+    properties:
+      api_key:
+        example: APIxxxxxxxxxxxxxxx
+        type: string
+      api_secret:
+        example: secretxxxxxxxxxxxxxxxxxxxxxxxxxx
+        type: string
+      url:
+        example: wss://livekit.example.com
+        type: string
+    required:
+    - api_key
+    - api_secret
+    - url
+    type: object
+  internal_emails.ClassifyResponse:
+    properties:
+      classification:
+        example: interview_invitation
+        type: string
+      confidence:
+        example: 0.95
+        maximum: 1
+        minimum: 0
+        type: number
+      email_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      reasoning:
+        example: Email contains interview scheduling language and calendar invite
+        type: string
+    type: object
+  internal_emails.EmailListResponse:
+    properties:
+      emails:
+        items:
+          $ref: '#/definitions/internal_emails.EmailResponse'
+        type: array
+      limit:
+        example: 50
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      total:
+        example: 25
+        type: integer
+    type: object
+  internal_emails.EmailResponse:
+    properties:
+      application_id:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      body:
+        example: Hi John, we'd like to invite you...
+        type: string
+      classification:
+        example: interview_invitation
+        type: string
+      created_at:
+        example: "2026-06-20T10:05:00Z"
+        type: string
+      from_address:
+        example: recruiter@company.com
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      is_read:
+        example: false
+        type: boolean
+      message_id:
+        example: <abc123@company.com>
+        type: string
+      received_at:
+        example: "2026-06-20T10:00:00Z"
+        type: string
+      reply_draft:
+        example: Thank you for the invitation...
+        type: string
+      subject:
+        example: Interview Invitation - Senior Go Engineer
+        type: string
+      to_address:
+        example: candidate@example.com
+        type: string
+    type: object
+  internal_emails.StoreEmailRequest:
+    properties:
+      application_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      body:
+        example: Hi John, we'd like to invite you...
+        type: string
+      classification:
+        enum:
+        - interview_invitation
+        - rejection
+        - offer
+        - recruiter_outreach
+        - other
+        example: interview_invitation
+        type: string
+      from_address:
+        example: recruiter@company.com
+        type: string
+      message_id:
+        example: <abc123@company.com>
+        type: string
+      received_at:
+        example: "2026-06-20T10:00:00Z"
+        type: string
+      subject:
+        example: Interview Invitation - Senior Go Engineer
+        type: string
+      to_address:
+        example: candidate@example.com
+        type: string
+    required:
+    - from_address
+    - message_id
+    - received_at
+    type: object
+  internal_emails.UpdateEmailRequest:
+    properties:
+      is_read:
+        example: true
+        type: boolean
+      reply_draft:
+        example: Thank you for the invitation. I'd love to schedule...
+        type: string
+    type: object
+  internal_interviews.CreateInterviewRequest:
+    properties:
+      application_id:
+        description: ApplicationID links this interview to a job application.
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      mode:
+        description: |-
+          Mode determines who drives the conversation.
+          Valid values: "assist", "autonomous".
+        enum:
+        - assist
+        - autonomous
+        example: autonomous
+        type: string
+    required:
+    - application_id
+    - mode
+    type: object
+  internal_interviews.InterviewEventRequest:
+    properties:
+      content:
+        description: Content is the spoken text or transcription.
+        example: I have 5 years of experience in Go
+        type: string
+      feedback:
+        description: |-
+          Feedback is the full evaluation payload. Only used when Type="feedback".
+          Stored as raw JSON because the schema varies by evaluation model.
+        type: object
+      score:
+        description: Score is the AI's evaluation (0.0–100.0). Only used when Type="score".
+        example: 85.5
+        type: number
+      speaker:
+        description: Speaker identifies who is talking. Use "candidate", "ai", or
+          "system".
+        enum:
+        - candidate
+        - ai
+        - system
+        example: candidate
+        type: string
+      status:
+        description: |-
+          Status is the new session status. Only used when Type="status".
+          Must be a valid transition from the current status.
+        enum:
+        - pending
+        - active
+        - completed
+        - cancelled
+        example: active
+        type: string
+      timestamp:
+        description: |-
+          Timestamp is when this turn occurred. Use *time.Time so that
+          omitting it produces nil (not "0001-01-01T00:00:00Z").
+        example: "2026-06-19T10:30:00Z"
+        type: string
+      type:
+        description: |-
+          Type identifies the kind of event. Valid values:
+          "transcript", "status", "score", "feedback".
+        enum:
+        - transcript
+        - status
+        - score
+        - feedback
+        example: transcript
+        type: string
+    required:
+    - type
+    type: object
+  internal_interviews.InterviewListResponse:
+    properties:
+      interviews:
+        items:
+          $ref: '#/definitions/internal_interviews.InterviewResponse'
+        type: array
+      limit:
+        example: 20
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      total:
+        example: 15
+        type: integer
+    type: object
+  internal_interviews.InterviewResponse:
+    properties:
+      application_id:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      created_at:
+        example: "2026-06-19T09:55:00Z"
+        type: string
+      ended_at:
+        example: "2026-06-19T10:30:00Z"
+        type: string
+      external_session_id:
+        example: livekit-session-123
+        type: string
+      feedback:
+        type: object
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      mode:
+        enum:
+        - assist
+        - autonomous
+        example: autonomous
+        type: string
+      model:
+        example: gpt-4o-realtime-preview
+        type: string
+      provider:
+        example: openai_realtime
+        type: string
+      score:
+        example: 85.5
+        type: number
+      started_at:
+        example: "2026-06-19T10:00:00Z"
+        type: string
+      status:
+        enum:
+        - pending
+        - active
+        - completed
+        - cancelled
+        example: active
+        type: string
+      transcript:
+        items:
+          $ref: '#/definitions/internal_interviews.TranscriptEntry'
+        type: array
+      updated_at:
+        example: "2026-06-19T10:30:00Z"
+        type: string
+    type: object
+  internal_interviews.StartInterviewRequest:
+    properties:
+      model:
+        description: |-
+          Model is the specific model for the provider (e.g., "gpt-4o-realtime-preview").
+          Empty string means "use config default".
+        example: gpt-4o-realtime-preview
+        type: string
+      provider:
+        description: |-
+          Provider is the voice backend (e.g., "openai_realtime", "elevenlabs").
+          Empty string means "use config default".
+        example: openai_realtime
+        type: string
+    type: object
+  internal_interviews.StopInterviewRequest:
+    properties:
+      reason:
+        description: |-
+          Reason is a free-text explanation for stopping (for audit trail).
+          Optional — empty string is acceptable.
+        example: user_cancelled
+        type: string
+    type: object
+  internal_interviews.TranscriptEntry:
+    properties:
+      content:
+        description: |-
+          Content is the spoken text (for AI) or transcription (for candidate).
+          May be empty for SpeakerSystem metadata entries.
+        type: string
+      id:
+        description: |-
+          ID uniquely identifies this transcript entry. Generated by Go code,
+          not by PostgreSQL.
+        type: string
+      speaker:
+        description: |-
+          Speaker identifies who is talking. Use SpeakerCandidate, SpeakerAI,
+          or SpeakerSystem constants — not raw strings.
+        type: string
+      timestamp:
+        description: |-
+          Timestamp is when this turn occurred (UTC). Set by the voice service
+          at the moment audio is received or speech is synthesized.
+        type: string
+    type: object
+  internal_jobs.JobListResponse:
+    properties:
+      jobs:
+        items:
+          $ref: '#/definitions/internal_jobs.JobResponse'
+        type: array
+      limit:
+        example: 20
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      total:
+        example: 42
+        type: integer
+    type: object
+  internal_jobs.JobResponse:
+    properties:
+      application_url:
+        example: https://boards.greenhouse.io/openai/jobs/12345
+        type: string
+      company:
+        example: OpenAI
+        type: string
+      company_url:
+        example: https://openai.com
+        type: string
+      created_at:
+        example: "2026-01-15T08:00:00Z"
+        type: string
+      description:
+        example: We are looking for a Senior Go Engineer...
+        type: string
+      external_id:
+        example: gh-12345
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      location:
+        example: San Francisco, CA (Remote)
+        type: string
+      match_details:
+        type: object
+      match_score:
+        example: 92.5
+        type: number
+      posted_at:
+        example: "2026-01-10T10:00:00Z"
+        type: string
+      remote_type:
+        enum:
+        - remote
+        - hybrid
+        - onsite
+        example: remote
+        type: string
+      requirements:
+        example: 5+ years Go experience, Kubernetes, PostgreSQL
+        type: string
+      salary_currency:
+        example: USD
+        type: string
+      salary_max:
+        example: 200000
+        type: integer
+      salary_min:
+        example: 150000
+        type: integer
+      scraped_at:
+        example: "2026-01-15T08:00:00Z"
+        type: string
+      source:
+        example: greenhouse
+        type: string
+      source_id:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      source_name:
+        example: Greenhouse - OpenAI
+        type: string
+      status:
+        enum:
+        - discovered
+        - matched
+        - applied
+        - archived
+        example: matched
+        type: string
+      title:
+        example: Senior Go Engineer
+        type: string
+      updated_at:
+        example: "2026-01-15T08:00:00Z"
+        type: string
+      url:
+        example: https://boards.greenhouse.io/openai/jobs/12345
+        type: string
+    type: object
+  internal_jobs.UpdateJobRequest:
+    properties:
+      status:
+        enum:
+        - discovered
+        - matched
+        - applied
+        - archived
+        example: applied
+        type: string
+    type: object
+  internal_jobs.scanRequest:
+    properties:
+      source_ids:
+        example:
+        - '["550e8400-e29b-41d4-a716-446655440000"]'
+        items:
+          type: string
+        minItems: 1
+        type: array
+    required:
+    - source_ids
+    type: object
+  internal_profile.Education:
+    properties:
+      degree:
+        type: string
+      description:
+        type: string
+      end_year:
+        type: integer
+      field:
+        type: string
+      gpa:
+        type: string
+      institution:
+        type: string
+      start_year:
+        type: integer
+    type: object
+  internal_profile.PatchLinks:
+    properties:
+      github:
+        type: string
+      linkedin:
+        type: string
+      portfolio:
+        type: string
+    type: object
+  internal_profile.PatchPreferences:
+    properties:
+      auto_apply_threshold:
+        type: integer
+      cover_letter_style:
+        type: string
+      max_salary:
+        type: integer
+      min_salary:
+        type: integer
+      remote_only:
+        type: boolean
+      resume_style:
+        type: string
+      resume_tone:
+        type: string
+      target_locations:
+        items:
+          type: string
+        type: array
+      target_titles:
+        items:
+          type: string
+        type: array
+      work_authorization:
+        type: string
+      years_experience:
+        type: integer
+    type: object
+  internal_profile.PatchProfileRequest:
+    properties:
+      education:
+        items:
+          $ref: '#/definitions/internal_profile.Education'
+        type: array
+      links:
+        $ref: '#/definitions/internal_profile.PatchLinks'
+      preferences:
+        $ref: '#/definitions/internal_profile.PatchPreferences'
+      skills:
+        items:
+          $ref: '#/definitions/internal_profile.Skill'
+        type: array
+    type: object
+  internal_profile.ProfileData:
+    properties:
+      education:
+        items:
+          $ref: '#/definitions/internal_profile.Education'
+        type: array
+      links:
+        $ref: '#/definitions/internal_profile.ProfileLinks'
+      preferences:
+        $ref: '#/definitions/internal_profile.ProfilePreferences'
+      skills:
+        items:
+          $ref: '#/definitions/internal_profile.Skill'
+        type: array
+    type: object
+  internal_profile.ProfileLinks:
+    properties:
+      github:
+        type: string
+      linkedin:
+        type: string
+      portfolio:
+        type: string
+    type: object
+  internal_profile.ProfilePreferences:
+    properties:
+      auto_apply_threshold:
+        description: |-
+          --- Application behavior ---
+          AutoApplyThreshold: score (0-100) above which applications are
+          submitted without human review. nil = require manual approval always.
+        type: integer
+      cover_letter_style:
+        type: string
+      max_salary:
+        type: integer
+      min_salary:
+        type: integer
+      remote_only:
+        type: boolean
+      resume_style:
+        type: string
+      resume_tone:
+        description: '--- Resume generation ---'
+        type: string
+      target_locations:
+        items:
+          type: string
+        type: array
+      target_titles:
+        description: '--- Job targeting ---'
+        items:
+          type: string
+        type: array
+      work_authorization:
+        description: |-
+          --- Work authorization ---
+          Free-text: "US Citizen", "H1B", "OPT", "Green Card", etc.
+          Kept as string because visa categories are not enumerable.
+        type: string
+      years_experience:
+        description: |-
+          --- Experience ---
+          Pointer (*int) so 0 is distinguishable from unset.
+        type: integer
+    type: object
+  internal_profile.ProfileResponse:
+    properties:
+      created_at:
+        example: "2026-06-19T10:00:00Z"
+        type: string
+      data:
+        $ref: '#/definitions/internal_profile.ProfileData'
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      stats:
+        $ref: '#/definitions/internal_profile.ProfileStatsResponse'
+      updated_at:
+        example: "2026-06-20T14:30:00Z"
+        type: string
+    type: object
+  internal_profile.ProfileStatsResponse:
+    properties:
+      education_count:
+        example: 2
+        type: integer
+      has_links:
+        example: true
+        type: boolean
+      has_resume_preferences:
+        example: true
+        type: boolean
+      skill_count:
+        example: 8
+        type: integer
+    type: object
+  internal_profile.Skill:
+    properties:
+      name:
+        type: string
+      proficiency:
+        type: string
+      years:
+        type: integer
+    type: object
+  internal_profile.UpdateProfileRequest:
+    properties:
+      education:
+        items:
+          $ref: '#/definitions/internal_profile.Education'
+        type: array
+      links:
+        $ref: '#/definitions/internal_profile.ProfileLinks'
+      preferences:
+        $ref: '#/definitions/internal_profile.ProfilePreferences'
+      skills:
+        items:
+          $ref: '#/definitions/internal_profile.Skill'
+        type: array
+    type: object
+  internal_rag.EmbeddingListResponse:
+    properties:
+      embeddings:
+        items:
+          $ref: '#/definitions/internal_rag.EmbeddingResponse'
+        type: array
+      limit:
+        example: 20
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      total:
+        example: 100
+        type: integer
+    type: object
+  internal_rag.EmbeddingResponse:
+    properties:
+      content:
+        example: Senior Go Engineer needed...
+        type: string
+      created_at:
+        example: "2026-01-15T10:00:00Z"
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      metadata:
+        $ref: '#/definitions/internal_rag.Metadata'
+      source_id:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      source_type:
+        enum:
+        - job
+        - resume
+        - application
+        - cover_letter
+        example: job
+        type: string
+    type: object
+  internal_rag.Metadata:
+    properties:
+      chunk_index:
+        description: ChunkIndex for documents split into multiple embeddings
+        type: integer
+      title:
+        description: Title of the source document (job title, resume name, etc.)
+        type: string
+      total_chunks:
+        description: TotalChunks for multi-chunk documents
+        type: integer
+      url:
+        description: URL of the source (for jobs)
+        type: string
+    type: object
+  internal_rag.SearchFilterRequest:
+    properties:
+      exclude_source:
+        allOf:
+        - $ref: '#/definitions/internal_rag.SourceFilterRequest'
+        description: |-
+          ExcludeSource excludes a specific embedding from results.
+          Useful when searching "similar to X" but excluding X itself.
+      limit:
+        description: Limit is the maximum number of results to return. Default 10,
+          max 50.
+        example: 10
+        maximum: 50
+        minimum: 1
+        type: integer
+      similarity:
+        description: |-
+          Similarity is the minimum cosine similarity threshold (0.0 to 1.0).
+          Higher = more similar. Default 0.0 (no threshold).
+        example: 0.75
+        maximum: 1
+        minimum: 0
+        type: number
+      source_type:
+        description: SourceType restricts results to a specific source type (job,
+          resume, application, cover_letter).
+        enum:
+        - job
+        - resume
+        - application
+        - cover_letter
+        example: job
+        type: string
+    type: object
+  internal_rag.SearchRequest:
+    properties:
+      filter:
+        allOf:
+        - $ref: '#/definitions/internal_rag.SearchFilterRequest'
+        description: Filter restricts the search scope.
+      query:
+        description: Query is the text to search for. Will be embedded and compared
+          against stored vectors.
+        example: senior go engineer kubernetes
+        type: string
+    required:
+    - query
+    type: object
+  internal_rag.SearchResponse:
+    properties:
+      model:
+        example: mxbai-embed-large
+        type: string
+      query:
+        example: senior go engineer kubernetes
+        type: string
+      results:
+        items:
+          $ref: '#/definitions/internal_rag.SearchResultResponse'
+        type: array
+      total:
+        example: 5
+        type: integer
+    type: object
+  internal_rag.SearchResultResponse:
+    properties:
+      content:
+        example: Senior Go Engineer needed for...
+        type: string
+      created_at:
+        example: "2026-01-15T10:00:00Z"
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      metadata:
+        $ref: '#/definitions/internal_rag.Metadata'
+      similarity:
+        example: 0.92
+        maximum: 1
+        minimum: 0
+        type: number
+      source_id:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      source_type:
+        enum:
+        - job
+        - resume
+        - application
+        - cover_letter
+        example: job
+        type: string
+    type: object
+  internal_rag.SourceFilterRequest:
+    properties:
+      source_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      source_type:
+        enum:
+        - job
+        - resume
+        - application
+        - cover_letter
+        example: job
+        type: string
+    required:
+    - source_id
+    - source_type
+    type: object
+  internal_resumes.CoverLetterListResponse:
+    properties:
+      cover_letters:
+        items:
+          $ref: '#/definitions/internal_resumes.CoverLetterResponse'
+        type: array
+      limit:
+        example: 20
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      total:
+        example: 8
+        type: integer
+    type: object
+  internal_resumes.CoverLetterResponse:
+    properties:
+      content:
+        example: |-
+          Dear Hiring Manager,
+
+          I am writing to express my interest...
+        type: string
+      created_at:
+        example: "2026-01-20T10:00:00Z"
+        type: string
+      gaps:
+        example:
+        - '["No direct PostgreSQL experience"]'
+        items:
+          type: string
+        type: array
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440004
+        type: string
+      job_id:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      job_title:
+        example: Senior Go Engineer
+        type: string
+      model:
+        example: qwen2.5:latest
+        type: string
+      pdf_key:
+        example: cover-letters/550e8400-e29b-41d4-a716-446655440004.pdf
+        type: string
+      prompt_version:
+        example: v1.2
+        type: string
+      resume_id:
+        example: 550e8400-e29b-41d4-a716-446655440002
+        type: string
+      resume_version:
+        example: 3
+        type: integer
+      strengths:
+        example:
+        - '["Strong Go experience"'
+        - '"Kubernetes expertise"]'
+        items:
+          type: string
+        type: array
+      updated_at:
+        example: "2026-01-20T10:00:00Z"
+        type: string
+      version:
+        example: 1
+        type: integer
+      word_count:
+        example: 350
+        type: integer
+    type: object
+  internal_resumes.CreateCoverLetterRequest:
+    properties:
+      job_id:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      resume_id:
+        example: 550e8400-e29b-41d4-a716-446655440002
+        type: string
+    required:
+    - job_id
+    type: object
+  internal_resumes.CreateResumeRequest:
+    properties:
+      focus_skills:
+        example:
+        - '["Go"'
+        - '"PostgreSQL"'
+        - '"Kubernetes"'
+        - '"gRPC"]'
+        items:
+          type: string
+        maxItems: 20
+        minItems: 1
+        type: array
+      highlight_experience:
+        example:
+        - '["550e8400-e29b-41d4-a716-446655440000"]'
+        items:
+          type: string
+        type: array
+      name:
+        example: Senior Go Engineer Resume
+        maxLength: 100
+        minLength: 2
+        type: string
+      specialization:
+        example: Backend Engineering
+        maxLength: 100
+        minLength: 2
+        type: string
+      template_path:
+        example: templates/resume.tex
+        type: string
+    required:
+    - focus_skills
+    - name
+    - specialization
+    - template_path
+    type: object
+  internal_resumes.EducationEntry:
+    properties:
+      degree:
+        type: string
+      end_date:
+        type: string
+      field:
+        type: string
+      gpa:
+        type: string
+      honors:
+        items:
+          type: string
+        type: array
+      institution:
+        type: string
+      start_date:
+        type: string
+    type: object
+  internal_resumes.ExperienceEntry:
+    properties:
+      company:
+        type: string
+      description:
+        type: string
+      end_date:
+        type: string
+      highlights:
+        items:
+          type: string
+        type: array
+      location:
+        type: string
+      skills_used:
+        items:
+          type: string
+        type: array
+      start_date:
+        type: string
+      title:
+        type: string
+    type: object
+  internal_resumes.GenerateCoverLetterRequest:
+    properties:
+      job_description:
+        example: We are looking for a Senior Go Engineer...
+        maxLength: 50000
+        type: string
+      job_requirements:
+        example: 5+ years Go experience, Kubernetes, PostgreSQL, gRPC
+        maxLength: 10000
+        type: string
+      job_title:
+        example: Senior Go Engineer
+        maxLength: 200
+        type: string
+      resume_id:
+        description: 'override: use specific resume'
+        example: 550e8400-e29b-41d4-a716-446655440002
+        type: string
+    required:
+    - job_description
+    - job_requirements
+    - job_title
+    type: object
+  internal_resumes.GenerateResumeContentRequest:
+    properties:
+      job_id:
+        description: 'optional: tailor for specific job'
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      job_requirements:
+        description: 'optional: target job requirements'
+        example: 5+ years Go, Kubernetes, PostgreSQL
+        type: string
+      job_title:
+        description: 'optional: target job title'
+        example: Senior Go Engineer
+        type: string
+    type: object
+  internal_resumes.LanguageEntry:
+    properties:
+      language:
+        type: string
+      proficiency:
+        description: native, fluent, professional, basic
+        type: string
+    type: object
+  internal_resumes.LinkEntry:
+    properties:
+      label:
+        type: string
+      type:
+        description: github, linkedin, portfolio, website
+        type: string
+      url:
+        type: string
+    type: object
+  internal_resumes.ProjectEntry:
+    properties:
+      description:
+        type: string
+      end_date:
+        type: string
+      link:
+        type: string
+      name:
+        type: string
+      start_date:
+        type: string
+      technologies:
+        items:
+          type: string
+        type: array
+    type: object
+  internal_resumes.ResumeContent:
+    properties:
+      certifications:
+        items:
+          type: string
+        type: array
+      education:
+        items:
+          $ref: '#/definitions/internal_resumes.EducationEntry'
+        type: array
+      experience:
+        items:
+          $ref: '#/definitions/internal_resumes.ExperienceEntry'
+        type: array
+      languages:
+        items:
+          $ref: '#/definitions/internal_resumes.LanguageEntry'
+        type: array
+      links:
+        items:
+          $ref: '#/definitions/internal_resumes.LinkEntry'
+        type: array
+      projects:
+        items:
+          $ref: '#/definitions/internal_resumes.ProjectEntry'
+        type: array
+      skills:
+        items:
+          type: string
+        type: array
+      summary:
+        type: string
+    type: object
+  internal_resumes.ResumeContentResponse:
+    properties:
+      content:
+        $ref: '#/definitions/internal_resumes.ResumeContent'
+      resume_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      version:
+        example: 3
+        type: integer
+    type: object
+  internal_resumes.ResumeDetailResponse:
+    properties:
+      content:
+        $ref: '#/definitions/internal_resumes.ResumeContent'
+      created_at:
+        example: "2026-01-10T10:00:00Z"
+        type: string
+      focus_skills:
+        example:
+        - '["Go"'
+        - '"PostgreSQL"'
+        - '"Kubernetes"'
+        - '"gRPC"]'
+        items:
+          type: string
+        type: array
+      has_content:
+        example: true
+        type: boolean
+      highlight_experience:
+        example:
+        - '["550e8400-e29b-41d4-a716-446655440001"]'
+        items:
+          type: string
+        type: array
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      name:
+        example: Senior Go Engineer Resume
+        type: string
+      pdf_key:
+        example: resumes/550e8400-e29b-41d4-a716-446655440000.pdf
+        type: string
+      specialization:
+        example: Backend Engineering
+        type: string
+      template_path:
+        example: templates/resume.tex
+        type: string
+      updated_at:
+        example: "2026-01-15T14:30:00Z"
+        type: string
+      version:
+        example: 3
+        type: integer
+    type: object
+  internal_resumes.ResumeListResponse:
+    properties:
+      limit:
+        example: 20
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      resumes:
+        items:
+          $ref: '#/definitions/internal_resumes.ResumeResponse'
+        type: array
+      total:
+        example: 15
+        type: integer
+    type: object
+  internal_resumes.ResumeResponse:
+    properties:
+      created_at:
+        example: "2026-01-10T10:00:00Z"
+        type: string
+      focus_skills:
+        example:
+        - '["Go"'
+        - '"PostgreSQL"'
+        - '"Kubernetes"'
+        - '"gRPC"]'
+        items:
+          type: string
+        type: array
+      has_content:
+        example: true
+        type: boolean
+      highlight_experience:
+        example:
+        - '["550e8400-e29b-41d4-a716-446655440001"]'
+        items:
+          type: string
+        type: array
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      name:
+        example: Senior Go Engineer Resume
+        type: string
+      pdf_key:
+        example: resumes/550e8400-e29b-41d4-a716-446655440000.pdf
+        type: string
+      specialization:
+        example: Backend Engineering
+        type: string
+      template_path:
+        example: templates/resume.tex
+        type: string
+      updated_at:
+        example: "2026-01-15T14:30:00Z"
+        type: string
+      version:
+        example: 3
+        type: integer
+    type: object
+  internal_resumes.ResumeVersionListResponse:
+    properties:
+      versions:
+        items:
+          $ref: '#/definitions/internal_resumes.ResumeVersionResponse'
+        type: array
+    type: object
+  internal_resumes.ResumeVersionResponse:
+    properties:
+      content:
+        $ref: '#/definitions/internal_resumes.ResumeContent'
+      created_at:
+        example: "2026-01-12T08:00:00Z"
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440003
+        type: string
+      pdf_key:
+        example: resumes/550e8400-e29b-41d4-a716-446655440000_v2.pdf
+        type: string
+      resume_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      version:
+        example: 2
+        type: integer
+    type: object
+  internal_resumes.UpdateCoverLetterContentRequest:
+    properties:
+      content:
+        example: |-
+          Dear Hiring Manager,
+
+          I am writing to express my interest...
+        maxLength: 50000
+        minLength: 10
+        type: string
+    required:
+    - content
+    type: object
+  internal_resumes.UpdateResumeContentRequest:
+    properties:
+      content:
+        $ref: '#/definitions/internal_resumes.ResumeContent'
+    required:
+    - content
+    type: object
+  internal_resumes.UpdateResumeRequest:
+    properties:
+      focus_skills:
+        example:
+        - '["Go"'
+        - '"PostgreSQL"'
+        - '"Kubernetes"'
+        - '"gRPC"'
+        - '"Redis"]'
+        items:
+          type: string
+        maxItems: 20
+        minItems: 1
+        type: array
+      highlight_experience:
+        example:
+        - '["550e8400-e29b-41d4-a716-446655440000"]'
+        items:
+          type: string
+        type: array
+      name:
+        example: Senior Go Engineer Resume v2
+        maxLength: 100
+        minLength: 2
+        type: string
+      specialization:
+        example: Backend Engineering
+        maxLength: 100
+        minLength: 2
+        type: string
+      template_path:
+        example: templates/resume.tex
+        type: string
+    required:
+    - focus_skills
+    - name
+    - specialization
+    - template_path
+    type: object
+  internal_scoring.ApprovalTier:
+    enum:
+    - reject
+    - review
+    - auto
+    type: string
+    x-enum-comments:
+      TierAuto: score >= AutoThreshold
+      TierReject: score < ReviewThreshold
+      TierReview: score >= ReviewThreshold, < AutoThreshold
+    x-enum-descriptions:
+    - score < ReviewThreshold
+    - score >= ReviewThreshold, < AutoThreshold
+    - score >= AutoThreshold
+    x-enum-varnames:
+    - TierReject
+    - TierReview
+    - TierAuto
+  internal_scoring.ScoreDetails:
+    properties:
+      description_match:
+        description: 0-100
+        example: 88
+        type: number
+      experience_match:
+        description: 0-100
+        example: 85
+        type: number
+      location_match:
+        description: 0-100
+        example: 100
+        type: number
+      salary_match:
+        description: 0-100
+        example: 90
+        type: number
+      skill_match:
+        description: 0-100
+        example: 95
+        type: number
+    type: object
+  internal_scoring.ScoreResponse:
+    properties:
+      confidence:
+        example: 0.9
+        maximum: 1
+        minimum: 0
+        type: number
+      details:
+        $ref: '#/definitions/internal_scoring.ScoreDetails'
+      gaps:
+        example:
+        - '["Missing cloud certification"]'
+        items:
+          type: string
+        type: array
+      job_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      model:
+        example: qwen2.5:latest
+        type: string
+      reasoning:
+        example: Strong match on Go and Kubernetes experience. 8 years backend experience
+          aligns well with senior role requirements.
+        type: string
+      score:
+        example: 92.5
+        type: number
+      source:
+        enum:
+        - heuristic
+        - llm
+        - hybrid
+        example: hybrid
+        type: string
+      strengths:
+        example:
+        - '["Strong match"'
+        - '"Experienced candidate"'
+        - '"Proficient in required skills"]'
+        items:
+          type: string
+        type: array
+      tier:
+        allOf:
+        - $ref: '#/definitions/internal_scoring.ApprovalTier'
+        enum:
+        - AUTO
+        - REVIEW
+        - REJECT
+        example: AUTO
+    type: object
+  internal_scoring.batchScoreRequest:
+    properties:
+      job_ids:
+        example:
+        - '["550e8400-e29b-41d4-a716-446655440000"'
+        - '"550e8400-e29b-41d4-a716-446655440001"]'
+        items:
+          type: string
+        maxItems: 100
+        minItems: 1
+        type: array
+    required:
+    - job_ids
+    type: object
+  internal_scoring.scoreRequest:
+    properties:
+      job_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+    required:
+    - job_id
+    type: object
+  internal_systemconfig.DeleteOverrideResponse:
+    properties:
+      key:
+        description: Key is the dotted-notation key that was deleted.
+        example: scoring.auto_threshold
+        type: string
+      message:
+        description: Message is a human-readable status message.
+        example: override deleted
+        type: string
+    type: object
+  internal_systemconfig.EffectiveConfigResponse:
+    properties:
+      config:
+        description: |-
+          EffectiveConfig is the fully resolved configuration tree merging
+          defaults, YAML, env vars, and DB overrides.
+        type: object
+      version:
+        description: |-
+          Version is an opaque version identifier for the config snapshot.
+          Currently empty; reserved for future OCC support (e.g., SHA256 hash
+          of the merged config). Clients can use this for cache validation.
+        example: sha256:abc123def456
+        type: string
+    type: object
+  internal_systemconfig.SetOverrideRequest:
+    properties:
+      key:
+        description: |-
+          Key is the dotted-notation configuration key.
+          Must match the pattern: lowercase letters, digits, dots, minimum 2 segments.
+          Example: "scoring.auto_threshold"
+        example: scoring.auto_threshold
+        type: string
+      value:
+        description: |-
+          Value is the JSON value to store. Accepts any valid JSON (int, float, bool, string, array, object).
+          Will be marshaled to JSONB for database storage.
+          Example: 95, "hybrid", true, ["folder1", "folder2"]
+        type: object
+    required:
+    - key
+    - value
+    type: object
+  internal_systemconfig.SetOverrideResponse:
+    properties:
+      key:
+        description: Key is the dotted-notation key that was set.
+        example: scoring.auto_threshold
+        type: string
+      message:
+        description: Message is a human-readable status message.
+        example: override saved
+        type: string
+    type: object
+  internal_tasks.CreateTaskRequest:
+    properties:
+      params:
+        type: object
+      priority:
+        example: 0
+        type: integer
+      scheduled_at:
+        example: "2026-01-15T10:30:00Z"
+        type: string
+      type:
+        enum:
+        - job_discovery
+        - job_scoring
+        - resume_generate
+        - cover_letter_gen
+        - application_submit
+        - fill_form
+        - email_check
+        - interview_prep
+        - embedding_generate
+        - voice_session
+        - resume_tailor
+        example: job_discovery
+        type: string
+    required:
+    - type
+    type: object
+  internal_tasks.TaskListResponse:
+    properties:
+      limit:
+        example: 20
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      tasks:
+        items:
+          $ref: '#/definitions/internal_tasks.TaskResponse'
+        type: array
+      total:
+        example: 42
+        type: integer
+    type: object
+  internal_tasks.TaskResponse:
+    properties:
+      attempts:
+        example: 1
+        type: integer
+      completed_at:
+        example: "2026-01-15T10:31:00Z"
+        type: string
+      created_at:
+        example: "2026-01-15T10:30:00Z"
+        type: string
+      error:
+        example: task timeout
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      max_attempts:
+        example: 3
+        type: integer
+      params:
+        type: object
+      priority:
+        example: 0
+        type: integer
+      result:
+        type: object
+      scheduled_at:
+        example: "2026-01-15T10:30:00Z"
+        type: string
+      started_at:
+        example: "2026-01-15T10:30:05Z"
+        type: string
+      status:
+        enum:
+        - pending
+        - running
+        - completed
+        - failed
+        - cancelled
+        example: completed
+        type: string
+      type:
+        example: job_scoring
+        type: string
+      updated_at:
+        example: "2026-01-15T10:31:00Z"
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@example.com
+    name: API Support
+    url: https://github.com/your-org/ai-job-search-agent/issues
+  description: Local-first AI-powered job search automation platform. Discovers, scores,
+    and applies to jobs with tailored resumes and cover letters.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: https://github.com/your-org/ai-job-search-agent
+  title: AI Job Search Agent API
+  version: "1.0"
+paths:
+  /activity-logs:
+    get:
+      consumes:
+      - application/json
+      description: Get paginated list of activity logs with optional filters
+      parameters:
+      - description: Filter by entity type
+        enum:
+        - job
+        - application
+        - resume
+        - cover_letter
+        - interview
+        - email
+        - approval
+        in: query
+        name: entity_type
+        type: string
+      - description: Filter by entity UUID
+        in: query
+        name: entity_id
+        type: string
+      - description: Filter by event type
+        enum:
+        - created
+        - updated
+        - deleted
+        - status_changed
+        - scored
+        - applied
+        - email_received
+        - interview_scheduled
+        in: query
+        name: event_type
+        type: string
+      - description: Filter by start time (RFC3339)
+        in: query
+        name: start_time
+        type: string
+      - description: Filter by end time (RFC3339)
+        in: query
+        name: end_time
+        type: string
+      - default: 20
+        description: Results per page (max 100)
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Pagination offset
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Paginated activity logs
+          schema:
+            $ref: '#/definitions/internal_activity.ActivityListResponse'
+        "400":
+          description: Invalid query parameters
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List activity logs
+      tags:
+      - Activity
+  /activity-logs/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get a single activity log entry by its UUID
+      parameters:
+      - description: Activity Log UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Activity log details
+          schema:
+            $ref: '#/definitions/internal_activity.ActivityResponse'
+        "400":
+          description: Invalid activity log ID
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Activity log not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get activity log by ID
+      tags:
+      - Activity
+  /applications:
+    get:
+      consumes:
+      - application/json
+      description: Get paginated list of applications with optional filters
+      parameters:
+      - description: Filter by status
+        enum:
+        - pending
+        - applied
+        - rejected
+        - responded
+        - interviewed
+        - archived
+        in: query
+        name: status
+        type: string
+      - description: Filter by job UUID
+        in: query
+        name: job_id
+        type: string
+      - description: Filter by portal type
+        enum:
+        - greenhouse
+        - lever
+        - remoteok
+        - indeed
+        - manual
+        - email
+        in: query
+        name: portal_type
+        type: string
+      - default: 20
+        description: Results per page (max 100)
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Pagination offset
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Paginated applications
+          schema:
+            $ref: '#/definitions/internal_applications.ApplicationListResponse'
+        "400":
+          description: Invalid query parameters
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List applications
+      tags:
+      - Applications
+    post:
+      consumes:
+      - application/json
+      description: Create a new application for a job
+      parameters:
+      - description: Application creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_applications.CreateApplicationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created application
+          schema:
+            $ref: '#/definitions/internal_applications.ApplicationResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create application
+      tags:
+      - Applications
+  /applications/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get detailed information about a specific application
+      parameters:
+      - description: Application UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Application details
+          schema:
+            $ref: '#/definitions/internal_applications.ApplicationResponse'
+        "400":
+          description: Invalid application ID
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Application not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get application by ID
+      tags:
+      - Applications
+  /applications/{id}/events:
+    get:
+      consumes:
+      - application/json
+      description: Get the audit trail of status changes for an application
+      parameters:
+      - description: Application UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Timeline of events
+          schema:
+            $ref: '#/definitions/internal_applications.ApplicationTimelineResponse'
+        "400":
+          description: Invalid application ID
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Application not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get application timeline
+      tags:
+      - Applications
+  /applications/{id}/notes:
+    patch:
+      consumes:
+      - application/json
+      description: Update permanent notes on an application
+      parameters:
+      - description: Application UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Notes update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_applications.UpdateApplicationNotesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Notes updated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Application not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update application notes
+      tags:
+      - Applications
+  /applications/{id}/status:
+    put:
+      consumes:
+      - application/json
+      description: Update the status of an application with optional notes (audit
+        trail)
+      parameters:
+      - description: Application UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Status update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_applications.UpdateStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Status updated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request body or status
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Application not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update application status
+      tags:
+      - Applications
+  /applications/stats:
+    get:
+      consumes:
+      - application/json
+      description: Get dashboard statistics for applications
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Application statistics
+          schema:
+            $ref: '#/definitions/internal_applications.ApplicationStatsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get application statistics
+      tags:
+      - Applications
+  /approvals:
+    get:
+      consumes:
+      - application/json
+      description: Get paginated list of approval requests with optional filters
+      parameters:
+      - description: Filter by status
+        enum:
+        - pending
+        - approved
+        - rejected
+        in: query
+        name: status
+        type: string
+      - description: Filter by application UUID
+        in: query
+        name: application_id
+        type: string
+      - default: 50
+        description: Results per page (max 100)
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Pagination offset
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Paginated approval requests
+          schema:
+            $ref: '#/definitions/internal_approvals.ApprovalListResponse'
+        "400":
+          description: Invalid query parameters
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List approval requests
+      tags:
+      - Approvals
+  /approvals/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get detailed approval request with job snapshot and previews
+      parameters:
+      - description: Approval UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Approval request details
+          schema:
+            $ref: '#/definitions/internal_approvals.ApprovalResponse'
+        "400":
+          description: Invalid approval ID
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Approval request not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get approval request by ID
+      tags:
+      - Approvals
+  /approvals/{id}/approve:
+    post:
+      consumes:
+      - application/json
+      description: Approve the application and trigger automatic submission workflow
+      parameters:
+      - description: Approval UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Empty body - approval decision is in endpoint
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_approvals.ApproveRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Application approved and submission queued
+          schema:
+            $ref: '#/definitions/internal_approvals.ApprovalResponse'
+        "207":
+          description: Approved but submission dispatch failed (queued for retry)
+          schema:
+            $ref: '#/definitions/internal_approvals.ApprovePartialResponse'
+        "400":
+          description: Invalid approval ID
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Approval not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "409":
+          description: Invalid status transition
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Approve application
+      tags:
+      - Approvals
+  /approvals/{id}/reject:
+    post:
+      consumes:
+      - application/json
+      description: Reject the application with a required reason
+      parameters:
+      - description: Approval UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Rejection reason
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_approvals.RejectRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Application rejected
+          schema:
+            $ref: '#/definitions/internal_approvals.ApprovalResponse'
+        "400":
+          description: Invalid approval ID or missing reason
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Approval not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "409":
+          description: Invalid status transition
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Reject application
+      tags:
+      - Approvals
+  /auth/change-password:
+    post:
+      consumes:
+      - application/json
+      description: Change the current user's password (requires authentication)
+      parameters:
+      - description: Current and new password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_auth.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password changed successfully
+          schema:
+            $ref: '#/definitions/internal_auth.OnboardingConfigResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Current password incorrect or unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Change password
+      tags:
+      - Auth
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user with password and return JWT tokens
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_auth.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successful login with tokens
+          schema:
+            $ref: '#/definitions/internal_auth.LoginResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Invalid credentials
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      summary: User login
+      tags:
+      - Auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Revoke all refresh tokens and increment session version (requires
+        authentication)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Logged out successfully
+          schema:
+            $ref: '#/definitions/internal_auth.LogoutResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: User logout
+      tags:
+      - Auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Get a new access token using a valid refresh token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_auth.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: New access and refresh tokens
+          schema:
+            $ref: '#/definitions/internal_auth.RefreshResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Invalid or expired refresh token
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      summary: Refresh access token
+      tags:
+      - Auth
+  /auth/setup:
+    post:
+      consumes:
+      - application/json
+      description: Create the first user account and complete initial setup
+      parameters:
+      - description: Setup credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_auth.SetupRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Setup completed successfully
+          schema:
+            $ref: '#/definitions/internal_auth.SetupResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "409":
+          description: Setup already completed
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      summary: Complete initial setup
+      tags:
+      - Auth
+  /auth/setup/complete-onboarding:
+    post:
+      consumes:
+      - application/json
+      description: Mark onboarding as complete and enable full API access
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Onboarding completed
+          schema:
+            $ref: '#/definitions/internal_auth.OnboardingConfigResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Complete onboarding
+      tags:
+      - Auth
+  /auth/setup/config:
+    post:
+      consumes:
+      - application/json
+      description: Save LLM keys, voice config, email config, and preferences during
+        onboarding
+      parameters:
+      - description: Onboarding configuration
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_auth.OnboardingConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Configuration saved
+          schema:
+            $ref: '#/definitions/internal_auth.OnboardingConfigResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      summary: Save onboarding configuration
+      tags:
+      - Auth
+  /auth/setup/onboarding-step:
+    post:
+      consumes:
+      - application/json
+      description: Update the current onboarding step to track progress
+      parameters:
+      - description: Step to set
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_auth.OnboardingStepRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Step updated
+          schema:
+            $ref: '#/definitions/internal_auth.OnboardingConfigResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      summary: Update onboarding step
+      tags:
+      - Auth
+  /auth/setup/status:
+    get:
+      consumes:
+      - application/json
+      description: Check if initial setup is required and get current onboarding step
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Setup status
+          schema:
+            $ref: '#/definitions/internal_auth.SetupStatusResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      summary: Get setup status
+      tags:
+      - Auth
+  /auth/setup/test-email:
+    post:
+      consumes:
+      - application/json
+      description: Validate Microsoft Graph email configuration during onboarding
+      parameters:
+      - description: Email configuration
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_auth.TestEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Validation result
+          schema:
+            $ref: '#/definitions/internal_auth.TestLLMResponse'
+        "400":
+          description: Invalid request body or tenant ID
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      summary: Test email configuration
+      tags:
+      - Auth
+  /auth/setup/test-llm:
+    post:
+      consumes:
+      - application/json
+      description: Validate an LLM provider API key during onboarding
+      parameters:
+      - description: LLM provider and API key
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_auth.TestLLMRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Validation result
+          schema:
+            $ref: '#/definitions/internal_auth.TestLLMResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      summary: Test LLM API key
+      tags:
+      - Auth
+  /auth/setup/test-voice:
+    post:
+      consumes:
+      - application/json
+      description: Validate LiveKit voice configuration during onboarding
+      parameters:
+      - description: Voice configuration
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_auth.TestVoiceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Validation result
+          schema:
+            $ref: '#/definitions/internal_auth.TestLLMResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      summary: Test voice configuration
+      tags:
+      - Auth
+  /cover-letters:
+    get:
+      consumes:
+      - application/json
+      description: Get paginated list of cover letters
+      parameters:
+      - default: 20
+        description: Results per page (max 100)
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Pagination offset
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Paginated cover letter list
+          schema:
+            $ref: '#/definitions/internal_resumes.CoverLetterListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List cover letters
+      tags:
+      - CoverLetters
+    post:
+      consumes:
+      - application/json
+      description: Create a new cover letter placeholder
+      parameters:
+      - description: Cover letter creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_resumes.CreateCoverLetterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created cover letter
+          schema:
+            $ref: '#/definitions/internal_resumes.CoverLetterResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create cover letter
+      tags:
+      - CoverLetters
+  /cover-letters/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a cover letter permanently
+      parameters:
+      - description: Cover letter UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cover letter deleted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid cover letter ID
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Cover letter not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete cover letter
+      tags:
+      - CoverLetters
+    get:
+      consumes:
+      - application/json
+      description: Get detailed cover letter information
+      parameters:
+      - description: Cover letter UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cover letter details
+          schema:
+            $ref: '#/definitions/internal_resumes.CoverLetterResponse'
+        "400":
+          description: Invalid cover letter ID
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Cover letter not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get cover letter by ID
+      tags:
+      - CoverLetters
+  /cover-letters/{id}/content:
+    put:
+      consumes:
+      - application/json
+      description: Manually override cover letter content (optimistic locking)
+      parameters:
+      - description: Cover letter UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Content update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_resumes.UpdateCoverLetterContentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated cover letter
+          schema:
+            $ref: '#/definitions/internal_resumes.CoverLetterResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Cover letter not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "409":
+          description: Version conflict
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update cover letter content
+      tags:
+      - CoverLetters
+  /cover-letters/{id}/generate:
+    post:
+      consumes:
+      - application/json
+      description: Generate cover letter content using LLM
+      parameters:
+      - description: Cover letter UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Generation options
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_resumes.GenerateCoverLetterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Generated cover letter
+          schema:
+            $ref: '#/definitions/internal_resumes.CoverLetterResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Cover letter not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "409":
+          description: Version conflict
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Generate cover letter
+      tags:
+      - CoverLetters
+  /emails:
+    get:
+      consumes:
+      - application/json
+      description: Get paginated list of emails with optional filters
+      parameters:
+      - description: Filter by application UUID
+        in: query
+        name: application_id
+        type: string
+      - description: Filter by classification
+        enum:
+        - unknown
+        - application_confirmation
+        - interview_invitation
+        - rejection
+        - offer
+        - recruiter_reply
+        - spam
+        in: query
+        name: classification
+        type: string
+      - default: 50
+        description: Limit (default 50, max 100)
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset (default 0)
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Paginated email list
+          schema:
+            $ref: '#/definitions/internal_emails.EmailListResponse'
+        "400":
+          description: Invalid query parameters
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List emails
+      tags:
+      - Emails
+    post:
+      consumes:
+      - application/json
+      description: Store an incoming email fetched by the browser agent
+      parameters:
+      - description: Email to store
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_emails.StoreEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Email stored successfully
+          schema:
+            $ref: '#/definitions/internal_emails.EmailResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Store email
+      tags:
+      - Emails
+  /emails/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get a single email by its ID
+      parameters:
+      - description: Email UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Email details
+          schema:
+            $ref: '#/definitions/internal_emails.EmailResponse'
+        "400":
+          description: Invalid email ID
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Email not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get email by ID
+      tags:
+      - Emails
+    patch:
+      consumes:
+      - application/json
+      description: Update read status or reply draft for an email
+      parameters:
+      - description: Email UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_emails.UpdateEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated email
+          schema:
+            $ref: '#/definitions/internal_emails.EmailResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Email not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update email
+      tags:
+      - Emails
+  /emails/{id}/classify:
+    post:
+      consumes:
+      - application/json
+      description: Re-classify an email using LLM and update its classification
+      parameters:
+      - description: Email UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Re-classification result
+          schema:
+            $ref: '#/definitions/internal_emails.ClassifyResponse'
+        "400":
+          description: Invalid email ID
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Email not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Re-classify email
+      tags:
+      - Emails
+  /internal/interviews/{id}/events:
+    post:
+      consumes:
+      - application/json
+      description: Internal endpoint for voice service to report transcript, status,
+        score, feedback
+      parameters:
+      - description: Interview UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Event payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_interviews.InterviewEventRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Event processed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid interview ID or request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Interview not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "409":
+          description: Invalid status transition
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      summary: Handle voice service events (internal)
+      tags:
+      - Interviews
+  /interviews:
+    get:
+      consumes:
+      - application/json
+      description: Get paginated list of interview sessions with optional filters
+      parameters:
+      - description: Filter by application UUID
+        in: query
+        name: application_id
+        type: string
+      - description: Filter by status
+        enum:
+        - pending
+        - active
+        - completed
+        - cancelled
+        in: query
+        name: status
+        type: string
+      - description: Filter by mode
+        enum:
+        - assist
+        - autonomous
+        in: query
+        name: mode
+        type: string
+      - default: 20
+        description: Results per page (max 100)
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Pagination offset
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Paginated interview list
+          schema:
+            $ref: '#/definitions/internal_interviews.InterviewListResponse'
+        "400":
+          description: Invalid query parameters
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List interviews
+      tags:
+      - Interviews
+    post:
+      consumes:
+      - application/json
+      description: Create a new interview session in pending status
+      parameters:
+      - description: Interview creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_interviews.CreateInterviewRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created interview session
+          schema:
+            $ref: '#/definitions/internal_interviews.InterviewResponse'
+        "400":
+          description: Invalid request body or mode
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create interview session
+      tags:
+      - Interviews
+  /interviews/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get detailed interview session including transcript
+      parameters:
+      - description: Interview UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Interview session with transcript
+          schema:
+            $ref: '#/definitions/internal_interviews.InterviewResponse'
+        "400":
+          description: Invalid interview ID
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Interview not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get interview by ID
+      tags:
+      - Interviews
+  /interviews/{id}/start:
+    post:
+      consumes:
+      - application/json
+      description: Start the interview session and enqueue voice task for browser-agent
+      parameters:
+      - description: Interview UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Start options
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_interviews.StartInterviewRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Started interview session
+          schema:
+            $ref: '#/definitions/internal_interviews.InterviewResponse'
+        "400":
+          description: Invalid interview ID or request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Interview not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "409":
+          description: Invalid status transition
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Start interview session
+      tags:
+      - Interviews
+  /interviews/{id}/stop:
+    post:
+      consumes:
+      - application/json
+      description: Stop an active interview session gracefully
+      parameters:
+      - description: Interview UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Stop reason
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_interviews.StopInterviewRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Interview stopped
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid interview ID or request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Interview not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "409":
+          description: Invalid status transition
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Stop interview session
+      tags:
+      - Interviews
+  /job-discovery/scan:
+    post:
+      consumes:
+      - application/json
+      description: Start asynchronous job discovery from configured sources
+      parameters:
+      - description: Source IDs to scan
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_jobs.scanRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Task IDs for polling
+          schema:
+            additionalProperties:
+              items:
+                type: string
+              type: array
+            type: object
+        "202":
+          description: Partial failure - some tasks dispatched
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Trigger job discovery scan
+      tags:
+      - Jobs
+  /jobs:
+    get:
+      consumes:
+      - application/json
+      description: Get paginated list of jobs with optional filters
+      parameters:
+      - description: Filter by status
+        enum:
+        - discovered
+        - matched
+        - applied
+        - archived
+        in: query
+        name: status
+        type: string
+      - description: Filter by company name
+        in: query
+        name: company
+        type: string
+      - description: Filter by source UUID
+        in: query
+        name: source_id
+        type: string
+      - description: Minimum match score (0-100)
+        in: query
+        maximum: 100
+        minimum: 0
+        name: min_score
+        type: number
+      - default: 20
+        description: Results per page (max 100)
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Pagination offset
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successful response
+          schema:
+            $ref: '#/definitions/internal_jobs.JobListResponse'
+        "400":
+          description: Invalid query parameters
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List jobs
+      tags:
+      - Jobs
+  /jobs/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get detailed information about a specific job
+      parameters:
+      - description: Job UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Job details
+          schema:
+            $ref: '#/definitions/internal_jobs.JobResponse'
+        "400":
+          description: Invalid job ID
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Job not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get job by ID
+      tags:
+      - Jobs
+    patch:
+      consumes:
+      - application/json
+      description: Update the status of a job (e.g., mark as applied, archived)
+      parameters:
+      - description: Job UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New status
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_jobs.UpdateJobRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Job updated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request body or status
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Job not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update job status
+      tags:
+      - Jobs
+  /profile:
+    get:
+      consumes:
+      - application/json
+      description: Get the singleton user profile with embedded stats and ETag for
+        optimistic locking
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Profile with stats and ETag header
+          headers:
+            ETag:
+              description: Current profile version for If-Match
+              type: string
+          schema:
+            $ref: '#/definitions/internal_profile.ProfileResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get user profile
+      tags:
+      - Profile
+    patch:
+      consumes:
+      - application/json
+      description: Partially merge fields into existing profile (optimistic locking
+        via If-Match)
+      parameters:
+      - description: Current profile version from ETag
+        in: header
+        name: If-Match
+        required: true
+        type: string
+      - description: Partial profile update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_profile.PatchProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated profile with new ETag
+          headers:
+            ETag:
+              description: Updated profile version
+              type: string
+          schema:
+            $ref: '#/definitions/internal_profile.ProfileResponse'
+        "400":
+          description: Missing or invalid If-Match header
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "409":
+          description: Version conflict - profile modified
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Partially update user profile
+      tags:
+      - Profile
+    put:
+      consumes:
+      - application/json
+      description: Replace the entire profile data (optimistic locking via If-Match)
+      parameters:
+      - description: Current profile version from ETag
+        in: header
+        name: If-Match
+        required: true
+        type: string
+      - description: Full profile data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_profile.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated profile with new ETag
+          headers:
+            ETag:
+              description: Updated profile version
+              type: string
+          schema:
+            $ref: '#/definitions/internal_profile.ProfileResponse'
+        "400":
+          description: Missing or invalid If-Match header
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "409":
+          description: Version conflict - profile modified
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Replace user profile
+      tags:
+      - Profile
+  /rag/embeddings:
+    get:
+      consumes:
+      - application/json
+      description: Get paginated list of stored embeddings with optional filters
+      parameters:
+      - description: Filter by source type
+        enum:
+        - job
+        - resume
+        - application
+        - cover_letter
+        in: query
+        name: source_type
+        type: string
+      - default: 50
+        description: Results per page (max 50)
+        in: query
+        maximum: 50
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Pagination offset
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Paginated embeddings
+          schema:
+            $ref: '#/definitions/internal_rag.EmbeddingListResponse'
+        "400":
+          description: Invalid query parameters
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List embeddings
+      tags:
+      - RAG
+  /rag/embeddings/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete an embedding by its UUID
+      parameters:
+      - description: Embedding UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Embedding deleted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid embedding ID
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Embedding not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete embedding
+      tags:
+      - RAG
+    get:
+      consumes:
+      - application/json
+      description: Get a single embedding by its UUID
+      parameters:
+      - description: Embedding UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Embedding details
+          schema:
+            $ref: '#/definitions/internal_rag.EmbeddingResponse'
+        "400":
+          description: Invalid embedding ID
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Embedding not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get embedding by ID
+      tags:
+      - RAG
+  /rag/search:
+    post:
+      consumes:
+      - application/json
+      description: Embed query text and perform cosine similarity search against stored
+        vectors
+      parameters:
+      - description: Search query and filters
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_rag.SearchRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Search results with similarity scores
+          schema:
+            $ref: '#/definitions/internal_rag.SearchResponse'
+        "400":
+          description: Invalid request body or filter
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Semantic search
+      tags:
+      - RAG
+  /resumes:
+    get:
+      consumes:
+      - application/json
+      description: Get paginated list of resumes (content omitted)
+      parameters:
+      - default: 20
+        description: Results per page (max 100)
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Pagination offset
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Paginated resume list
+          schema:
+            $ref: '#/definitions/internal_resumes.ResumeListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List resumes
+      tags:
+      - Resumes
+    post:
+      consumes:
+      - application/json
+      description: Create a new resume profile
+      parameters:
+      - description: Resume creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_resumes.CreateResumeRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created resume
+          schema:
+            $ref: '#/definitions/internal_resumes.ResumeDetailResponse'
+        "400":
+          description: Invalid request body or validation error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create resume
+      tags:
+      - Resumes
+  /resumes/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a resume permanently
+      parameters:
+      - description: Resume UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resume deleted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid resume ID
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Resume not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete resume
+      tags:
+      - Resumes
+    get:
+      consumes:
+      - application/json
+      description: Get detailed resume information including structured content
+      parameters:
+      - description: Resume UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resume with content
+          schema:
+            $ref: '#/definitions/internal_resumes.ResumeDetailResponse'
+        "400":
+          description: Invalid resume ID
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Resume not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get resume by ID
+      tags:
+      - Resumes
+    put:
+      consumes:
+      - application/json
+      description: Update resume profile (optimistic locking via version)
+      parameters:
+      - description: Resume UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Resume update request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_resumes.UpdateResumeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated resume
+          schema:
+            $ref: '#/definitions/internal_resumes.ResumeDetailResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Resume not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "409":
+          description: Version conflict - resume modified by another process
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update resume
+      tags:
+      - Resumes
+  /resumes/{id}/content:
+    get:
+      consumes:
+      - application/json
+      description: Get the structured content of a resume
+      parameters:
+      - description: Resume UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resume content with version
+          schema:
+            $ref: '#/definitions/internal_resumes.ResumeContentResponse'
+        "400":
+          description: Invalid resume ID
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Resume not found or no content
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get resume content
+      tags:
+      - Resumes
+    put:
+      consumes:
+      - application/json
+      description: Manually override structured resume content (optimistic locking)
+      parameters:
+      - description: Resume UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Content update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_resumes.UpdateResumeContentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated content with version
+          schema:
+            $ref: '#/definitions/internal_resumes.ResumeContentResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Resume not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "409":
+          description: Version conflict
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update resume content
+      tags:
+      - Resumes
+  /resumes/{id}/generate:
+    post:
+      consumes:
+      - application/json
+      description: Generate structured resume content using LLM (synchronous)
+      parameters:
+      - description: Resume UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Generation options
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_resumes.GenerateResumeContentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Generated content with version
+          schema:
+            $ref: '#/definitions/internal_resumes.ResumeContentResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Resume not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "409":
+          description: Version conflict
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Generate resume content
+      tags:
+      - Resumes
+  /resumes/{id}/versions:
+    get:
+      consumes:
+      - application/json
+      description: Get all historical versions of a resume
+      parameters:
+      - description: Resume UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of resume versions
+          schema:
+            $ref: '#/definitions/internal_resumes.ResumeVersionListResponse'
+        "400":
+          description: Invalid resume ID
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Resume not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List resume versions
+      tags:
+      - Resumes
+  /resumes/{id}/versions/{version}:
+    get:
+      consumes:
+      - application/json
+      description: Get a specific historical version of a resume
+      parameters:
+      - description: Resume UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Version number
+        in: path
+        name: version
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resume version with content
+          schema:
+            $ref: '#/definitions/internal_resumes.ResumeVersionResponse'
+        "400":
+          description: Invalid resume ID or version
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Version not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get resume version
+      tags:
+      - Resumes
+  /scoring/batch:
+    post:
+      consumes:
+      - application/json
+      description: Enqueue scoring tasks for multiple jobs
+      parameters:
+      - description: List of job IDs to score
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_scoring.batchScoreRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Task IDs for polling
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Batch score jobs
+      tags:
+      - Scoring
+  /scoring/score:
+    post:
+      consumes:
+      - application/json
+      description: Enqueue a job scoring task using LLM semantic matching
+      parameters:
+      - description: Job ID to score
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_scoring.scoreRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Task ID for polling
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Score a job asynchronously
+      tags:
+      - Scoring
+  /scoring/score/{jobId}:
+    get:
+      consumes:
+      - application/json
+      description: Get the persisted scoring result for a job with details
+      parameters:
+      - description: Job UUID
+        format: uuid
+        in: path
+        name: jobId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Job score with details
+          schema:
+            $ref: '#/definitions/internal_scoring.ScoreResponse'
+        "400":
+          description: Invalid job ID
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Job not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get job score
+      tags:
+      - Scoring
+  /system/config:
+    get:
+      consumes:
+      - application/json
+      description: Returns the fully resolved configuration tree merging YAML, env,
+        and DB layers
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resolved configuration with all layers
+          schema:
+            $ref: '#/definitions/internal_systemconfig.EffectiveConfigResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get effective configuration
+      tags:
+      - SystemConfig
+    patch:
+      consumes:
+      - application/json
+      description: Create or update a runtime configuration override
+      parameters:
+      - description: Override key and value
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_systemconfig.SetOverrideRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Override saved successfully
+          schema:
+            $ref: '#/definitions/internal_systemconfig.SetOverrideResponse'
+        "400":
+          description: Invalid key format, key not allowed, or invalid value
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Set configuration override
+      tags:
+      - SystemConfig
+  /system/config/{key}:
+    delete:
+      consumes:
+      - application/json
+      description: Remove a runtime configuration override by key
+      parameters:
+      - description: Configuration key in dotted notation
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Override deleted
+          schema:
+            $ref: '#/definitions/internal_systemconfig.DeleteOverrideResponse'
+        "400":
+          description: Invalid key format
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete configuration override
+      tags:
+      - SystemConfig
+  /tasks:
+    get:
+      consumes:
+      - application/json
+      description: Get paginated list of tasks with optional filters
+      parameters:
+      - description: Filter by status
+        enum:
+        - pending
+        - running
+        - completed
+        - failed
+        - cancelled
+        in: query
+        name: status
+        type: string
+      - description: Filter by task type
+        enum:
+        - job_discovery
+        - job_scoring
+        - resume_generate
+        - cover_letter_gen
+        - application_submit
+        - fill_form
+        - email_check
+        - interview_prep
+        - embedding_generate
+        - voice_session
+        - resume_tailor
+        in: query
+        name: type
+        type: string
+      - default: 20
+        description: Results per page (max 100)
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Pagination offset
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Paginated task list
+          schema:
+            $ref: '#/definitions/internal_tasks.TaskListResponse'
+        "400":
+          description: Invalid query parameters
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List tasks
+      tags:
+      - Tasks
+    post:
+      consumes:
+      - application/json
+      description: Create a new async task (internal use - tasks are typically created
+        by other endpoints)
+      parameters:
+      - description: Task creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_tasks.CreateTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Task created
+          schema:
+            $ref: '#/definitions/internal_tasks.TaskResponse'
+        "400":
+          description: Invalid request body or task type
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a task
+      tags:
+      - Tasks
+  /tasks/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get the status and result of an async task by ID
+      parameters:
+      - description: Task ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Task details with status and result
+          schema:
+            $ref: '#/definitions/internal_tasks.TaskResponse'
+        "400":
+          description: Invalid task ID
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "404":
+          description: Task not found
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/backend_internal_httpresp.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get task status
+      tags:
+      - Tasks
+securityDefinitions:
+  BearerAuth:
+    description: 'JWT Authorization header using the Bearer scheme. Example: "Authorization:
+      Bearer {token}"'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
+tags:
+- description: Authentication and onboarding endpoints
+  name: Auth
+- description: Job discovery, listing, and management
+  name: Jobs
+- description: Application lifecycle management with audit trail
+  name: Applications
+- description: Resume CRUD, versioning, and LLM generation
+  name: Resumes
+- description: Cover letter management and LLM generation
+  name: CoverLetters
+- description: Job-candidate matching and scoring pipeline
+  name: Scoring
+- description: Interview session management and voice agent
+  name: Interviews
+- description: User profile and preferences (JSONB with optimistic locking)
+  name: Profile
+- description: Human-in-the-loop approval gate for auto-apply
+  name: Approvals
+- description: Recruiter email monitoring and classification
+  name: Emails
+- description: Semantic search and embeddings for resume/job matching
+  name: RAG
+- description: Async task queue status and polling
+  name: Tasks
+- description: System configuration management (YAML/env/DB merge)
+  name: SystemConfig

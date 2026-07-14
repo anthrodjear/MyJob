@@ -6,11 +6,11 @@
 // the application is submitted.
 //
 // Flow:
-//   1. Job scored → tier = "review"
-//   2. ApprovalRequest created with job snapshot, resume preview, cover letter
-//   3. User reviews → approves (auto-apply) or rejects
-//   4. If approved → application submitted via task queue
-//   5. If rejected → application marked as rejected, no submission
+//  1. Job scored → tier = "review"
+//  2. ApprovalRequest created with job snapshot, resume preview, cover letter
+//  3. User reviews → approves (auto-apply) or rejects
+//  4. If approved → application submitted via task queue
+//  5. If rejected → application marked as rejected, no submission
 package approvals
 
 import (
@@ -83,32 +83,33 @@ func CanTransition(from, to string) bool {
 // ApprovalRequest represents a human review gate for a job application.
 //
 // Schema: approval_requests(id, application_id, job_snapshot, resume_preview_path,
-//   cover_letter_preview, status, rejection_reason, created_at, reviewed_at)
+//
+//	cover_letter_preview, status, rejection_reason, created_at, reviewed_at)
 type ApprovalRequest struct {
-	ID                  uuid.UUID  `db:"id"`
-	ApplicationID       uuid.UUID  `db:"application_id"`
-	JobSnapshot         JobSnapshot `db:"job_snapshot"`
-	ResumePreviewPath   *string    `db:"resume_preview_path"`
-	CoverLetterPreview  *string    `db:"cover_letter_preview"`
-	Status              string     `db:"status"`
-	RejectionReason     *string    `db:"rejection_reason"`
-	CreatedAt           time.Time  `db:"created_at"`
-	ReviewedAt          *time.Time `db:"reviewed_at"`
+	ID                 uuid.UUID   `db:"id"`
+	ApplicationID      uuid.UUID   `db:"application_id"`
+	JobSnapshot        JobSnapshot `db:"job_snapshot"`
+	ResumePreviewPath  *string     `db:"resume_preview_path"`
+	CoverLetterPreview *string     `db:"cover_letter_preview"`
+	Status             string      `db:"status"`
+	RejectionReason    *string     `db:"rejection_reason"`
+	CreatedAt          time.Time   `db:"created_at"`
+	ReviewedAt         *time.Time  `db:"reviewed_at"`
 }
 
 // JobSnapshot is the JSONB payload stored in approval_requests.job_snapshot.
 // Captures the job details at the time of scoring so the reviewer sees
 // exactly what was scored, even if the job listing changes later.
 type JobSnapshot struct {
-	Title       string   `json:"title"`
-	Company     string   `json:"company"`
-	Location    string   `json:"location"`
-	URL         string   `json:"url"`
-	Description string   `json:"description"`
+	Title        string   `json:"title"`
+	Company      string   `json:"company"`
+	Location     string   `json:"location"`
+	URL          string   `json:"url"`
+	Description  string   `json:"description"`
 	Requirements []string `json:"requirements"`
-	Score       float64  `json:"score"`
-	Tier        string   `json:"tier"` // "review" — only review-tier jobs need approval
-	ScoredAt    string   `json:"scored_at"`
+	Score        float64  `json:"score"`
+	Tier         string   `json:"tier"` // "review" — only review-tier jobs need approval
+	ScoredAt     string   `json:"scored_at"`
 }
 
 // Value implements driver.Valuer so JobSnapshot can be persisted to JSONB.

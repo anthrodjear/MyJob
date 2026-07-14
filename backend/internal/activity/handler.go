@@ -1,8 +1,9 @@
 // Handler contains HTTP handlers for the activity domain.
 //
 // Endpoints:
-//   GET /activity-logs         → List activity logs with filters
-//   GET /activity-logs/:id     → Get single activity log
+//
+//	GET /activity-logs         → List activity logs with filters
+//	GET /activity-logs/:id     → Get single activity log
 //
 // Activity logs are read-only via HTTP — other domains write events
 // through Service.LogEvent(). The handler translates domain errors
@@ -46,8 +47,24 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 }
 
 // List handles GET /activity-logs
-// Returns paginated list of activity logs with optional filters.
-// Query params: entity_type, entity_id, event_type, start_time, end_time, limit, offset.
+// @Summary List activity logs
+// @Description Get paginated list of activity logs with optional filters
+// @Tags Activity
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param entity_type query string false "Filter by entity type" Enums(job,application,resume,cover_letter,interview,email,approval)
+// @Param entity_id query string false "Filter by entity UUID"
+// @Param event_type query string false "Filter by event type" Enums(created,updated,deleted,status_changed,scored,applied,email_received,interview_scheduled)
+// @Param start_time query string false "Filter by start time (RFC3339)" example:"2026-01-01T00:00:00Z"
+// @Param end_time query string false "Filter by end time (RFC3339)" example:"2026-12-31T23:59:59Z"
+// @Param limit query int false "Results per page (max 100)" default(20) minimum(1) maximum(100)
+// @Param offset query int false "Pagination offset" default(0) minimum(0)
+// @Success 200 {object} ActivityListResponse "Paginated activity logs"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid query parameters"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /activity-logs [get]
 func (h *Handler) List(c *gin.Context) {
 	var req ListFilterRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
@@ -103,7 +120,19 @@ func (h *Handler) List(c *gin.Context) {
 }
 
 // GetByID handles GET /activity-logs/:id
-// Returns a single activity log entry by ID.
+// @Summary Get activity log by ID
+// @Description Get a single activity log entry by its UUID
+// @Tags Activity
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Activity Log UUID" format(uuid)
+// @Success 200 {object} ActivityResponse "Activity log details"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid activity log ID"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Activity log not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /activity-logs/{id} [get]
 func (h *Handler) GetByID(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)

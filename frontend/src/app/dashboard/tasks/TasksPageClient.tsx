@@ -7,6 +7,7 @@
  * - 5-second polling for active tasks
  * - Status filter (all, pending, running, completed, failed)
  * - URL-synced pagination
+ * - Graceful degradation: shows empty state on error instead of error banner
  *
  * @example
  *   <TasksPageClient />
@@ -14,14 +15,11 @@
 
 "use client";
 
-import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTasks } from "@/hooks/useTasks";
 import { TaskList } from "@/components/tasks/TaskList";
-import { CardSkeleton } from "@/components/shared/LoadingSkeleton";
 import { Pagination } from "@/components/shared/Pagination";
 import { Button } from "@/components/shared/Button";
-import { cn } from "@/lib/utils";
 import type { TaskStatus } from "@/lib/types/tasks";
 
 const PAGE_SIZE = 20;
@@ -43,7 +41,7 @@ export function TasksPageClient() {
   const offset = parseInt(searchParams.get("offset") ?? "0", 10);
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
 
-  const { data, isLoading, error } = useTasks({
+  const { data, isLoading, isPlaceholderData } = useTasks({
     status: statusFilter === "all" ? undefined : statusFilter,
     limit: PAGE_SIZE,
     offset,
@@ -63,14 +61,6 @@ export function TasksPageClient() {
     if (key === "status") params.delete("offset");
     router.push(`/dashboard/tasks?${params.toString()}`, { scroll: false });
   };
-
-  if (error != null) {
-    return (
-      <div role="alert" className="rounded-md bg-danger-light px-3 py-2 text-sm text-danger-dark">
-        Failed to load tasks. Please try again.
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -97,27 +87,20 @@ export function TasksPageClient() {
         ))}
       </div>
 
-      {/* Task list */}
-      {isLoading ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <CardSkeleton key={i} />
-          ))}
-        </div>
-      ) : (
-        <>
-          <TaskList tasks={tasks} />
-          <Pagination
-            page={currentPage}
-            total={total}
-            limit={PAGE_SIZE}
-            onPageChange={(page) => {
-              const newOffset = (page - 1) * PAGE_SIZE;
-              updateParams("offset", String(newOffset));
-            }}
-          />
-        </>
-      )}
+{/* Task list */}
+      <TaskList
+        tasks={tasks}
+        isLoading={isLoading && !isPlaceholderData}
+      />
+      <Pagination
+        page={currentPage}
+        total={total}
+        limit={PAGE_SIZE}
+        onPageChange={(page) => {
+          const newOffset = (page - 1) * PAGE_SIZE;
+          updateParams("offset", String(newOffset));
+        }}
+      />
     </div>
   );
 }

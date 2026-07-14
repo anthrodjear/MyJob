@@ -4,14 +4,24 @@
 # 7 services: api, worker, frontend, browser-agent, postgres, redis, livekit
 # Ollama runs on the host machine (http://localhost:11434)
 #
-# Usage:
-#   docker compose up -d            # Start all services
+# Quick start (zero-config):
+#   docker compose up -d            # Starts with dev defaults
+#   Open http://localhost:3000      # Follow the /setup wizard
+#
+# Full start (with .env overrides):
+#   cp .env.example .env            # Optional: customize settings
+#   docker compose up -d            # Uses .env values where set
+#
+# Other commands:
 #   docker compose up -d postgres redis  # Start infra only
 #   docker compose logs -f api      # Follow API logs
 #   docker compose exec api ./migrate.sh  # Run migrations
 #
-# Requires: .env file (copy from .env.example)
-# Requires: Ollama running locally on port 11434
+# Defaults (no .env needed):
+#   AUTH_JWT_SECRET = auto-generated dev secret (change for production)
+#   AUTH_PASSWORD_HASH = empty (set via /setup wizard)
+#   POSTGRES_PASSWORD = myjob_dev
+#   LLM_PROVIDER = ollama (local, no API key needed)
 
 
 services:
@@ -19,30 +29,30 @@ services:
   # Infrastructure
  
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_DB: myjob
       POSTGRES_USER: myjob
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-myjob_dev}
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/internal/database/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U myjob -d myjob"]
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 10s
     networks:
       - myjob-net
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    expose:
+      - "6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -50,16 +60,17 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 10s
     networks:
       - myjob-net
 
   livekit:
-    image: livekit/livekit-server:latest
+    image: livekit/livekit-server:v1.7.1
     restart: unless-stopped
     ports:
       - "7880:7880"
       - "7881:7881"
-    command: --config /etc/livekit.yaml --dev
+    command: --config /etc/livekit.yaml ${LIVEKIT_FLAGS:---dev}
     volumes:
       - ./config/livekit.yaml:/etc/livekit.yaml:ro
     healthcheck:
@@ -67,17 +78,25 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
     networks:
       - myjob-net
 
   
   # Application Services
+  # image: used for `docker compose pull` in CD (pulls from GHCR)
+  # build: used for `docker compose build` in local dev (builds from source)
   
 
   api:
+    # image: used for `docker compose pull` in CD (pulls from GHCR)
+    # build: used for `docker compose build` in local dev (builds from source)
+    image: ghcr.io/${GITHUB_REPO_OWNER:-anthrodjear}/myjob-api:${API_TAG:-latest}
     build:
       context: ./backend
       dockerfile: Dockerfile.api
+      args:
+        BUILD_TIME: ${BUILD_TIME:-}
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -86,10 +105,10 @@ services:
     environment:
       DATABASE_URL: postgres://myjob:${POSTGRES_PASSWORD:-myjob_dev}@postgres:5432/myjob?sslmode=disable
       REDIS_URL: redis://redis:6379
-      AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH}
-      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH:-}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-dev-only-jwt-secret-change-in-production-32ch}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       LIVEKIT_WS_URL: ws://livekit:7880
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
@@ -99,6 +118,9 @@ services:
       RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-10}
       APP_ENV: ${APP_ENV:-development}
       CONFIG_PATH: /app/config/application.yaml
+      LLM_PRIMARY_PROVIDER: ollama
+      LLM_FALLBACK_PROVIDER: ollama
+      VOICE_PROVIDER: ollama
     volumes:
       - ./config:/app/config:ro
       - storage_data:/app/storage
@@ -109,27 +131,30 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 5
-      start_period: 15s
+      retries: 10
+      start_period: 60s
     networks:
       - myjob-net
 
   worker:
+    image: ghcr.io/${GITHUB_REPO_OWNER:-anthrodjear}/myjob-worker:${WORKER_TAG:-latest}
     build:
       context: ./backend
       dockerfile: Dockerfile.worker
+      args:
+        BUILD_TIME: ${BUILD_TIME:-}
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
       DATABASE_URL: postgres://myjob:${POSTGRES_PASSWORD:-myjob_dev}@postgres:5432/myjob?sslmode=disable
       REDIS_URL: redis://redis:6379
-      AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH}
-      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH:-}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-dev-only-jwt-secret-change-in-production-32ch}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       BROWSER_AGENT_URL: http://browser-agent:3000
       LIVEKIT_WS_URL: ws://livekit:7880
@@ -138,6 +163,8 @@ services:
       QUEUE_CONCURRENCY: ${QUEUE_CONCURRENCY:-5}
       APP_ENV: ${APP_ENV:-development}
       CONFIG_PATH: /app/config/application.yaml
+      LLM_PRIMARY_PROVIDER: ollama
+      LLM_FALLBACK_PROVIDER: ollama
     volumes:
       - ./config:/app/config:ro
       - storage_data:/app/storage
@@ -152,9 +179,12 @@ services:
       - myjob-net
 
   browser-agent:
+    image: ghcr.io/${GITHUB_REPO_OWNER:-anthrodjear}/myjob-browser-agent:${BROWSER_AGENT_TAG:-latest}
     build:
       context: ./browser-agent
       dockerfile: Dockerfile
+      args:
+        BUILD_TIME: ${BUILD_TIME:-}
     restart: unless-stopped
     ports:
       - "3001:3000"
@@ -179,6 +209,7 @@ services:
       - myjob-net
 
   frontend:
+    image: ghcr.io/${GITHUB_REPO_OWNER:-anthrodjear}/myjob-frontend:${FRONTEND_TAG:-latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -187,6 +218,7 @@ services:
       - "3000:3000"
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8080
+      INTERNAL_API_URL: http://api:8080
       NODE_ENV: production
     depends_on:
       api:

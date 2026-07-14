@@ -29,21 +29,21 @@ var (
 // StoreEmailRequest is the payload for POST /emails.
 // Used by the worker to store incoming emails from the browser agent.
 type StoreEmailRequest struct {
-	ApplicationID  *uuid.UUID `json:"application_id,omitempty"`
-	MessageID      string     `json:"message_id" binding:"required"`
-	FromAddress    string     `json:"from_address" binding:"required"`
-	ToAddress      *string    `json:"to_address,omitempty"`
-	Subject        *string    `json:"subject,omitempty"`
-	Body           *string    `json:"body,omitempty"`
-	ReceivedAt     time.Time  `json:"received_at" binding:"required"`
-	Classification *string    `json:"classification,omitempty"`
+	ApplicationID  *uuid.UUID `json:"application_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
+	MessageID      string     `json:"message_id" binding:"required" example:"<abc123@company.com>"`
+	FromAddress    string     `json:"from_address" binding:"required" example:"recruiter@company.com"`
+	ToAddress      *string    `json:"to_address,omitempty" example:"candidate@example.com"`
+	Subject        *string    `json:"subject,omitempty" example:"Interview Invitation - Senior Go Engineer"`
+	Body           *string    `json:"body,omitempty" example:"Hi John, we'd like to invite you..."`
+	ReceivedAt     time.Time  `json:"received_at" binding:"required" example:"2026-06-20T10:00:00Z"`
+	Classification *string    `json:"classification,omitempty" example:"interview_invitation" enums:"interview_invitation,rejection,offer,recruiter_outreach,other"`
 }
 
 // UpdateEmailRequest is the payload for PATCH /emails/:id.
 // Updates read status or reply draft.
 type UpdateEmailRequest struct {
-	IsRead     *bool   `json:"is_read,omitempty"`
-	ReplyDraft *string `json:"reply_draft,omitempty"`
+	IsRead     *bool   `json:"is_read,omitempty" example:"true"`
+	ReplyDraft *string `json:"reply_draft,omitempty" example:"Thank you for the invitation. I'd love to schedule..."`
 }
 
 // ClassifyRequest is the payload for POST /emails/:id/classify.
@@ -53,10 +53,10 @@ type ClassifyRequest struct{}
 
 // ListFilterRequest is for GET /emails query params.
 type ListFilterRequest struct {
-	ApplicationID  string `form:"application_id"`
-	Classification string `form:"classification"`
-	Limit          int    `form:"limit"`
-	Offset         int    `form:"offset"`
+	ApplicationID  string `form:"application_id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Classification string `form:"classification" example:"interview_invitation" enums:"interview_invitation,rejection,offer,recruiter_outreach,other"`
+	Limit          int    `form:"limit" example:"50" default:"50" minimum:"1" maximum:"100"`
+	Offset         int    `form:"offset" example:"0" minimum:"0"`
 }
 
 // ToListFilter converts the request to a domain ListFilter.
@@ -82,34 +82,34 @@ func (r *ListFilterRequest) ToListFilter() (ListFilter, error) {
 
 // EmailResponse is the API response for a single email.
 type EmailResponse struct {
-	ID             uuid.UUID  `json:"id"`
-	ApplicationID  *uuid.UUID `json:"application_id,omitempty"`
-	MessageID      string     `json:"message_id"`
-	FromAddress    string     `json:"from_address"`
-	ToAddress      *string    `json:"to_address,omitempty"`
-	Subject        *string    `json:"subject,omitempty"`
-	Body           *string    `json:"body,omitempty"`
-	ReceivedAt     time.Time  `json:"received_at"`
-	Classification *string    `json:"classification,omitempty"`
-	IsRead         bool       `json:"is_read"`
-	ReplyDraft     *string    `json:"reply_draft,omitempty"`
-	CreatedAt      time.Time  `json:"created_at"`
+	ID             uuid.UUID  `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	ApplicationID  *uuid.UUID `json:"application_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`
+	MessageID      string     `json:"message_id" example:"<abc123@company.com>"`
+	FromAddress    string     `json:"from_address" example:"recruiter@company.com"`
+	ToAddress      *string    `json:"to_address,omitempty" example:"candidate@example.com"`
+	Subject        *string    `json:"subject,omitempty" example:"Interview Invitation - Senior Go Engineer"`
+	Body           *string    `json:"body,omitempty" example:"Hi John, we'd like to invite you..."`
+	ReceivedAt     time.Time  `json:"received_at" example:"2026-06-20T10:00:00Z"`
+	Classification *string    `json:"classification,omitempty" example:"interview_invitation"`
+	IsRead         bool       `json:"is_read" example:"false"`
+	ReplyDraft     *string    `json:"reply_draft,omitempty" example:"Thank you for the invitation..."`
+	CreatedAt      time.Time  `json:"created_at" example:"2026-06-20T10:05:00Z"`
 }
 
 // EmailListResponse is the response for GET /emails.
 type EmailListResponse struct {
 	Emails []EmailResponse `json:"emails"`
-	Total  int64           `json:"total"`
-	Limit  int             `json:"limit"`
-	Offset int             `json:"offset"`
+	Total  int64           `json:"total" example:"25"`
+	Limit  int             `json:"limit" example:"50"`
+	Offset int             `json:"offset" example:"0"`
 }
 
 // ClassifyResponse is the response for POST /emails/:id/classify.
 type ClassifyResponse struct {
-	EmailID        uuid.UUID `json:"email_id"`
-	Classification string    `json:"classification"`
-	Confidence     float64   `json:"confidence"`
-	Reasoning      string    `json:"reasoning"`
+	EmailID        uuid.UUID `json:"email_id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Classification string    `json:"classification" example:"interview_invitation"`
+	Confidence     float64   `json:"confidence" example:"0.95" minimum:"0" maximum:"1"`
+	Reasoning      string    `json:"reasoning" example:"Email contains interview scheduling language and calendar invite"`
 }
 
 // Mappers

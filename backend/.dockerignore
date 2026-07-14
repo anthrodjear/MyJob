@@ -1,0 +1,54 @@
+# Secrets — never bake into image layers
+.env
+.env.*
+!.env.example
+
+# Git
+.git/
+.gitignore
+
+# Dependencies (downloaded inside image via go mod download)
+vendor/
+
+# Build outputs
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test files (not needed in production image)
+**/*_test.go
+coverage/
+*.out
+
+# AI agent context
+../context/
+../AGENTS.md
+../CLAUDE.md
+../docs/
+../.config/
+../.agents/
+../.opencode/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Docker
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+
+# Documentation
+*.md
+LICENSE

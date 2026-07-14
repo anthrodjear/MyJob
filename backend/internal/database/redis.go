@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -22,20 +23,26 @@ func NewRedisClient(redisURL string, logger *zap.Logger) (*RedisClient, error) {
 
 	client := redis.NewClient(opts)
 
-	// Test connection
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := client.Ping(ctx).Err(); err != nil {
-		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
+	if logger != nil {
+		logger.Debug("Redis client created (not yet connected)")
 	}
-
-	logger.Info("Connected to Redis")
 
 	return &RedisClient{
 		Client: client,
 		Logger: logger,
 	}, nil
+}
+
+// Connect tests the Redis connection and returns an error if it fails.
+// Call this explicitly after NewRedisClient if you need to verify connectivity.
+func (r *RedisClient) Connect(ctx context.Context) error {
+	if err := r.Client.Ping(ctx).Err(); err != nil {
+		return fmt.Errorf("failed to connect to Redis: %w", err)
+	}
+	if r.Logger != nil {
+		r.Logger.Info("Connected to Redis")
+	}
+	return nil
 }
 
 func (r *RedisClient) Close() error {
@@ -52,7 +59,7 @@ func (r *RedisClient) CheckRateLimit(ctx context.Context, key string, limit int,
 
 	// Get current count
 	count, err := pipe.Get(ctx, key).Int()
-	if err != nil && err != redis.Nil {
+	if err != nil && !errors.Is(err, redis.Nil) {
 		return false, err
 	}
 

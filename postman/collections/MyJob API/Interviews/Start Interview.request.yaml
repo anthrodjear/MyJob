@@ -1,0 +1,17 @@
+$kind: http-request
+name: Start Interview
+method: POST
+url: '{{baseUrl}}/api/v1/interviews/{{interviewId}}/start'
+order: 4000
+pathVariables:
+  - key: interviewId
+    value: '{{interviewId}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "room_name": "interview-room-{{interviewId}}"
+    }

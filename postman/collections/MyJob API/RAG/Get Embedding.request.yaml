@@ -1,0 +1,8 @@
+$kind: http-request
+name: Get Embedding
+method: GET
+url: '{{baseUrl}}/api/v1/rag/embeddings/{{embeddingId}}'
+order: 3000
+pathVariables:
+  - key: embeddingId
+    value: '{{embeddingId}}'
