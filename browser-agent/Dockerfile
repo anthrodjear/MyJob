@@ -9,7 +9,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install all dependencies (including dev for build)
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 
 # Copy source code
 COPY . .
@@ -25,13 +25,12 @@ RUN npm run build
 # Runtime stage
 FROM node:20-alpine
 
-# Install Playwright system dependencies
+# Install Playwright system dependencies (chromium provided by Playwright copy, not apk)
 RUN apk add --no-cache \
     nss \
     freetype \
     harfbuzz \
-    ttf-freefont \
-    chromium
+    ttf-freefont
 
 # Add non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
@@ -42,7 +41,7 @@ WORKDIR /app
 COPY --chown=appuser:appgroup package*.json ./
 
 # Install production dependencies only (before copying built code/browsers)
-RUN npm ci --omit=dev && npm cache clean --force
+RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
 # Copy built application code
 COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
