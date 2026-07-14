@@ -1,14 +1,14 @@
 /**
  * VoiceSection — voice provider and LiveKit configuration editor.
  *
- * Covers voice provider, model, LiveKit URL/API key, and custom settings.
+ * Covers voice provider, model, and LiveKit URL.
  * Uses controlled form state with local React state. On submit, calls
  * executeOverrides to batch all changes with proper error handling.
  *
  * Does NOT:
  * - Handle Scoring/LLM/Email settings (separate sections)
  * - Manage authentication state
- * - Expose LiveKit API secret (never returned by backend)
+ * - Expose LiveKit API key/secret (set via .env only, never in config overrides)
  *
  * @see lib/types/config.ts — VoiceSection
  * @see hooks/useSystemConfig.ts — useSetOverride, executeOverrides
@@ -36,8 +36,8 @@ const INPUT_CLASS =
 /**
  * Form for editing voice configuration.
  *
- * Renders fields for provider, model, LiveKit connection, and custom settings.
- * Each field saves independently via PATCH.
+ * Renders fields for provider and LiveKit connection (URL only).
+ * API key/secret are set via .env and never exposed in config overrides.
  *
  * @example
  *   <VoiceSection voice={config.voice} onSaved={() => console.log("saved")} />
@@ -48,7 +48,6 @@ export function VoiceSection({ voice, onSaved }: VoiceSectionProps) {
   const [provider, setProvider] = useState(voice.provider);
   const [model, setModel] = useState(voice.model);
   const [livekitUrl, setLivekitUrl] = useState(voice.livekit.url);
-  const [livekitApiKey, setLivekitApiKey] = useState(voice.livekit.api_key);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,7 +63,6 @@ export function VoiceSection({ voice, onSaved }: VoiceSectionProps) {
     setProvider(voice.provider);
     setModel(voice.model);
     setLivekitUrl(voice.livekit.url);
-    setLivekitApiKey(voice.livekit.api_key);
   }, [voice]);
 
   const handleSubmit = useCallback(
@@ -95,9 +93,6 @@ export function VoiceSection({ voice, onSaved }: VoiceSectionProps) {
         }
         overrides.push(["voice.livekit.url", livekitUrl]);
       }
-      if (livekitApiKey !== voice.livekit.api_key) {
-        overrides.push(["voice.livekit.api_key", livekitApiKey]);
-      }
 
       try {
         const result = await executeOverrides(overrides, mutateAsync, onSaved);
@@ -118,7 +113,7 @@ export function VoiceSection({ voice, onSaved }: VoiceSectionProps) {
         setIsSaving(false);
       }
     },
-    [provider, model, livekitUrl, livekitApiKey, voice, mutateAsync, onSaved],
+    [provider, model, livekitUrl, voice, mutateAsync, onSaved],
   );
 
   return (
@@ -187,24 +182,9 @@ export function VoiceSection({ voice, onSaved }: VoiceSectionProps) {
             WebSocket URL for LiveKit server (e.g., ws://localhost:7880)
           </p>
         </div>
-        <div>
-          <label htmlFor="livekit-api-key" className="block text-sm font-medium text-text-primary">
-            API Key
-          </label>
-          <input
-            id="livekit-api-key"
-            type="password"
-            value={livekitApiKey}
-            onChange={(e) => {
-              setLivekitApiKey(e.target.value);
-              clearError();
-            }}
-            className={INPUT_CLASS}
-          />
-          <p className="mt-1 text-xs text-text-secondary">
-            LiveKit API key (API secret is never exposed)
-          </p>
-        </div>
+        <p className="text-xs text-text-secondary">
+          LiveKit API key and secret are configured via environment variables for security.
+        </p>
       </fieldset>
 
       <div className="flex justify-end">

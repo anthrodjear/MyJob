@@ -143,8 +143,8 @@ export function EmailInterviewSection({
       }
       if (keepAfterSummarize !== interview.memory.keep_after_summarize.toString()) {
         const parsed = parseInt(keepAfterSummarize, 10);
-        if (Number.isNaN(parsed) || parsed < 0 || parsed > 50) {
-          setError("Keep After Summarize must be a valid number between 0 and 50.");
+        if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) {
+          setError("Keep After Summarize must be a valid number between 0 and 100.");
           setIsSaving(false);
           return;
         }
@@ -183,8 +183,8 @@ export function EmailInterviewSection({
       }
       if (minSubstantiveLength !== interview.planner.min_substantive_length.toString()) {
         const parsed = parseInt(minSubstantiveLength, 10);
-        if (Number.isNaN(parsed) || parsed < 1 || parsed > 500) {
-          setError("Min Substantive Length must be a valid number between 1 and 500.");
+        if (Number.isNaN(parsed) || parsed < 1 || parsed > 50) {
+          setError("Min Substantive Length must be a valid number between 1 and 50.");
           setIsSaving(false);
           return;
         }

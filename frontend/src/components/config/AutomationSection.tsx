@@ -78,8 +78,8 @@ export function AutomationSection({ automation, onSaved }: AutomationSectionProp
 
       if (concurrency !== automation.queue.concurrency.toString()) {
         const parsed = parseInt(concurrency, 10);
-        if (Number.isNaN(parsed) || parsed < 1 || parsed > 20) {
-          setError("Concurrency must be a valid number between 1 and 20.");
+        if (Number.isNaN(parsed) || parsed < 1 || parsed > 50) {
+          setError("Concurrency must be a valid number between 1 and 50.");
           setIsSaving(false);
           return;
         }

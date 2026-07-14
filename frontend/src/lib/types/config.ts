@@ -53,7 +53,6 @@ export interface VoiceSection {
   provider: string;
   model: string;
   livekit: LiveKitSection;
-  settings: Record<string, string>;
 }
 
 /** Single approval tier definition. */

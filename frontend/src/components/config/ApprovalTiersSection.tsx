@@ -16,7 +16,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useSetOverride, executeOverrides } from "@/hooks/useSystemConfig";
+import { useSetOverride, useDeleteOverride, executeOverrides } from "@/hooks/useSystemConfig";
 import type { ApprovalTiersSection as ApprovalTiersSectionType } from "@/lib/types/config";
 import { Button } from "@/components/shared/Button";
 
@@ -43,6 +43,7 @@ const INPUT_CLASS =
  */
 export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSectionProps) {
   const { mutateAsync } = useSetOverride();
+  const deleteOverride = useDeleteOverride();
 
   const [autoMin, setAutoMin] = useState(approvalTiers.auto_apply.min_score.toString());
   const [autoMax, setAutoMax] = useState(approvalTiers.auto_apply.max_score?.toString() ?? "");
@@ -114,7 +115,8 @@ export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSe
           }
           overrides.push(["approval_tiers.auto_apply.max_score", parsed]);
         } else {
-          overrides.push(["approval_tiers.auto_apply.max_score", null]);
+          // Field cleared — delete the override to revert to YAML default
+          await deleteOverride.mutateAsync("approval_tiers.auto_apply.max_score");
         }
       }
       if (autoAction !== approvalTiers.auto_apply.action) {
@@ -144,7 +146,8 @@ export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSe
           }
           overrides.push(["approval_tiers.review.max_score", parsed]);
         } else {
-          overrides.push(["approval_tiers.review.max_score", null]);
+          // Field cleared — delete the override to revert to YAML default
+          await deleteOverride.mutateAsync("approval_tiers.review.max_score");
         }
       }
       if (reviewAction !== approvalTiers.review.action) {
@@ -174,7 +177,8 @@ export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSe
           }
           overrides.push(["approval_tiers.reject.max_score", parsed]);
         } else {
-          overrides.push(["approval_tiers.reject.max_score", null]);
+          // Field cleared — delete the override to revert to YAML default
+          await deleteOverride.mutateAsync("approval_tiers.reject.max_score");
         }
       }
       if (rejectAction !== approvalTiers.reject.action) {
