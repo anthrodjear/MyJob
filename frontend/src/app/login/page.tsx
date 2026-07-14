@@ -116,6 +116,14 @@ export default function LoginPage() {
   const [checkingSetup, setCheckingSetup] = useState(true);
   const [touched, setTouched] = useState(false);
 
+  // Get redirect URL from query params
+  const searchParams = useSearchParams();
+  const redirectUrl = searchParams.get("redirect") || "/dashboard";
+
+  // Get redirect param from URL
+  const searchParams = new URLSearchParams(window.location.search);
+  const redirectPath = searchParams.get("redirect") || "/dashboard";
+
   // Password strength (show after user has touched the field)
   const strength = calculatePasswordStrength(password);
   const showStrength = touched;
@@ -128,6 +136,12 @@ export default function LoginPage() {
       try {
         const status = await getSetupStatus();
         if (!cancelled && status.setup_required) {
+          // Setup required — redirect to setup page
+          router.replace("/setup");
+          return;
+        }
+        // If setup not required but onboarding not complete, also go to setup
+        if (!cancelled && !status.setup_required && !status.onboarding_completed) {
           router.replace("/setup");
           return;
         }
@@ -160,16 +174,16 @@ export default function LoginPage() {
       }
 
       // Send trimmed password to backend (consistent with strength calculation)
-      loginMutation.mutate(trimmedPassword, {
+loginMutation.mutate(trimmedPassword, {
         onSuccess: () => {
-          router.push("/dashboard");
+          router.push(redirectUrl);
         },
         onError: (err) => {
           setError(getUserMessage(err));
         },
       });
     },
-    [password, loginMutation, router],
+    [password, loginMutation, router, redirectPath],
   );
 
   // Show loading spinner while checking setup status

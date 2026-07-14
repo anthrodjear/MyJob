@@ -1,11 +1,11 @@
 /**
  * AuthGuard — client-side route protection for /dashboard routes.
  *
- * Checks localStorage for JWT on mount. Redirects to /login if absent.
+ * Checks localStorage for JWT on mount. Redirects to /login if absent or expired.
  * Uses React state + useEffect (not middleware) because tokens are in localStorage.
  *
  * Does NOT:
- * - Validate JWT expiry (backend rejects expired tokens on every API call)
+ * - Validate JWT signature (backend rejects invalid tokens on every API call)
  * - Refresh tokens (backend issues long-lived JWTs)
  * - Handle server-side auth (this is client-only protection)
  *
@@ -22,7 +22,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { getAuthToken } from "@/lib/auth";
+import { getAuthToken, isTokenExpired } from "@/lib/auth";
 
 interface AuthGuardProps {
   children: ReactNode;
@@ -30,16 +30,33 @@ interface AuthGuardProps {
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
-  const [token] = useState<string | null>(() => getAuthToken());
+  const [token, setToken] = useState<string | null>(() => getAuthToken());
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Redirect to login if no token after initial check
+  // Check token on mount and periodically
   useEffect(() => {
-    if (token === null) {
-      router.replace("/login");
-    }
-  }, [token, router]);
+    const checkAuth = () => {
+      const currentToken = getAuthToken();
+      const expired = isTokenExpired();
+      
+      if (currentToken === null || expired) {
+        // No token or expired — redirect to login
+        setToken(currentToken);
+        router.replace(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+      } else {
+        setToken(currentToken);
+      }
+      setIsLoading(false);
+    };
 
-  if (token === null) {
+    checkAuth();
+    
+    // Re-check every 30 seconds in case token expires while page is open
+    const interval = setInterval(checkAuth, 30_000);
+    return () => clearInterval(interval);
+  }, [router]);
+
+  if (isLoading) {
     return (
       <div
         className="flex min-h-screen items-center justify-center bg-bg-secondary"
@@ -49,6 +66,11 @@ export function AuthGuard({ children }: AuthGuardProps) {
         <div className="text-sm text-text-secondary">Loading…</div>
       </div>
     );
+  }
+
+  // If token is still null after check, show nothing (redirect already happened)
+  if (token === null) {
+    return null;
   }
 
   return <>{children}</>;

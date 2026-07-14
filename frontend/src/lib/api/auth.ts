@@ -155,6 +155,7 @@ export async function logout(): Promise<MessageResponse> {
 export interface SetupStatusResponse {
   setup_required: boolean;
   step?: string;
+  onboarding_completed: boolean;
 }
 
 /** Response from POST /auth/setup. */

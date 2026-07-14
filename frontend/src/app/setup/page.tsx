@@ -30,6 +30,7 @@ import {
   updateOnboardingStep,
   completeOnboarding,
   getSetupStatus,
+  updateOnboardingStep,
 } from "@/lib/api/auth";
 import { Button } from "@/components/shared/Button";
 import { SetupStepLLMKeys } from "@/components/setup/SetupStepLLMKeys";
@@ -124,15 +125,15 @@ function getUserMessage(error: unknown): string {
 export default function SetupPage() {
   const router = useRouter();
 
-  // Check setup status on mount — redirect to /login if setup already complete
+  // Check setup status on mount — redirect to /login if onboarding already complete
   useEffect(() => {
     let cancelled = false;
 
     async function checkSetup() {
       try {
         const status = await getSetupStatus();
-        if (!cancelled && !status.setup_required) {
-          // Setup already complete (user exists) — redirect to login
+        if (!cancelled && !status.setup_required && status.onboarding_completed) {
+          // Setup already complete AND onboarding finished — redirect to login
           router.replace("/login");
         }
       } catch {
@@ -513,7 +514,7 @@ export default function SetupPage() {
                       type="button"
                       variant="secondary"
                       size="sm"
-                      onClick={() => router.replace("/login")}
+                      onClick={() => router.replace("/login?redirect=/setup")}
                     >
                       Go to Login
                     </Button>

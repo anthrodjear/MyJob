@@ -253,8 +253,8 @@ func Load() *Config {
 			Burst:             getEnvInt("RATE_LIMIT_BURST", 10),
 		},
 		AuthRateLimit: AuthRateLimitConfig{
-			RequestsPerMinute: getEnvInt("AUTH_RATE_LIMIT_RPM", 5),
-			Burst:             getEnvInt("AUTH_RATE_LIMIT_BURST", 3),
+			RequestsPerMinute: getEnvInt("AUTH_RATE_LIMIT_RPM", 60),
+			Burst:             getEnvInt("AUTH_RATE_LIMIT_BURST", 10),
 		},
 		Prompts:     LoadPromptsFromYAML(yamlData),
 		Environment: getEnv("APP_ENV", "development"),

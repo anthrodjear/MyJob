@@ -335,13 +335,37 @@ func hashRefreshToken(token string) string {
 	return hex.EncodeToString(h[:])
 }
 
-// GetSetupStatus returns whether setup is required (no users exist).
+// GetSetupStatus returns whether setup is required (no users exist)
+// and onboarding status for resume capability.
 func (s *Service) GetSetupStatus(ctx context.Context) (*SetupStatusResponse, error) {
 	required, err := s.repo.IsSetupRequired(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("auth: get setup status: %w", err)
 	}
-	return &SetupStatusResponse{SetupRequired: required}, nil
+
+	// If setup is not required (user exists), check onboarding status
+	step := ""
+	onboardingCompleted := false
+	if !required {
+		completed, err := s.repo.IsOnboardingCompleted(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("auth: get onboarding status: %w", err)
+		}
+		onboardingCompleted = completed
+
+		if !completed {
+			step, err = s.repo.GetOnboardingStep(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("auth: get onboarding step: %w", err)
+			}
+		}
+	}
+
+	return &SetupStatusResponse{
+		SetupRequired:       required,
+		Step:                step,
+		OnboardingCompleted: onboardingCompleted,
+	}, nil
 }
 
 // CompleteSetup creates the first admin user.

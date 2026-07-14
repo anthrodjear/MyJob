@@ -36,10 +36,11 @@ type Claims struct {
 // --- Setup DTOs ---
 
 // SetupStatusResponse is returned by GET /auth/setup/status.
-// Extended with onboarding step for resume capability.
+// Extended with onboarding step and completion status for resume capability.
 type SetupStatusResponse struct {
-	SetupRequired bool   `json:"setup_required" example:"true"`
-	Step          string `json:"step,omitempty" example:"llm"`
+	SetupRequired       bool   `json:"setup_required" example:"true"`
+	Step                string `json:"step,omitempty" example:"llm"`
+	OnboardingCompleted bool   `json:"onboarding_completed" example:"false"`
 }
 
 // SetupRequest is the payload for POST /auth/setup.
