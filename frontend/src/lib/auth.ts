@@ -131,7 +131,10 @@ export function setAuthStatusCookie(authenticated: boolean): void {
   if (typeof window === "undefined") return;
   const cookieValue = authenticated ? "authenticated" : "unauthenticated";
   // Set cookie with SameSite=Lax for CSRF protection, max-age 7 days (matching refresh token)
-  document.cookie = `auth_status=${cookieValue}; path=/; max-age=604800; SameSite=Lax`;
+  // Add Secure flag in production (HTTPS)
+  const isSecure = window.location.protocol === "https:";
+  const secureFlag = isSecure ? "; Secure" : "";
+  document.cookie = `auth_status=${cookieValue}; path=/; max-age=604800; SameSite=Lax${secureFlag}`;
 }
 
 /**

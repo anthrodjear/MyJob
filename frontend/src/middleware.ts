@@ -4,10 +4,9 @@ import type { NextRequest } from "next/server";
 /**
  * Middleware for route protection.
  *
- * Since JWT tokens are stored in localStorage (not cookies), this middleware
- * cannot validate tokens directly. It serves as a first line of defense:
- * - Redirects unauthenticated users to /login for protected routes
- * - The AuthGuard component handles the actual token validation client-side
+ * Checks for auth_status cookie (set by client on login/logout).
+ * Redirects unauthenticated users to /login for protected routes.
+ * The AuthGuard component handles the actual JWT validation client-side.
  *
  * For full server-side validation, tokens would need to be in HTTP-only cookies.
  */
@@ -26,12 +25,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // For dashboard routes, we rely on client-side AuthGuard
-  // This middleware just ensures we don't serve the page shell without checking
-  // The actual auth happens in AuthGuard which checks localStorage
+  // For dashboard routes, check auth_status cookie
+  const authStatus = request.cookies.get("auth_status")?.value;
 
-  // However, we can check for a potential auth cookie if we migrate to cookies
-  // For now, let the page load and let AuthGuard handle it
+  if (pathname.startsWith("/dashboard") && authStatus !== "authenticated") {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
 
   return NextResponse.next();
 }

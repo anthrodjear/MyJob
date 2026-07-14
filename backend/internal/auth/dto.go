@@ -100,7 +100,7 @@ type OnboardingConfigRequest struct {
 
 // OnboardingStepRequest is the payload for POST /auth/setup/onboarding-step.
 type OnboardingStepRequest struct {
-	Step string `json:"step" binding:"required,oneof=llm voice preferences complete" example:"llm"`
+	Step string `json:"step" binding:"required,oneof=account llm voice preferences complete" example:"llm"`
 }
 
 // OnboardingConfigResponse is returned on successful config save.

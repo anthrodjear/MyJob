@@ -128,12 +128,17 @@ export default function SetupPage() {
   // Check setup status on mount — redirect to /login if onboarding already complete
   useEffect(() => {
     let cancelled = false;
+    let redirectCount = 0;
+    const MAX_REDIRECTS = 3;
 
     async function checkSetup() {
+      if (redirectCount >= MAX_REDIRECTS) return;
+
       try {
         const status = await getSetupStatus();
         if (!cancelled && !status.setup_required && status.onboarding_completed) {
           // Setup already complete AND onboarding finished — redirect to login
+          redirectCount++;
           router.replace("/login");
         }
       } catch {
@@ -186,6 +191,7 @@ export default function SetupPage() {
    */
   const handleAccountSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isSubmitting) return; // Double-submit guard
     setError(null);
 
     const validationError = validateAccountForm(account);
@@ -218,6 +224,7 @@ export default function SetupPage() {
    * Saves keys and advances to voice step.
    */
   const handleLLMComplete = async (keys: LLMKeys) => {
+    if (isSubmitting) return; // Double-submit guard
     setIsSubmitting(true);
     try {
       await saveOnboardingConfig({
@@ -239,6 +246,7 @@ export default function SetupPage() {
    * Saves config and advances to preferences step.
    */
   const handleVoiceEmailComplete = async (config: VoiceEmailConfig) => {
+    if (isSubmitting) return; // Double-submit guard
     setIsSubmitting(true);
     try {
       await saveOnboardingConfig({
@@ -264,6 +272,7 @@ export default function SetupPage() {
    * Saves preferences and advances to complete step.
    */
   const handlePreferencesComplete = async (prefs: Preferences) => {
+    if (isSubmitting) return; // Double-submit guard
     setIsSubmitting(true);
     try {
       await saveOnboardingConfig({
@@ -286,6 +295,7 @@ export default function SetupPage() {
    * Marks onboarding complete and redirects to dashboard.
    */
   const handleOnboardingComplete = async () => {
+    if (isSubmitting) return; // Double-submit guard
     setIsSubmitting(true);
     try {
       await completeOnboarding();
@@ -301,6 +311,7 @@ export default function SetupPage() {
    * Handle skip for voice/email and preferences steps.
    */
   const handleSkip = useCallback(async () => {
+    if (isSubmitting) return; // Double-submit guard
     try {
       if (currentStep === "voice") {
         setCompletedSteps((prev) => new Set(prev).add("voice"));
@@ -314,7 +325,7 @@ export default function SetupPage() {
     } catch (err) {
       setError(getUserMessage(err));
     }
-  }, [currentStep, goToStep]);
+  }, [currentStep, goToStep, isSubmitting]);
 
   /**
    * Handle back navigation.

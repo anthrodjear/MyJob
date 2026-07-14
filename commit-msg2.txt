@@ -1,0 +1,22 @@
+fix(auth): address code review findings - critical and high priority issues
+
+1. Middleware: Actually protect routes by checking auth_status cookie
+   - Redirects to /login with redirect param if cookie missing/invalid
+
+2. DTO: Added "account" to allowed onboarding steps
+   - Fixes validation error when repo returns "account" as default step
+
+3. AuthGuard: Fixed race condition
+   - Added synchronous initial token check via getInitialAuthState()
+   - Uses checked state instead of isLoading for proper render timing
+   - Redirects before rendering children if token missing/expired
+
+4. Cookie: Secure flag already present (was already added)
+   - Sets Secure flag only on HTTPS
+
+5. Setup page: Double-submit guards on all submit handlers
+   - Early return if isSubmitting already true
+
+6. Redirect loop prevention: Added max redirect counters (3)
+   - Login page: tracks redirects, stops after 3
+   - Setup page: tracks redirects, stops after 3

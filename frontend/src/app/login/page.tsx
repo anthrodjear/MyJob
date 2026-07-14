@@ -131,17 +131,27 @@ export default function LoginPage() {
   // Check setup status on mount — redirect to /setup if required
   useEffect(() => {
     let cancelled = false;
+    let redirectCount = 0;
+    const MAX_REDIRECTS = 3;
 
     async function checkSetup() {
+      if (redirectCount >= MAX_REDIRECTS) {
+        // Too many redirects - stop to prevent loop
+        if (!cancelled) setCheckingSetup(false);
+        return;
+      }
+
       try {
         const status = await getSetupStatus();
         if (!cancelled && status.setup_required) {
           // Setup required — redirect to setup page
+          redirectCount++;
           router.replace("/setup");
           return;
         }
         // If setup not required but onboarding not complete, also go to setup
         if (!cancelled && !status.setup_required && !status.onboarding_completed) {
+          redirectCount++;
           router.replace("/setup");
           return;
         }

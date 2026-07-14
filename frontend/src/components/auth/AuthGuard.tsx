@@ -5,7 +5,7 @@
  * Uses React state + useEffect (not middleware) because tokens are in localStorage.
  *
  * Does NOT:
- * - Validate JWT signature (backend rejects invalid tokens on every API call)
+ * - Validate JWT signature (backend validates on every API call)
  * - Refresh tokens (backend issues long-lived JWTs)
  * - Handle server-side auth (this is client-only protection)
  *
@@ -28,35 +28,46 @@ interface AuthGuardProps {
   children: ReactNode;
 }
 
+// Synchronous token check for initial render — runs before first paint
+function getInitialAuthState(): { token: string | null; shouldRedirect: boolean } {
+  if (typeof window === "undefined") {
+    return { token: null, shouldRedirect: false };
+  }
+  const token = getAuthToken();
+  const expired = isTokenExpired();
+  return { token, shouldRedirect: token === null || expired };
+}
+
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(() => getAuthToken());
-  const [isLoading, setIsLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(() => getInitialAuthState().token);
+  const [checked, setChecked] = useState(false);
 
   // Check token on mount and periodically
   useEffect(() => {
     const checkAuth = () => {
       const currentToken = getAuthToken();
       const expired = isTokenExpired();
-      
+
       if (currentToken === null || expired) {
-        // No token or expired — redirect to login
         setToken(currentToken);
         router.replace(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
       } else {
         setToken(currentToken);
       }
-      setIsLoading(false);
+      setChecked(true);
     };
 
+    // Initial check (may be redundant with initial state, but handles SSR edge cases)
     checkAuth();
-    
+
     // Re-check every 30 seconds in case token expires while page is open
     const interval = setInterval(checkAuth, 30_000);
     return () => clearInterval(interval);
   }, [router]);
 
-  if (isLoading) {
+  // Show loading state until initial check completes
+  if (!checked) {
     return (
       <div
         className="flex min-h-screen items-center justify-center bg-bg-secondary"
@@ -68,7 +79,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     );
   }
 
-  // If token is still null after check, show nothing (redirect already happened)
+  // If token is null after check, redirect already happened — render nothing
   if (token === null) {
     return null;
   }
