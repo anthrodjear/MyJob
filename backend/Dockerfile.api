@@ -25,7 +25,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /app/api ./cmd/api
 
 # Runtime stage — minimal image
-FROM alpine:3.19
+# NOTE: alpine:3.19 is EOL; the self-hosted deploy runner cannot reach its
+# repos on dl-cdn. Use a currently-supported Alpine (matches golang:1.26-alpine).
+FROM alpine:3.22
 
 RUN apk add --no-cache ca-certificates tzdata wget \
     && addgroup -S appgroup && adduser -S appuser -G appgroup
