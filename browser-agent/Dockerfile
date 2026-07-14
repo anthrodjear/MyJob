@@ -9,7 +9,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install all dependencies (including dev for build)
-RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
+RUN npm cache clean --force && npm ci --no-audit --no-fund
 
 # Copy source code
 COPY . .
@@ -41,7 +41,7 @@ WORKDIR /app
 COPY --chown=appuser:appgroup package*.json ./
 
 # Install production dependencies only (before copying built code/browsers)
-RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
+RUN npm cache clean --force && npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
 # Copy built application code
 COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
