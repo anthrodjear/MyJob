@@ -4,11 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hibiken/asynq"
 	"go.uber.org/zap"
 
+	"backend/internal/activity"
+	"backend/internal/applications"
+	"backend/internal/approvals"
 	"backend/internal/jobs"
 	"backend/internal/scoring"
 	"backend/internal/tasks"
@@ -140,7 +144,16 @@ func newHandleScrapeSource(
 }
 
 // newHandleScoring processes job_scoring tasks.
-func newHandleScoring(svc *scoring.Service, logger *zap.Logger, taskSvc *tasks.Service) asynq.HandlerFunc {
+// After scoring, it chains: apply match score → log activity → create approval (if review tier).
+func newHandleScoring(
+	svc *scoring.Service,
+	jobsSvc *jobs.Service,
+	activitySvc *activity.Service,
+	approvalsSvc *approvals.Service,
+	appsSvc *applications.Service,
+	logger *zap.Logger,
+	taskSvc *tasks.Service,
+) asynq.HandlerFunc {
 	return func(ctx context.Context, t *asynq.Task) error {
 		log := logger.Named("task.scoring")
 		taskID := taskIDFromTask(t)
@@ -193,6 +206,74 @@ func newHandleScoring(svc *scoring.Service, logger *zap.Logger, taskSvc *tasks.S
 			zap.String("tier", string(result.Tier)),
 			zap.String("source", result.Source),
 		)
+
+		// --- Chain: score → job status → activity → approval ---
+
+		// 1. Apply match score to job (transitions discovered → matched if auto tier)
+		var detailsJSON json.RawMessage
+		if result.Details != nil {
+			detailsJSON, _ = json.Marshal(result.Details)
+		}
+		if err := jobsSvc.ApplyMatchScore(ctx, payload.JobID, result.Score, detailsJSON); err != nil {
+			log.Warn("failed to apply match score", zap.Error(err))
+		}
+
+		// 2. Log scoring activity event
+		if err := activitySvc.LogEvent(ctx, activity.EventJobScored, "job", payload.JobID, activity.Details{
+			"score":  result.Score,
+			"tier":   string(result.Tier),
+			"source": result.Source,
+		}); err != nil {
+			log.Warn("failed to log scoring activity", zap.Error(err))
+		}
+
+		// 3. If review tier → create application + approval request
+		if result.Tier == scoring.TierReview {
+			job, err := jobsSvc.GetByID(ctx, payload.JobID)
+			if err != nil {
+				log.Warn("failed to get job for approval", zap.Error(err))
+			} else {
+				// Create a draft application to anchor the approval request
+				app, err := appsSvc.Create(ctx, applications.CreateApplicationRequest{
+					JobID: payload.JobID,
+				})
+				if err != nil {
+					log.Warn("failed to create application for approval", zap.Error(err))
+				} else {
+					var requirements []string
+				if trimmed := strings.TrimSpace(job.Requirements); trimmed != "" {
+					requirements = strings.Split(trimmed, "\n")
+				}
+					approval := &approvals.ApprovalRequest{
+						ApplicationID: app.ID,
+						Status:        approvals.ApprovalStatusPending,
+						JobSnapshot: approvals.JobSnapshot{
+							Title:        job.Title,
+							Company:      job.Company,
+							Location:     job.Location,
+							URL:          job.URL,
+							Description:  job.Description,
+							Requirements: requirements,
+							Score:        result.Score,
+							Tier:         string(result.Tier),
+							ScoredAt:     time.Now().Format(time.RFC3339),
+						},
+					}
+					if err := approvalsSvc.Create(ctx, approval); err != nil {
+						log.Warn("failed to create approval request", zap.Error(err))
+					} else {
+						// Log approval requested activity
+						if err := activitySvc.LogEvent(ctx, activity.EventApprovalRequested, "application", app.ID, activity.Details{
+							"job_id": payload.JobID.String(),
+							"score":  result.Score,
+							"tier":   string(result.Tier),
+						}); err != nil {
+							log.Warn("failed to log approval activity", zap.Error(err))
+						}
+					}
+				}
+			}
+		}
 
 		// Mark task as completed
 		if taskID != "" {

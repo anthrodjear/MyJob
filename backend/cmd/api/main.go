@@ -231,12 +231,17 @@ func main() {
 	profileService := profile.NewService(profileRepo, logger)
 	profileHandler := profile.NewHandler(profileService, logger)
 
+	// Initialize activity domain
+	activityRepo := activity.NewRepository(postgres.DB)
+	activityService := activity.NewService(activityRepo, logger)
+	activityHandler := activity.NewHandler(activityService, logger)
+
 	// Initialize approvals domain
 	approvalsRepo := approvals.NewRepository(postgres.DB)
 	approvalsService := approvals.NewService(approvalsRepo, logger)
 	// Adapter: approvals.SubmitDispatcher interface → *tasks.Dispatcher
 	approvalsDispatcher := approvalsDispatcherAdapter{dispatcher: dispatcher}
-	approvalsWorkflow := approvals.NewWorkflow(approvalsService, approvalsDispatcher, logger)
+	approvalsWorkflow := approvals.NewWorkflow(approvalsService, approvalsDispatcher, activityService, logger)
 	approvalsHandler := approvals.NewHandler(approvalsWorkflow, approvalsService, logger)
 
 	// Initialize RAG domain
@@ -244,11 +249,6 @@ func main() {
 	embeddingClient := embeddings.NewEmbeddingClientFromConfig(logger, cfg.LLM)
 	ragService := rag.NewService(ragRepo, embeddingClient, logger)
 	ragHandler := rag.NewHandler(ragService, logger)
-
-	// Initialize activity domain
-	activityRepo := activity.NewRepository(postgres.DB)
-	activityService := activity.NewService(activityRepo, logger)
-	activityHandler := activity.NewHandler(activityService, logger)
 
 	// Initialize emails domain
 	emailsRepo := emails.NewRepository(postgres.DB)

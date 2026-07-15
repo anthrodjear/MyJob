@@ -8,10 +8,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"go.uber.org/zap"
 
+	"backend/internal/activity"
 	"backend/internal/applications"
+	"backend/internal/approvals"
 	"backend/internal/config"
 	"backend/internal/database"
 	"backend/internal/embeddings"
@@ -77,6 +80,12 @@ func main() {
 	applicationsRepo := applications.NewRepository(postgres.DB)
 	applicationsService := applications.NewService(applicationsRepo, logger)
 
+	activityRepo := activity.NewRepository(postgres.DB)
+	activityService := activity.NewService(activityRepo, logger)
+
+	approvalsRepo := approvals.NewRepository(postgres.DB)
+	approvalsService := approvals.NewService(approvalsRepo, logger)
+
 	browserAgentURL := getEnv("BROWSER_AGENT_URL", "http://localhost:3000")
 	browserClient := NewHTTPBrowserAgentClient(browserAgentURL, logger)
 
@@ -86,9 +95,18 @@ func main() {
 	tasksRepo := tasks.NewRepository(postgres.DB)
 	tasksService := tasks.NewService(tasksRepo)
 
-	// --- Asynq server ---
+	// --- Asynq client + dispatcher (for enqueuing tasks from handlers) ---
 	redisAddr := parseRedisAddr(cfg.Redis.URL, logger)
 
+	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddr})
+	defer asynqClient.Close()
+
+	taskDispatcher := tasks.NewDispatcher(asynqClient, tasksService, logger)
+
+	// --- Approval workflow (approve → dispatch submission) ---
+	_ = approvals.NewWorkflow(approvalsService, approvalsDispatcherAdapter{dispatcher: taskDispatcher}, activityService, logger)
+
+	// --- Asynq server ---
 	srv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: redisAddr},
 		asynq.Config{
@@ -98,7 +116,7 @@ func main() {
 
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(tasks.TypeJobDiscovery, newHandleScrapeSource(jobsService, scoringService, browserClient, logger, tasksService))
-	mux.HandleFunc(tasks.TypeJobScoring, newHandleScoring(scoringService, logger, tasksService))
+	mux.HandleFunc(tasks.TypeJobScoring, newHandleScoring(scoringService, jobsService, activityService, approvalsService, applicationsService, logger, tasksService))
 	mux.HandleFunc(tasks.TypeResumeGenerate, newHandleGenerateResume(resumesService, jobsService, logger, tasksService))
 	mux.HandleFunc(tasks.TypeCoverLetterGen, newHandleGenerateCoverLetter(resumesService, jobsService, logger, tasksService))
 	mux.HandleFunc(tasks.TypeResumeTailor, newHandleTailorResume(resumesService, jobsService, logger, tasksService))
@@ -141,4 +159,23 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// ---------------------------------------------------------------------------
+// Adapters
+// ---------------------------------------------------------------------------
+
+// approvalsDispatcherAdapter adapts *tasks.Dispatcher to approvals.SubmitDispatcher.
+// The workflow interface uses (ctx, applicationID, correlationID) signature.
+// The concrete dispatcher uses (ctx, tasks.ApplicationSubmitPayload) signature.
+type approvalsDispatcherAdapter struct {
+	dispatcher *tasks.Dispatcher
+}
+
+func (a approvalsDispatcherAdapter) DispatchApplicationSubmit(ctx context.Context, applicationID uuid.UUID, correlationID uuid.UUID) error {
+	_, err := a.dispatcher.DispatchApplicationSubmit(ctx, tasks.ApplicationSubmitPayload{
+		ApplicationID: applicationID,
+		CorrelationID: correlationID,
+	})
+	return err
 }
