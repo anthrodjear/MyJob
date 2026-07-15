@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"go.uber.org/zap"
 
@@ -101,11 +100,6 @@ func main() {
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddr})
 	defer asynqClient.Close()
 
-	taskDispatcher := tasks.NewDispatcher(asynqClient, tasksService, logger)
-
-	// --- Approval workflow (approve → dispatch submission) ---
-	_ = approvals.NewWorkflow(approvalsService, approvalsDispatcherAdapter{dispatcher: taskDispatcher}, activityService, logger)
-
 	// --- Asynq server ---
 	srv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: redisAddr},
@@ -161,21 +155,4 @@ func getEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
-// ---------------------------------------------------------------------------
-// Adapters
-// ---------------------------------------------------------------------------
 
-// approvalsDispatcherAdapter adapts *tasks.Dispatcher to approvals.SubmitDispatcher.
-// The workflow interface uses (ctx, applicationID, correlationID) signature.
-// The concrete dispatcher uses (ctx, tasks.ApplicationSubmitPayload) signature.
-type approvalsDispatcherAdapter struct {
-	dispatcher *tasks.Dispatcher
-}
-
-func (a approvalsDispatcherAdapter) DispatchApplicationSubmit(ctx context.Context, applicationID uuid.UUID, correlationID uuid.UUID) error {
-	_, err := a.dispatcher.DispatchApplicationSubmit(ctx, tasks.ApplicationSubmitPayload{
-		ApplicationID: applicationID,
-		CorrelationID: correlationID,
-	})
-	return err
-}

@@ -241,7 +241,7 @@ func main() {
 	approvalsService := approvals.NewService(approvalsRepo, logger)
 	// Adapter: approvals.SubmitDispatcher interface → *tasks.Dispatcher
 	approvalsDispatcher := approvalsDispatcherAdapter{dispatcher: dispatcher}
-	approvalsWorkflow := approvals.NewWorkflow(approvalsService, approvalsDispatcher, activityService, logger)
+	approvalsWorkflow := approvals.NewWorkflow(approvalsService, appsService, approvalsDispatcher, activityService, logger)
 	approvalsHandler := approvals.NewHandler(approvalsWorkflow, approvalsService, logger)
 
 	// Initialize RAG domain

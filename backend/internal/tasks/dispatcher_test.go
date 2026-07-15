@@ -44,6 +44,7 @@ func TestTaskConfig_AllTypesPresent(t *testing.T) {
 		TypeEmailCheck,
 		TypeInterviewPrep,
 		TypeVoiceSession,
+		TypeFillForm,
 	}
 
 	for _, tt := range expectedTypes {
@@ -62,7 +63,7 @@ func TestTaskConfig_NoExtraneousTypes(t *testing.T) {
 		case TypeJobDiscovery, TypeJobScoring, TypeApplicationSubmit,
 			TypeEmbeddingGenerate, TypeCoverLetterGen, TypeResumeGenerate,
 			TypeResumeTailor, TypeEmailCheck, TypeInterviewPrep,
-			TypeVoiceSession:
+			TypeVoiceSession, TypeFillForm:
 			// known
 		default:
 			t.Errorf("unexpected key in taskConfig: %q", key)
@@ -86,6 +87,7 @@ func TestTaskConfig_Values(t *testing.T) {
 		{typ: TypeEmailCheck, wantRetries: 5, wantTimeout: 1 * time.Minute},
 		{typ: TypeInterviewPrep, wantRetries: 3, wantTimeout: 5 * time.Minute},
 		{typ: TypeVoiceSession, wantRetries: 1, wantTimeout: 30 * time.Minute},
+		{typ: TypeFillForm, wantRetries: 3, wantTimeout: 10 * time.Minute},
 	}
 
 	for _, tt := range tests {

@@ -176,15 +176,14 @@ func newHandleSubmitApplication(
 			portalType = *app.PortalType
 		}
 
+		// Use application's stored form data (the task payload may have nil FormData
+		// when dispatched via the approve→submit workflow adapter).
 		var formData map[string]string
-		if err := json.Unmarshal(payload.FormData, &formData); err != nil {
-			log.Error("unmarshal form data", zap.Error(err))
-			if taskID != "" {
-				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("unmarshal form data: %v", err)); failErr != nil {
-					log.Warn("failed to mark task as failed", zap.Error(failErr))
-				}
+		if len(app.FormData) > 0 {
+			if err := json.Unmarshal(app.FormData, &formData); err != nil {
+				log.Warn("invalid form data on application", zap.Error(err))
+				formData = nil
 			}
-			return fmt.Errorf("application_submit: unmarshal form data: %w", err)
 		}
 
 		resp, err := browserClient.FillForm(ctx, FillFormRequest{

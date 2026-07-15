@@ -25,6 +25,7 @@ import (
 	"go.uber.org/zap"
 
 	"backend/internal/activity"
+	"backend/internal/applications"
 )
 
 // ---------------------------------------------------------------------------
@@ -76,19 +77,21 @@ const dispatchTimeout = 10 * time.Second
 
 // Workflow orchestrates approval-to-submission business flows.
 type Workflow struct {
-	svc         *Service
-	dispatcher  SubmitDispatcher
-	activitySvc *activity.Service
-	logger      *zap.Logger
+	svc            *Service
+	applicationsSvc *applications.Service
+	dispatcher     SubmitDispatcher
+	activitySvc    *activity.Service
+	logger         *zap.Logger
 }
 
 // NewWorkflow creates a new approval workflow.
-func NewWorkflow(svc *Service, dispatcher SubmitDispatcher, activitySvc *activity.Service, logger *zap.Logger) *Workflow {
+func NewWorkflow(svc *Service, applicationsSvc *applications.Service, dispatcher SubmitDispatcher, activitySvc *activity.Service, logger *zap.Logger) *Workflow {
 	return &Workflow{
-		svc:         svc,
-		dispatcher:  dispatcher,
-		activitySvc: activitySvc,
-		logger:      logger.Named("approvals.workflow"),
+		svc:            svc,
+		applicationsSvc: applicationsSvc,
+		dispatcher:     dispatcher,
+		activitySvc:    activitySvc,
+		logger:         logger.Named("approvals.workflow"),
 	}
 }
 
@@ -118,6 +121,18 @@ func (w *Workflow) Approve(ctx context.Context, id uuid.UUID) (*ApprovalRequest,
 			zap.String("approval_id", id.String()),
 			zap.Error(err),
 		)
+	}
+
+	// Transition application from draft → queued (required by FSM before queued → applied)
+	if err := w.applicationsSvc.UpdateStatus(ctx, approval.ApplicationID, applications.StatusQueued, "Approved — queued for submission"); err != nil {
+		w.logger.Error("failed to queue application — approval succeeded but submission cannot proceed",
+			zap.String("application_id", approval.ApplicationID.String()),
+			zap.Error(err),
+		)
+		return nil, &DispatchError{
+			ApprovalID: id,
+			Err:        fmt.Errorf("queue application: %w", err),
+		}
 	}
 
 	// Step 2: Dispatch submission task with detached context
