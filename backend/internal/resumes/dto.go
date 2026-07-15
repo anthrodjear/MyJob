@@ -238,3 +238,45 @@ func ToCoverLetterResponses(letters []*CoverLetter) []CoverLetterResponse {
 func hasContent(c ResumeContentDB) bool {
 	return len(c.Skills) > 0 || len(c.Experience) > 0 || c.Summary != ""
 }
+
+// --- Cover Letter Version DTOs ---
+
+// CoverLetterVersionResponse represents a historical version of cover letter content.
+type CoverLetterVersionResponse struct {
+	ID             uuid.UUID `json:"id" example:"550e8400-e29b-41d4-a716-446655440003"`
+	CoverLetterID  uuid.UUID `json:"cover_letter_id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Version        int32     `json:"version" example:"2"`
+	Content        string    `json:"content" example:"Dear Hiring Manager,\n\nI am writing to express my interest..."`
+	Model          *string   `json:"model,omitempty" example:"qwen2.5:latest"`
+	PromptVersion  *string   `json:"prompt_version,omitempty" example:"v1.2"`
+	ResumeVersion  *string   `json:"resume_version,omitempty" example:"3"`
+	CreatedAt      time.Time `json:"created_at" example:"2026-01-20T10:00:00Z"`
+}
+
+// CoverLetterVersionListResponse is the API response for listing cover letter versions.
+type CoverLetterVersionListResponse struct {
+	Versions []CoverLetterVersionResponse `json:"versions"`
+}
+
+// ToCoverLetterVersionResponse converts a CoverLetterVersion domain model to an API response.
+func ToCoverLetterVersionResponse(v *CoverLetterVersion) CoverLetterVersionResponse {
+	return CoverLetterVersionResponse{
+		ID:             v.ID,
+		CoverLetterID:  v.CoverLetterID,
+		Version:        v.Version,
+		Content:        v.Content,
+		Model:          v.Model,
+		PromptVersion:  v.PromptVersion,
+		ResumeVersion:  v.ResumeVersion,
+		CreatedAt:      v.CreatedAt,
+	}
+}
+
+// ToCoverLetterVersionResponses converts a slice of CoverLetterVersion domain models to API responses.
+func ToCoverLetterVersionResponses(versions []*CoverLetterVersion) []CoverLetterVersionResponse {
+	responses := make([]CoverLetterVersionResponse, len(versions))
+	for i, v := range versions {
+		responses[i] = ToCoverLetterVersionResponse(v)
+	}
+	return responses
+}

@@ -177,6 +177,18 @@ type CoverLetter struct {
 	UpdatedAt     time.Time
 }
 
+// CoverLetterVersion represents a versioned snapshot of cover letter content.
+type CoverLetterVersion struct {
+	ID             uuid.UUID
+	CoverLetterID  uuid.UUID
+	Content        string
+	Version        int32
+	Model          *string
+	PromptVersion  *string
+	ResumeVersion  *string
+	CreatedAt      time.Time
+}
+
 // NewCoverLetter creates a new CoverLetter with default values.
 func NewCoverLetter() *CoverLetter {
 	now := time.Now().UTC()
