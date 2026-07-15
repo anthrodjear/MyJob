@@ -30,6 +30,11 @@ type Job struct {
 	MatchScore     float64         `db:"match_score" json:"match_score"`
 	MatchDetails   json.RawMessage `db:"match_details" json:"match_details,omitempty"`
 	Status         string          `db:"status" json:"status"`
+	ScoreTier      *string         `db:"score_tier" json:"score_tier,omitempty"`
+	ScoredAt       *time.Time      `db:"scored_at" json:"scored_at,omitempty"`
+	ScoringReasoning *string       `db:"scoring_reasoning" json:"scoring_reasoning,omitempty"`
+	ScoringModel   *string         `db:"scoring_model" json:"scoring_model,omitempty"`
+	ScoringSource  *string         `db:"scoring_source" json:"scoring_source,omitempty"`
 	CreatedAt      time.Time       `db:"created_at" json:"created_at"`
 	UpdatedAt      time.Time       `db:"updated_at" json:"updated_at"`
 

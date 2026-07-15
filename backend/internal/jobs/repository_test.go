@@ -36,6 +36,7 @@ func selectColumns() []string {
 		"remote_type", "salary_min", "salary_max", "salary_currency",
 		"description", "requirements", "url", "application_url", "company_url",
 		"source", "posted_at", "scraped_at", "match_score", "match_details",
+		"score_tier", "scored_at", "scoring_reasoning", "scoring_model", "scoring_source",
 		"status", "created_at", "updated_at", "source_name",
 	}
 }
@@ -65,6 +66,11 @@ func makeJobRows(jobs ...*Job) *sqlmock.Rows {
 			j.ScrapedAt,            // scraped_at
 			j.MatchScore,           // match_score
 			[]byte(j.MatchDetails), // match_details
+			j.ScoreTier,            // score_tier
+			j.ScoredAt,             // scored_at
+			j.ScoringReasoning,     // scoring_reasoning
+			j.ScoringModel,         // scoring_model
+			j.ScoringSource,        // scoring_source
 			j.Status,               // status
 			j.CreatedAt,            // created_at
 			j.UpdatedAt,            // updated_at
@@ -74,33 +80,42 @@ func makeJobRows(jobs ...*Job) *sqlmock.Rows {
 	return rows
 }
 
+// ptr returns a pointer to the given string, for setting *string fields in tests.
+func ptr(s string) *string { return &s }
+
 // defaultJob returns a fully populated Job for use in tests.
 func defaultJob() *Job {
 	now := time.Now()
+	scoredAt := now.Add(-1 * time.Hour)
 	return &Job{
-		ID:             uuid.MustParse("11111111-1111-1111-1111-111111111111"),
-		SourceID:       uuid.MustParse("22222222-2222-2222-2222-222222222222"),
-		ExternalID:     "ext-001",
-		Title:          "Software Engineer",
-		Company:        "Acme Corp",
-		Location:       "Remote",
-		RemoteType:     "remote",
-		SalaryMin:      100000,
-		SalaryMax:      150000,
-		SalaryCurrency: "USD",
-		Description:    "Great job",
-		Requirements:   "Go, React",
-		URL:            "https://example.com/job/1",
-		ApplicationURL: "https://example.com/apply/1",
-		CompanyURL:     "https://acme.com",
-		Source:         "greenhouse",
-		ScrapedAt:      now,
-		MatchScore:     92.5,
-		MatchDetails:   json.RawMessage(`{"skill_match":90}`),
-		Status:         StatusDiscovered,
-		SourceName:     "Greenhouse",
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		ID:               uuid.MustParse("11111111-1111-1111-1111-111111111111"),
+		SourceID:         uuid.MustParse("22222222-2222-2222-2222-222222222222"),
+		ExternalID:       "ext-001",
+		Title:            "Software Engineer",
+		Company:          "Acme Corp",
+		Location:         "Remote",
+		RemoteType:       "remote",
+		SalaryMin:        100000,
+		SalaryMax:        150000,
+		SalaryCurrency:   "USD",
+		Description:      "Great job",
+		Requirements:     "Go, React",
+		URL:              "https://example.com/job/1",
+		ApplicationURL:   "https://example.com/apply/1",
+		CompanyURL:       "https://acme.com",
+		Source:           "greenhouse",
+		ScrapedAt:        now,
+		MatchScore:       92.5,
+		MatchDetails:     json.RawMessage(`{"skill_match":90}`),
+		ScoreTier:        ptr("review"),
+		ScoredAt:         &scoredAt,
+		ScoringReasoning: ptr("good match"),
+		ScoringModel:     ptr("ollama/qwen2.5"),
+		ScoringSource:    ptr("auto"),
+		Status:           StatusDiscovered,
+		SourceName:       "Greenhouse",
+		CreatedAt:        now,
+		UpdatedAt:        now,
 	}
 }
 
@@ -128,6 +143,7 @@ func TestRepository_GetByID_Success(t *testing.T) {
 			j.remote_type, j.salary_min, j.salary_max, j.salary_currency,
 			j.description, j.requirements, j.url, j.application_url, j.company_url, j.source,
 			j.posted_at, j.scraped_at, j.match_score, j.match_details,
+			j.score_tier, j.scored_at, j.scoring_reasoning, j.scoring_model, j.scoring_source,
 			j.status, j.created_at, j.updated_at,
 			s.name as source_name
 		FROM jobs j
@@ -149,6 +165,13 @@ func TestRepository_GetByID_Success(t *testing.T) {
 	assert.Equal(t, job.SourceName, got.SourceName)
 	assert.NotNil(t, got.MatchDetails)
 
+	// Verify the 5 scoring columns are actually read back (not silently nil).
+	assert.Equal(t, job.ScoreTier, got.ScoreTier)
+	assert.Equal(t, job.ScoredAt, got.ScoredAt)
+	assert.Equal(t, job.ScoringReasoning, got.ScoringReasoning)
+	assert.Equal(t, job.ScoringModel, got.ScoringModel)
+	assert.Equal(t, job.ScoringSource, got.ScoringSource)
+
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -164,6 +187,7 @@ func TestRepository_GetByID_NotFound(t *testing.T) {
 			j.remote_type, j.salary_min, j.salary_max, j.salary_currency,
 			j.description, j.requirements, j.url, j.application_url, j.company_url, j.source,
 			j.posted_at, j.scraped_at, j.match_score, j.match_details,
+			j.score_tier, j.scored_at, j.scoring_reasoning, j.scoring_model, j.scoring_source,
 			j.status, j.created_at, j.updated_at,
 			s.name as source_name
 		FROM jobs j
@@ -194,6 +218,7 @@ func TestRepository_GetByID_DBError(t *testing.T) {
 			j.remote_type, j.salary_min, j.salary_max, j.salary_currency,
 			j.description, j.requirements, j.url, j.application_url, j.company_url, j.source,
 			j.posted_at, j.scraped_at, j.match_score, j.match_details,
+			j.score_tier, j.scored_at, j.scoring_reasoning, j.scoring_model, j.scoring_source,
 			j.status, j.created_at, j.updated_at,
 			s.name as source_name
 		FROM jobs j
@@ -236,6 +261,7 @@ func TestRepository_List_NoFilters(t *testing.T) {
 			j.remote_type, j.salary_min, j.salary_max, j.salary_currency,
 			j.description, j.requirements, j.url, j.application_url, j.company_url, j.source,
 			j.posted_at, j.scraped_at, j.match_score, j.match_details,
+			j.score_tier, j.scored_at, j.scoring_reasoning, j.scoring_model, j.scoring_source,
 			j.status, j.created_at, j.updated_at,
 			s.name as source_name
 		FROM jobs j
@@ -252,6 +278,13 @@ func TestRepository_List_NoFilters(t *testing.T) {
 	assert.Equal(t, 1, total)
 	assert.Len(t, jobs, 1)
 	assert.Equal(t, job.ID, jobs[0].ID)
+
+	// Verify the 5 scoring columns are actually read back (not silently nil).
+	assert.Equal(t, job.ScoreTier, jobs[0].ScoreTier)
+	assert.Equal(t, job.ScoredAt, jobs[0].ScoredAt)
+	assert.Equal(t, job.ScoringReasoning, jobs[0].ScoringReasoning)
+	assert.Equal(t, job.ScoringModel, jobs[0].ScoringModel)
+	assert.Equal(t, job.ScoringSource, jobs[0].ScoringSource)
 
 	require.NoError(t, mock.ExpectationsWereMet())
 }
@@ -277,6 +310,7 @@ func TestRepository_List_StatusFilter(t *testing.T) {
 			j.remote_type, j.salary_min, j.salary_max, j.salary_currency,
 			j.description, j.requirements, j.url, j.application_url, j.company_url, j.source,
 			j.posted_at, j.scraped_at, j.match_score, j.match_details,
+			j.score_tier, j.scored_at, j.scoring_reasoning, j.scoring_model, j.scoring_source,
 			j.status, j.created_at, j.updated_at,
 			s.name as source_name
 		FROM jobs j
@@ -325,6 +359,7 @@ func TestRepository_List_AllFilters(t *testing.T) {
 			j.remote_type, j.salary_min, j.salary_max, j.salary_currency,
 			j.description, j.requirements, j.url, j.application_url, j.company_url, j.source,
 			j.posted_at, j.scraped_at, j.match_score, j.match_details,
+			j.score_tier, j.scored_at, j.scoring_reasoning, j.scoring_model, j.scoring_source,
 			j.status, j.created_at, j.updated_at,
 			s.name as source_name
 		FROM jobs j
@@ -379,6 +414,7 @@ func TestRepository_List_QueryError(t *testing.T) {
 			j.remote_type, j.salary_min, j.salary_max, j.salary_currency,
 			j.description, j.requirements, j.url, j.application_url, j.company_url, j.source,
 			j.posted_at, j.scraped_at, j.match_score, j.match_details,
+			j.score_tier, j.scored_at, j.scoring_reasoning, j.scoring_model, j.scoring_source,
 			j.status, j.created_at, j.updated_at,
 			s.name as source_name
 		FROM jobs j

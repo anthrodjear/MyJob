@@ -249,7 +249,7 @@ type CoverLetterVersionResponse struct {
 	Content        string    `json:"content" example:"Dear Hiring Manager,\n\nI am writing to express my interest..."`
 	Model          *string   `json:"model,omitempty" example:"qwen2.5:latest"`
 	PromptVersion  *string   `json:"prompt_version,omitempty" example:"v1.2"`
-	ResumeVersion  *string   `json:"resume_version,omitempty" example:"3"`
+	ResumeVersion  *int32    `json:"resume_version,omitempty" example:"3"`
 	CreatedAt      time.Time `json:"created_at" example:"2026-01-20T10:00:00Z"`
 }
 

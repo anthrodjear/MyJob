@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -538,10 +537,10 @@ func (s *Service) GetCoverLetterVersion(ctx context.Context, coverLetterID uuid.
 // saveCoverLetterVersionSnapshot creates a version snapshot before content changes.
 // Returns an error so callers can decide whether to treat failure as fatal.
 func (s *Service) saveCoverLetterVersionSnapshot(ctx context.Context, cl *CoverLetter) error {
-	var resumeVersionStr *string
+	var resumeVersion *int32
 	if cl.ResumeVersion != nil {
-		v := strconv.Itoa(int(*cl.ResumeVersion))
-		resumeVersionStr = &v
+		v := *cl.ResumeVersion
+		resumeVersion = &v
 	}
 	v := &CoverLetterVersion{
 		ID:             uuid.New(),
@@ -550,7 +549,7 @@ func (s *Service) saveCoverLetterVersionSnapshot(ctx context.Context, cl *CoverL
 		Version:        cl.Version,
 		Model:          cl.Model,
 		PromptVersion:  cl.PromptVersion,
-		ResumeVersion:  resumeVersionStr,
+		ResumeVersion:  resumeVersion,
 		CreatedAt:      cl.UpdatedAt,
 	}
 	return s.repo.SaveCoverLetterVersion(ctx, v)
