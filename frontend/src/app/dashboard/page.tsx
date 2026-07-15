@@ -3,8 +3,14 @@
  *
  * Fetches stats, activity, and tasks in parallel with graceful degradation,
  * then composes all dashboard widgets with the fetched data.
+ *
+ * Auth flow:
+ *   1. proxy.ts validates session cookie, redirects to /login if missing
+ *   2. dashboard.ts uses dalFetch which reads session cookie server-side
+ *   3. AuthError caught here redirects to /login (safety net)
  */
 
+import { redirect } from "next/navigation";
 import { DashboardStats } from "@/components/dashboard/DashboardStats";
 import { PipelineSummary } from "@/components/dashboard/PipelineSummary";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
@@ -15,6 +21,7 @@ import {
   fetchRecentActivity,
   fetchPendingTasks,
 } from "@/lib/api/dashboard";
+import { AuthError } from "@/lib/dal";
 import type { ApplicationStatsResponse } from "@/lib/types/applications";
 import type { ActivityListResponse } from "@/lib/types/activity";
 import type { TaskListResponse } from "@/lib/types/tasks";
@@ -48,6 +55,8 @@ async function safeFetch<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   try {
     return await fn();
   } catch (error) {
+    // AuthError is a flow-control error — must propagate for redirect handling
+    if (error instanceof AuthError) throw error;
     console.error("[DashboardPage] Fetch failed, using fallback:", error);
     return fallback;
   }
@@ -55,11 +64,27 @@ async function safeFetch<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
 
 export default async function DashboardPage() {
   // Fetch all dashboard data in parallel with graceful degradation
-  const [stats, activity, tasks] = await Promise.all([
-    safeFetch(() => fetchDashboardStats(), emptyStats),
-    safeFetch(() => fetchRecentActivity(10), emptyActivity),
-    safeFetch(() => fetchPendingTasks(5), emptyTasks),
-  ]);
+  let stats: ApplicationStatsResponse;
+  let activity: ActivityListResponse;
+  let tasks: TaskListResponse;
+
+  try {
+    [stats, activity, tasks] = await Promise.all([
+      safeFetch(() => fetchDashboardStats(), emptyStats),
+      safeFetch(() => fetchRecentActivity(10), emptyActivity),
+      safeFetch(() => fetchPendingTasks(5), emptyTasks),
+    ]);
+  } catch (error) {
+    // AuthError = session cookie missing/invalid → redirect to login
+    if (error instanceof AuthError) {
+      redirect("/login");
+    }
+    // Other errors fall through to empty fallbacks
+    console.error("[DashboardPage] Unexpected error:", error);
+    stats = emptyStats;
+    activity = emptyActivity;
+    tasks = emptyTasks;
+  }
 
   return (
     <div className="space-y-6">
