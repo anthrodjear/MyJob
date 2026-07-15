@@ -20,13 +20,27 @@ func newHandleGenerateResume(
 	resumesSvc *resumes.Service,
 	jobsSvc *jobs.Service,
 	logger *zap.Logger,
+	taskSvc *tasks.Service,
 ) asynq.HandlerFunc {
 	return func(ctx context.Context, t *asynq.Task) error {
 		log := logger.Named("task.resume_generate")
+		taskID := taskIDFromTask(t)
+
+		// Mark task as running
+		if taskID != "" {
+			if _, err := taskSvc.Start(ctx, parseUUID(taskID)); err != nil {
+				log.Warn("failed to mark task as running", zap.String("task_id", taskID), zap.Error(err))
+			}
+		}
 
 		var payload tasks.ResumeGeneratePayload
 		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 			log.Error("unmarshal payload", zap.String("task_type", t.Type()), zap.Error(err))
+			if taskID != "" {
+				if _, err := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("unmarshal payload: %v", err)); err != nil {
+					log.Warn("failed to mark task as failed", zap.Error(err))
+				}
+			}
 			return fmt.Errorf("resume_generate: unmarshal payload: %w", err)
 		}
 
@@ -42,19 +56,39 @@ func newHandleGenerateResume(
 		if err != nil {
 			if errors.Is(err, jobs.ErrNotFound) {
 				log.Warn("job not found, skipping", zap.String("job_id", payload.JobID.String()))
+				if taskID != "" {
+					if _, cerr := taskSvc.Complete(ctx, parseUUID(taskID), nil); cerr != nil {
+						log.Warn("failed to mark task as completed", zap.Error(cerr))
+					}
+				}
 				return nil
 			}
 			log.Error("fetch job", zap.String("job_id", payload.JobID.String()), zap.Error(err))
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("fetch job %s: %v", payload.JobID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("resume_generate: fetch job %s: %w", payload.JobID, err)
 		}
 
 		resumeList, _, err := resumesSvc.List(ctx, 1, 0)
 		if err != nil {
 			log.Error("list resumes", zap.Error(err))
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("list resumes: %v", err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("resume_generate: list resumes: %w", err)
 		}
 		if len(resumeList) == 0 {
 			log.Warn("no resumes found, skipping")
+			if taskID != "" {
+				if _, cerr := taskSvc.Complete(ctx, parseUUID(taskID), nil); cerr != nil {
+					log.Warn("failed to mark task as completed", zap.Error(cerr))
+				}
+			}
 			return nil
 		}
 		resumeID := resumeList[0].ID
@@ -68,6 +102,11 @@ func newHandleGenerateResume(
 				zap.String("resume_id", resumeID.String()),
 				zap.Error(err),
 			)
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("generate for job %s: %v", payload.JobID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("resume_generate: generate for job %s: %w", payload.JobID, err)
 		}
 
@@ -78,6 +117,17 @@ func newHandleGenerateResume(
 			zap.Int32("version", version),
 		)
 
+		// Mark task as completed
+		if taskID != "" {
+			resultJSON, _ := json.Marshal(map[string]interface{}{
+				"resume_id": resumeID.String(),
+				"version":   version,
+			})
+			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
+				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
+			}
+		}
+
 		return nil
 	}
 }
@@ -87,13 +137,27 @@ func newHandleGenerateCoverLetter(
 	resumesSvc *resumes.Service,
 	jobsSvc *jobs.Service,
 	logger *zap.Logger,
+	taskSvc *tasks.Service,
 ) asynq.HandlerFunc {
 	return func(ctx context.Context, t *asynq.Task) error {
 		log := logger.Named("task.cover_letter_gen")
+		taskID := taskIDFromTask(t)
+
+		// Mark task as running
+		if taskID != "" {
+			if _, err := taskSvc.Start(ctx, parseUUID(taskID)); err != nil {
+				log.Warn("failed to mark task as running", zap.String("task_id", taskID), zap.Error(err))
+			}
+		}
 
 		var payload tasks.CoverLetterGenPayload
 		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 			log.Error("unmarshal payload", zap.String("task_type", t.Type()), zap.Error(err))
+			if taskID != "" {
+				if _, err := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("unmarshal payload: %v", err)); err != nil {
+					log.Warn("failed to mark task as failed", zap.Error(err))
+				}
+			}
 			return fmt.Errorf("cover_letter_gen: unmarshal payload: %w", err)
 		}
 
@@ -109,14 +173,29 @@ func newHandleGenerateCoverLetter(
 		if err != nil {
 			if errors.Is(err, resumes.ErrNotFound) {
 				log.Warn("cover letter not found, skipping")
+				if taskID != "" {
+					if _, cerr := taskSvc.Complete(ctx, parseUUID(taskID), nil); cerr != nil {
+						log.Warn("failed to mark task as completed", zap.Error(cerr))
+					}
+				}
 				return nil
 			}
 			log.Error("fetch cover letter", zap.Error(err))
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("fetch %s: %v", payload.CoverLetterID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("cover_letter_gen: fetch %s: %w", payload.CoverLetterID, err)
 		}
 
 		if cl.JobID == nil {
 			log.Warn("cover letter has no job ID, skipping")
+			if taskID != "" {
+				if _, cerr := taskSvc.Complete(ctx, parseUUID(taskID), nil); cerr != nil {
+					log.Warn("failed to mark task as completed", zap.Error(cerr))
+				}
+			}
 			return nil
 		}
 
@@ -124,9 +203,19 @@ func newHandleGenerateCoverLetter(
 		if err != nil {
 			if errors.Is(err, jobs.ErrNotFound) {
 				log.Warn("job not found, skipping", zap.String("job_id", cl.JobID.String()))
+				if taskID != "" {
+					if _, cerr := taskSvc.Complete(ctx, parseUUID(taskID), nil); cerr != nil {
+						log.Warn("failed to mark task as completed", zap.Error(cerr))
+					}
+				}
 				return nil
 			}
 			log.Error("fetch job", zap.String("job_id", cl.JobID.String()), zap.Error(err))
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("fetch job %s: %v", cl.JobID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("cover_letter_gen: fetch job %s: %w", cl.JobID, err)
 		}
 
@@ -136,6 +225,11 @@ func newHandleGenerateCoverLetter(
 		})
 		if err != nil {
 			log.Error("generate cover letter", zap.Error(err))
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("generate %s: %v", payload.CoverLetterID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("cover_letter_gen: generate %s: %w", payload.CoverLetterID, err)
 		}
 
@@ -144,6 +238,17 @@ func newHandleGenerateCoverLetter(
 			zap.String("correlation_id", payload.CorrelationID.String()),
 			zap.Int32("version", cl.Version),
 		)
+
+		// Mark task as completed
+		if taskID != "" {
+			resultJSON, _ := json.Marshal(map[string]interface{}{
+				"cover_letter_id": payload.CoverLetterID.String(),
+				"version":         cl.Version,
+			})
+			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
+				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
+			}
+		}
 
 		return nil
 	}
@@ -154,13 +259,27 @@ func newHandleTailorResume(
 	resumesSvc *resumes.Service,
 	jobsSvc *jobs.Service,
 	logger *zap.Logger,
+	taskSvc *tasks.Service,
 ) asynq.HandlerFunc {
 	return func(ctx context.Context, t *asynq.Task) error {
 		log := logger.Named("task.resume_tailor")
+		taskID := taskIDFromTask(t)
+
+		// Mark task as running
+		if taskID != "" {
+			if _, err := taskSvc.Start(ctx, parseUUID(taskID)); err != nil {
+				log.Warn("failed to mark task as running", zap.String("task_id", taskID), zap.Error(err))
+			}
+		}
 
 		var payload tasks.ResumeTailorPayload
 		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 			log.Error("unmarshal payload", zap.String("task_type", t.Type()), zap.Error(err))
+			if taskID != "" {
+				if _, err := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("unmarshal payload: %v", err)); err != nil {
+					log.Warn("failed to mark task as failed", zap.Error(err))
+				}
+			}
 			return fmt.Errorf("resume_tailor: unmarshal payload: %w", err)
 		}
 
@@ -178,9 +297,19 @@ func newHandleTailorResume(
 		if err != nil {
 			if errors.Is(err, jobs.ErrNotFound) {
 				log.Warn("job not found, skipping", zap.String("job_id", payload.JobID.String()))
+				if taskID != "" {
+					if _, cerr := taskSvc.Complete(ctx, parseUUID(taskID), nil); cerr != nil {
+						log.Warn("failed to mark task as completed", zap.Error(cerr))
+					}
+				}
 				return nil
 			}
 			log.Error("fetch job", zap.String("job_id", payload.JobID.String()), zap.Error(err))
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("fetch job %s: %v", payload.JobID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("resume_tailor: fetch job %s: %w", payload.JobID, err)
 		}
 
@@ -194,6 +323,11 @@ func newHandleTailorResume(
 				zap.String("job_id", payload.JobID.String()),
 				zap.Error(err),
 			)
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("tailor for job %s: %v", payload.JobID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("resume_tailor: tailor for job %s: %w", payload.JobID, err)
 		}
 
@@ -203,6 +337,18 @@ func newHandleTailorResume(
 			zap.String("correlation_id", payload.CorrelationID.String()),
 			zap.String("summary", tailoredContent.Summary),
 		)
+
+		// Mark task as completed
+		if taskID != "" {
+			resultJSON, _ := json.Marshal(map[string]interface{}{
+				"resume_id": payload.ResumeID.String(),
+				"job_id":    payload.JobID.String(),
+				"summary":   tailoredContent.Summary,
+			})
+			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
+				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
+			}
+		}
 
 		return nil
 	}

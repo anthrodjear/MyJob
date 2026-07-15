@@ -186,14 +186,15 @@ func main() {
 		return completed
 	}
 
+	// Initialize tasks domain (repo + service first, needed by dispatcher)
+	tasksRepo := tasks.NewRepository(postgres.DB)
+	tasksService := tasks.NewService(tasksRepo)
+
 	// Initialize asynq client for task dispatch
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: cfg.Redis.URL})
 	defer asynqClient.Close()
-	dispatcher := tasks.NewDispatcher(asynqClient, logger)
+	dispatcher := tasks.NewDispatcher(asynqClient, tasksService, logger)
 
-	// Initialize tasks domain
-	tasksRepo := tasks.NewRepository(postgres.DB)
-	tasksService := tasks.NewService(tasksRepo)
 	tasksHandler := tasks.NewHandler(tasksService, logger)
 
 	// Initialize jobs domain

@@ -14,6 +14,13 @@ import (
 	"backend/internal/tasks"
 )
 
+// taskIDFromTask extracts the DB task UUID from the asynq task.
+// The dispatcher sets the asynq task ID to the DB task UUID via asynq.TaskID,
+// so we can retrieve it from the ResultWriter.
+func taskIDFromTask(t *asynq.Task) string {
+	return t.ResultWriter().TaskID()
+}
+
 // newHandleScrapeSource processes job_discovery tasks.
 // Flow: parse payload → call browser agent → store jobs.
 func newHandleScrapeSource(
@@ -21,13 +28,27 @@ func newHandleScrapeSource(
 	_ *scoring.Service, // reserved for future per-job scoring dispatch
 	browserClient BrowserAgentClient,
 	logger *zap.Logger,
+	taskSvc *tasks.Service,
 ) asynq.HandlerFunc {
 	return func(ctx context.Context, t *asynq.Task) error {
 		log := logger.Named("task.discovery")
+		taskID := taskIDFromTask(t)
+
+		// Mark task as running
+		if taskID != "" {
+			if _, err := taskSvc.Start(ctx, parseUUID(taskID)); err != nil {
+				log.Warn("failed to mark task as running", zap.String("task_id", taskID), zap.Error(err))
+			}
+		}
 
 		var payload tasks.JobDiscoveryPayload
 		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 			log.Error("unmarshal payload", zap.String("task_type", t.Type()), zap.Error(err))
+			if taskID != "" {
+				if _, err := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("unmarshal payload: %v", err)); err != nil {
+					log.Warn("failed to mark task as failed", zap.Error(err))
+				}
+			}
 			return fmt.Errorf("discovery: unmarshal payload: %w", err)
 		}
 
@@ -51,6 +72,11 @@ func newHandleScrapeSource(
 				zap.String("correlation_id", payload.CorrelationID.String()),
 				zap.Error(err),
 			)
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("scrape source %s: %v", payload.SourceID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("discovery: scrape source %s: %w", payload.SourceID, err)
 		}
 
@@ -76,6 +102,11 @@ func newHandleScrapeSource(
 				zap.String("correlation_id", payload.CorrelationID.String()),
 				zap.Error(err),
 			)
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("bulk import source %s: %v", payload.SourceID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("discovery: bulk import source %s: %w", payload.SourceID, err)
 		}
 
@@ -93,18 +124,42 @@ func newHandleScrapeSource(
 			)
 		}
 
+		// Mark task as completed
+		if taskID != "" {
+			resultJSON, _ := json.Marshal(map[string]interface{}{
+				"imported": result.Imported,
+				"skipped":  result.Skipped,
+			})
+			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
+				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
+			}
+		}
+
 		return nil
 	}
 }
 
 // newHandleScoring processes job_scoring tasks.
-func newHandleScoring(svc *scoring.Service, logger *zap.Logger) asynq.HandlerFunc {
+func newHandleScoring(svc *scoring.Service, logger *zap.Logger, taskSvc *tasks.Service) asynq.HandlerFunc {
 	return func(ctx context.Context, t *asynq.Task) error {
 		log := logger.Named("task.scoring")
+		taskID := taskIDFromTask(t)
+
+		// Mark task as running
+		if taskID != "" {
+			if _, err := taskSvc.Start(ctx, parseUUID(taskID)); err != nil {
+				log.Warn("failed to mark task as running", zap.String("task_id", taskID), zap.Error(err))
+			}
+		}
 
 		var payload tasks.JobScoringPayload
 		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 			log.Error("unmarshal payload", zap.Error(err))
+			if taskID != "" {
+				if _, err := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("unmarshal payload: %v", err)); err != nil {
+					log.Warn("failed to mark task as failed", zap.Error(err))
+				}
+			}
 			return fmt.Errorf("scoring: unmarshal payload: %w", err)
 		}
 
@@ -123,6 +178,11 @@ func newHandleScoring(svc *scoring.Service, logger *zap.Logger) asynq.HandlerFun
 				zap.String("correlation_id", payload.CorrelationID.String()),
 				zap.Error(err),
 			)
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("score job %s: %v", payload.JobID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("scoring: score job %s: %w", payload.JobID, err)
 		}
 
@@ -133,6 +193,18 @@ func newHandleScoring(svc *scoring.Service, logger *zap.Logger) asynq.HandlerFun
 			zap.String("tier", string(result.Tier)),
 			zap.String("source", result.Source),
 		)
+
+		// Mark task as completed
+		if taskID != "" {
+			resultJSON, _ := json.Marshal(map[string]interface{}{
+				"score":  result.Score,
+				"tier":   result.Tier,
+				"source": result.Source,
+			})
+			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
+				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
+			}
+		}
 
 		return nil
 	}

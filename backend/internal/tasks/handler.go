@@ -164,6 +164,7 @@ func (h *Handler) ListTasks(c *gin.Context) {
 func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 	tasks := rg.Group("/tasks")
 	{
+		tasks.POST("", h.CreateTask)
 		tasks.GET("", h.ListTasks)
 		tasks.GET("/:id", h.GetTask)
 	}

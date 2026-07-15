@@ -28,6 +28,9 @@ var validTypes = map[string]bool{
 	TypeResumeTailor:      true,
 	TypeEmailCheck:        true,
 	TypeInterviewPrep:     true,
+	TypeResumeGenerate:    true,
+	TypeVoiceSession:      true,
+	TypeFillForm:          true,
 }
 
 // validTransitions defines which status transitions are allowed.
