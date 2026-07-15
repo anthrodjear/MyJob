@@ -192,6 +192,11 @@ func (s *Service) TriggerScan(ctx context.Context, sourceIDs []uuid.UUID) ([]str
 	return taskIDs, nil
 }
 
+// GetSourceNameByID returns the source name for a given job_sources UUID.
+func (s *Service) GetSourceNameByID(ctx context.Context, id uuid.UUID) (string, error) {
+	return s.repo.GetSourceNameByID(ctx, id)
+}
+
 // ApplyMatchScore applies a scoring result to a job.
 // Preserves user-owned statuses (applied, archived) — only transitions
 // discovered/matched statuses based on config thresholds.

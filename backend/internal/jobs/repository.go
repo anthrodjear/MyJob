@@ -171,6 +171,16 @@ func (r *Repository) ExistsBySourceAndExternalID(ctx context.Context, sourceID u
 	return exists, nil
 }
 
+// GetSourceNameByID returns the source name for a given job_sources UUID.
+func (r *Repository) GetSourceNameByID(ctx context.Context, id uuid.UUID) (string, error) {
+	var name string
+	err := r.db.GetContext(ctx, &name, `SELECT name FROM job_sources WHERE id = $1`, id)
+	if err != nil {
+		return "", fmt.Errorf("jobs: get source name: %w", err)
+	}
+	return name, nil
+}
+
 // UpdateStatus updates a job's status.
 func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
 	result, err := r.db.ExecContext(ctx, `
