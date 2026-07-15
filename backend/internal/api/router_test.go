@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -133,6 +134,48 @@ func TestSetupRouter_CORSConfig(t *testing.T) {
 
 	// Should get 204 No Content for preflight
 	assert.Equal(t, http.StatusNoContent, w.Code)
+}
+
+func TestSetupRouter_CORSExposesETag(t *testing.T) {
+	logger := zap.NewNop()
+	cfg := RouterConfig{
+		Logger:      logger,
+		CORSOrigins: []string{"http://localhost:3000"},
+		RateLimitConfig: config.RateLimitConfig{
+			RequestsPerMinute: 60,
+			Burst:             10,
+		},
+		AuthRateLimitConfig: config.AuthRateLimitConfig{
+			RequestsPerMinute: 10,
+			Burst:             3,
+		},
+	}
+
+	r := SetupRouter(cfg)
+
+	// A CORS response must expose ETag so the browser can read it cross-origin.
+	// The profile hook reads the ETag header to build the If-Match header for
+	// PUT/PATCH. If ETag is not exposed, res.headers.get("etag") returns null
+	// cross-origin and the client throws a misleading ETAG_MISSING error
+	// ("Could not load profile for patching") on every successful fetch.
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/health", nil)
+	req.Header.Set("Origin", "http://localhost:3000")
+	r.ServeHTTP(w, req)
+
+	expose := w.Header().Get("Access-Control-Expose-Headers")
+	assert.Equal(t, http.StatusOK, w.Code)
+	// gin-contrib/cors canonicalizes exposed header tokens (e.g. "ETag" -> "Etag")
+	// and browsers match response headers case-insensitively, so assert on the
+	// lowercased token list rather than a verbatim substring.
+	entries := strings.Split(strings.ToLower(expose), ",")
+	// ETag is read by the profile hook to build If-Match; the rate-limit headers
+	// may be surfaced client-side to back off. All must be exposed cross-origin.
+	expected := []string{"etag", "retry-after", "x-ratelimit-limit", "x-ratelimit-remaining"}
+	for _, h := range expected {
+		assert.Contains(t, entries, h,
+			"Access-Control-Expose-Headers must include %q for cross-origin reads", h)
+	}
 }
 
 func TestSetupRouter_NoSetupMiddleware(t *testing.T) {

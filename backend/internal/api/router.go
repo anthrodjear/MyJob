@@ -60,7 +60,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		AllowOrigins:     cfg.CORSOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Content-Length", "Accept", "Accept-Encoding", "Authorization", "X-Request-Id", "X-CSRF-Token"},
-		ExposeHeaders:    []string{"Content-Length", "X-Request-Id"},
+		ExposeHeaders:    []string{"Content-Length", "X-Request-Id", "ETag", "Retry-After", "X-RateLimit-Limit", "X-RateLimit-Remaining"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}
