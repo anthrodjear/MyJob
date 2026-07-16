@@ -14,6 +14,9 @@ COPY . .
 ARG NEXT_PUBLIC_API_URL=http://localhost:8080
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+# SESSION_SECRET needed at build time for route type-checking; validated at runtime
+ARG SESSION_SECRET=build-placeholder-set-at-runtime
+ENV SESSION_SECRET=$SESSION_SECRET
 RUN npm run build
 
 # Stage 3: Production

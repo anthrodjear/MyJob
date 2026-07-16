@@ -17,18 +17,17 @@
 import "server-only";
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 
-const secretKey = process.env.SESSION_SECRET;
-
-if (!secretKey) {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("SESSION_SECRET env var is required in production (≥32 chars)");
+function getSecretKey(): string {
+  const secretKey = process.env.SESSION_SECRET;
+  if (!secretKey) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("SESSION_SECRET env var is required in production (≥32 chars)");
+    }
+    console.warn("[session] Using fallback SESSION_SECRET — set SESSION_SECRET in production");
+    return "dev-fallback-secret-change-in-production-min-32-chars";
   }
-  console.warn("[session] Using fallback SESSION_SECRET — set SESSION_SECRET in production");
+  return secretKey;
 }
-
-const encodedKey = new TextEncoder().encode(
-  secretKey ?? "dev-fallback-secret-change-in-production-min-32-chars",
-);
 
 /** Session payload stored in the JWT cookie. */
 export interface SessionPayload extends JWTPayload {
@@ -52,7 +51,7 @@ export async function encrypt(payload: SessionPayload): Promise<string> {
     .setIssuedAt()
     .setExpirationTime("7d")
     .setIssuer("myjob-session")
-    .sign(encodedKey);
+    .sign(new TextEncoder().encode(getSecretKey()));
 }
 
 /**
@@ -67,7 +66,7 @@ export async function decrypt(
   if (!session) return null;
 
   try {
-    const { payload } = await jwtVerify(session, encodedKey, {
+    const { payload } = await jwtVerify(session, new TextEncoder().encode(getSecretKey()), {
       algorithms: ["HS256"],
       issuer: "myjob-session",
     });
