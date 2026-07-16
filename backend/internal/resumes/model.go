@@ -119,17 +119,17 @@ func (s *StringSliceDB) Scan(value interface{}) error {
 
 // Resume represents a resume version.
 type Resume struct {
-	ID                  uuid.UUID        `db:"id"`
-	Name                string           `db:"name"`
-	Specialization      string           `db:"specialization"`
-	TemplatePath        string           `db:"template_path"`
-	FocusSkills         []string         `db:"focus_skills"`
-	HighlightExperience []uuid.UUID      // CAUTION: leave untagged — lib/pq cannot scan UUID[] into []uuid.UUID; needs custom Scanner/pq.Array wrapper (see follow-up)
-	Content             ResumeContentDB  `db:"content"` // Structured resume content (JSONB)
-	PdfKey              *string          `db:"pdf_key"`
-	Version             int32            `db:"version"`
-	CreatedAt           time.Time        `db:"created_at"`
-	UpdatedAt           time.Time        `db:"updated_at"`
+	ID                  uuid.UUID       `db:"id"`
+	Name                string          `db:"name"`
+	Specialization      string          `db:"specialization"`
+	TemplatePath        string          `db:"template_path"`
+	FocusSkills         []string        `db:"focus_skills"`
+	HighlightExperience []uuid.UUID     // CAUTION: leave untagged — lib/pq cannot scan UUID[] into []uuid.UUID; needs custom Scanner/pq.Array wrapper (see follow-up)
+	Content             ResumeContentDB `db:"content"` // Structured resume content (JSONB)
+	PdfKey              *string         `db:"pdf_key"`
+	Version             int32           `db:"version"`
+	CreatedAt           time.Time       `db:"created_at"`
+	UpdatedAt           time.Time       `db:"updated_at"`
 }
 
 // NewResume creates a new Resume with default values.
@@ -160,33 +160,33 @@ type ResumeVersion struct {
 
 // CoverLetter represents a generated cover letter with LLM traceability.
 type CoverLetter struct {
-	ID            uuid.UUID        `db:"id"`
-	JobID         *uuid.UUID       `db:"job_id"`
-	ResumeID      *uuid.UUID       `db:"resume_id"`
-	JobTitle      *string          `db:"job_title"` // denormalized job title for quick display
-	Content       string           `db:"content"`   // plain text cover letter content
-	Model         *string          `db:"model"`     // LLM model used (e.g., "ollama/qwen2.5")
-	PromptVersion *string          `db:"prompt_version"` // prompt version used for traceability
-	ResumeVersion *int32           `db:"resume_version"` // resume version used for generation
-	PdfKey        *string          `db:"pdf_key"`   // storage key for generated PDF
-	Strengths     *StringSliceDB   `db:"strengths"` // LLM-identified strengths to highlight
-	Gaps          *StringSliceDB   `db:"gaps"`      // LLM-identified gaps to address
-	WordCount     *int             `db:"word_count"`
-	Version       int32            `db:"version"`
-	CreatedAt     time.Time        `db:"created_at"`
-	UpdatedAt     time.Time        `db:"updated_at"`
+	ID            uuid.UUID      `db:"id"`
+	JobID         *uuid.UUID     `db:"job_id"`
+	ResumeID      *uuid.UUID     `db:"resume_id"`
+	JobTitle      *string        `db:"job_title"`      // denormalized job title for quick display
+	Content       string         `db:"content"`        // plain text cover letter content
+	Model         *string        `db:"model"`          // LLM model used (e.g., "ollama/qwen2.5")
+	PromptVersion *string        `db:"prompt_version"` // prompt version used for traceability
+	ResumeVersion *int32         `db:"resume_version"` // resume version used for generation
+	PdfKey        *string        `db:"pdf_key"`        // storage key for generated PDF
+	Strengths     *StringSliceDB `db:"strengths"`      // LLM-identified strengths to highlight
+	Gaps          *StringSliceDB `db:"gaps"`           // LLM-identified gaps to address
+	WordCount     *int           `db:"word_count"`
+	Version       int32          `db:"version"`
+	CreatedAt     time.Time      `db:"created_at"`
+	UpdatedAt     time.Time      `db:"updated_at"`
 }
 
 // CoverLetterVersion represents a versioned snapshot of cover letter content.
 type CoverLetterVersion struct {
-	ID             uuid.UUID `db:"id"`
-	CoverLetterID  uuid.UUID `db:"cover_letter_id"`
-	Content        string    `db:"content"`
-	Version        int32     `db:"version"`
-	Model          *string   `db:"model"`
-	PromptVersion  *string   `db:"prompt_version"`
-	ResumeVersion  *int32    `db:"resume_version"`
-	CreatedAt      time.Time `db:"created_at"`
+	ID            uuid.UUID `db:"id"`
+	CoverLetterID uuid.UUID `db:"cover_letter_id"`
+	Content       string    `db:"content"`
+	Version       int32     `db:"version"`
+	Model         *string   `db:"model"`
+	PromptVersion *string   `db:"prompt_version"`
+	ResumeVersion *int32    `db:"resume_version"`
+	CreatedAt     time.Time `db:"created_at"`
 }
 
 // NewCoverLetter creates a new CoverLetter with default values.

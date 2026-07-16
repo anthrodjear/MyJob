@@ -30,10 +30,10 @@ export interface ScraperEntry {
  * Map job site type to its scraper function.
  */
 const SCRAPER_FACTORY: Record<string, (site: JobSiteConfig) => ScraperFn> = {
-  greenhouse: (site) => (baseUrl, _keywords, _location) => scrapeGreenhouse(baseUrl),
-  lever: (site) => (baseUrl, _keywords, _location) => scrapeLever(baseUrl),
-  remoteok: (site) => (baseUrl, keywords, _location) => scrapeRemoteOK(baseUrl, keywords ?? []),
-  indeed: (site) => (baseUrl, keywords, location) => scrapeIndeed(baseUrl, keywords ?? [], location ?? ''),
+  greenhouse: (_site) => (baseUrl, _keywords, _location) => scrapeGreenhouse(baseUrl),
+  lever: (_site) => (baseUrl, _keywords, _location) => scrapeLever(baseUrl),
+  remoteok: (_site) => (baseUrl, keywords, _location) => scrapeRemoteOK(baseUrl, keywords ?? []),
+  indeed: (_site) => (baseUrl, keywords, location) => scrapeIndeed(baseUrl, keywords ?? [], location ?? ''),
 };
 
 /**

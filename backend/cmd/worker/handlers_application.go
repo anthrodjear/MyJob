@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hibiken/asynq"
 	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 
@@ -77,9 +77,13 @@ func newHandleFillForm(browserClient BrowserAgentClient, logger *zap.Logger, tas
 
 		// Mark task as completed
 		if taskID != "" {
-			resultJSON, _ := json.Marshal(map[string]interface{}{
+			resultJSON, err := json.Marshal(map[string]interface{}{
 				"success": resp.Success,
 			})
+			if err != nil {
+				log.Warn("failed to marshal result", zap.Error(err))
+				resultJSON = []byte("{}")
+			}
 			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
 				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
 			}
@@ -206,10 +210,14 @@ func newHandleSubmitApplication(
 			)
 			// Mark task as completed (business-level failure, not a task error)
 			if taskID != "" {
-				resultJSON, _ := json.Marshal(map[string]interface{}{
+				resultJSON, err := json.Marshal(map[string]interface{}{
 					"success": false,
 					"message": resp.Message,
 				})
+				if err != nil {
+					log.Warn("failed to marshal result", zap.Error(err))
+					resultJSON = []byte("{}")
+				}
 				if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
 					log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
 				}
@@ -234,10 +242,14 @@ func newHandleSubmitApplication(
 
 		// Mark task as completed
 		if taskID != "" {
-			resultJSON, _ := json.Marshal(map[string]interface{}{
+			resultJSON, err := json.Marshal(map[string]interface{}{
 				"application_id": payload.ApplicationID.String(),
 				"portal_url":     portalURL,
 			})
+			if err != nil {
+				log.Warn("failed to marshal result", zap.Error(err))
+				resultJSON = []byte("{}")
+			}
 			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
 				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
 			}
@@ -371,9 +383,13 @@ func newHandleSyncEmails(
 
 		// Mark task as completed
 		if taskID != "" {
-			resultJSON, _ := json.Marshal(map[string]interface{}{
+			resultJSON, err := json.Marshal(map[string]interface{}{
 				"emails_found": len(resp.Emails),
 			})
+			if err != nil {
+				log.Warn("failed to marshal result", zap.Error(err))
+				resultJSON = []byte("{}")
+			}
 			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
 				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
 			}
@@ -469,10 +485,14 @@ func newHandleGenerateInterviewPrep(
 
 		// Mark task as completed
 		if taskID != "" {
-			resultJSON, _ := json.Marshal(map[string]interface{}{
+			resultJSON, err := json.Marshal(map[string]interface{}{
 				"job_title": job.Title,
 				"company":   job.Company,
 			})
+			if err != nil {
+				log.Warn("failed to marshal result", zap.Error(err))
+				resultJSON = []byte("{}")
+			}
 			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
 				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
 			}
@@ -575,11 +595,15 @@ func newHandleCreateEmbeddings(
 
 		// Mark task as completed
 		if taskID != "" {
-			resultJSON, _ := json.Marshal(map[string]interface{}{
+			resultJSON, err := json.Marshal(map[string]interface{}{
 				"source_type": payload.SourceType,
 				"source_id":   payload.SourceID.String(),
 				"dimensions":  len(vec),
 			})
+			if err != nil {
+				log.Warn("failed to marshal result", zap.Error(err))
+				resultJSON = []byte("{}")
+			}
 			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
 				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
 			}
@@ -655,10 +679,14 @@ func newHandleVoiceSession(browserClient BrowserAgentClient, logger *zap.Logger,
 
 		// Mark task as completed
 		if taskID != "" {
-			resultJSON, _ := json.Marshal(map[string]interface{}{
+			resultJSON, err := json.Marshal(map[string]interface{}{
 				"success": resp.Success,
 				"message": resp.Message,
 			})
+			if err != nil {
+				log.Warn("failed to marshal result", zap.Error(err))
+				resultJSON = []byte("{}")
+			}
 			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
 				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
 			}

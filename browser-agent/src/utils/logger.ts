@@ -50,7 +50,7 @@ function parseLogLevel(): LogLevel {
     return raw as LogLevel;
   }
   if (raw) {
-    // eslint-disable-next-line no-console
+     
     console.error(`[logger] Invalid LOG_LEVEL="${raw}", defaulting to "info"`);
   }
   return 'info';

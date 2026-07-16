@@ -40,7 +40,7 @@ const LLMResponseSchema = z.object({
   strategy: z.enum(['answer', 'clarify', 'defer', 'silent']),
 });
 
-type LLMResponse = z.infer<typeof LLMResponseSchema>;
+type _LLMResponse = z.infer<typeof LLMResponseSchema>;
 
 // ----- Prompt Templates -----
 

@@ -54,6 +54,8 @@ export interface SessionDeps {
   tts?: TTSProvider;
   /** Realtime provider for combined STT+TTS path. Required when stt/tts are not provided. */
   realtime?: RealtimeProvider;
+  /** Internal: audio segment queue for cleanup. */
+  _audioQueue?: AudioSegmentQueue;
 }
 
 /**
@@ -190,7 +192,7 @@ export function createInterviewSession(deps: SessionDeps): InterviewSession {
         );
 
         // Store queue reference for cleanup
-        (deps as any)._audioQueue = audioQueue;
+        deps._audioQueue = audioQueue;
       }
 
       // 4. Start listening
@@ -235,7 +237,7 @@ export function createInterviewSession(deps: SessionDeps): InterviewSession {
   async function cleanup(): Promise<void> {
     const errors: unknown[] = [];
 
-    const audioQueue = (deps as any)._audioQueue;
+    const audioQueue = deps._audioQueue;
     if (audioQueue) {
       audioQueue.clear();
     }
@@ -354,7 +356,7 @@ export function createInterviewSession(deps: SessionDeps): InterviewSession {
         const fullAudio = Buffer.concat(buffer);
         speechAudioBuffers.set(participantId, []);
 
-        const audioQueue = (deps as any)._audioQueue;
+const audioQueue = deps._audioQueue;
         if (audioQueue) {
           audioQueue.enqueue(fullAudio, audio.sampleRate, audio.channels)
             .catch((err: Error) => {

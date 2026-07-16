@@ -543,14 +543,14 @@ func (s *Service) saveCoverLetterVersionSnapshot(ctx context.Context, cl *CoverL
 		resumeVersion = &v
 	}
 	v := &CoverLetterVersion{
-		ID:             uuid.New(),
-		CoverLetterID:  cl.ID,
-		Content:        cl.Content,
-		Version:        cl.Version,
-		Model:          cl.Model,
-		PromptVersion:  cl.PromptVersion,
-		ResumeVersion:  resumeVersion,
-		CreatedAt:      cl.UpdatedAt,
+		ID:            uuid.New(),
+		CoverLetterID: cl.ID,
+		Content:       cl.Content,
+		Version:       cl.Version,
+		Model:         cl.Model,
+		PromptVersion: cl.PromptVersion,
+		ResumeVersion: resumeVersion,
+		CreatedAt:     cl.UpdatedAt,
 	}
 	return s.repo.SaveCoverLetterVersion(ctx, v)
 }

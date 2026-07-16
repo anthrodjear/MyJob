@@ -115,7 +115,7 @@ export interface VoiceProviderConfig {
  * @returns Configured STTProvider instance
  * @throws Error if provider is unknown
  */
-export function createSTTProvider(config: VoiceProviderConfig): STTProvider {
+export async function createSTTProvider(config: VoiceProviderConfig): Promise<STTProvider> {
   switch (config.provider) {
     case 'openai_realtime': {
       log.error({ provider: config.provider }, 'OpenAI Realtime handles STT internally — use createRealtimeProvider()');
@@ -129,7 +129,7 @@ export function createSTTProvider(config: VoiceProviderConfig): STTProvider {
         log.error({ env: 'ELEVENLABS_API_KEY' }, 'Environment variable is not set');
         throw new Error('ELEVENLABS_API_KEY is required for elevenlabs STT provider');
       }
-      const { createWhisperSTT } = require('./elevenlabs.js') as typeof import('./elevenlabs.js');
+      const { createWhisperSTT } = await import('./elevenlabs.js');
       const cfg: WhisperSTTConfig = {
         apiKey,
         modelId: config.whisper?.model_id ?? 'whisper-1',
@@ -139,7 +139,7 @@ export function createSTTProvider(config: VoiceProviderConfig): STTProvider {
       return createWhisperSTT(cfg);
     }
     case 'local': {
-      const { createLocalWhisperSTT } = require('./local-whisper.js') as typeof import('./local-whisper.js');
+      const { createLocalWhisperSTT } = await import('./local-whisper.js');
       const cfg: LocalWhisperConfig = {
         binary: config.local_whisper?.binary ?? 'whisper',
         model: config.local_whisper?.model ?? 'base',
@@ -169,7 +169,7 @@ export function createSTTProvider(config: VoiceProviderConfig): STTProvider {
  * @returns Configured TTSProvider instance
  * @throws Error if provider is unknown
  */
-export function createTTSProvider(config: VoiceProviderConfig): TTSProvider {
+export async function createTTSProvider(config: VoiceProviderConfig): Promise<TTSProvider> {
   switch (config.provider) {
     case 'openai_realtime': {
       log.error({ provider: config.provider }, 'OpenAI Realtime handles TTS internally — use createRealtimeProvider()');
@@ -183,7 +183,7 @@ export function createTTSProvider(config: VoiceProviderConfig): TTSProvider {
         log.error({ env: 'ELEVENLABS_API_KEY' }, 'Environment variable is not set');
         throw new Error('ELEVENLABS_API_KEY is required for elevenlabs TTS provider');
       }
-      const { createElevenLabsTTS } = require('./elevenlabs.js') as typeof import('./elevenlabs.js');
+      const { createElevenLabsTTS } = await import('./elevenlabs.js');
       const cfg: ElevenLabsTTSConfig = {
         apiKey,
         voiceId: config.elevenlabs?.voice_id ?? '21m00Tcm4TlvDq8ikWAM',
@@ -200,7 +200,7 @@ export function createTTSProvider(config: VoiceProviderConfig): TTSProvider {
         log.warn({ localTts, fallback: 'piper' }, 'Unknown local_tts value — falling back to piper');
       }
       if (localTts === 'kokoro') {
-        const { createLocalKokoroTTS } = require('./local-kokoro.js') as typeof import('./local-kokoro.js');
+        const { createLocalKokoroTTS } = await import('./local-kokoro.js');
         const cfg: LocalKokoroConfig = {
           python: config.local_kokoro?.python ?? 'python3',
           modelPath: config.local_kokoro?.model_path ?? '',
@@ -218,7 +218,7 @@ export function createTTSProvider(config: VoiceProviderConfig): TTSProvider {
         return createLocalKokoroTTS(cfg);
       }
       // Default to piper
-      const { createLocalPiperTTS } = require('./local-piper.js') as typeof import('./local-piper.js');
+      const { createLocalPiperTTS } = await import('./local-piper.js');
       const cfg: LocalPiperConfig = {
         binary: config.local_piper?.binary ?? 'piper',
         model: config.local_piper?.model ?? '',
@@ -253,7 +253,7 @@ export function createTTSProvider(config: VoiceProviderConfig): TTSProvider {
  * @returns Configured RealtimeProvider instance
  * @throws Error if provider is not 'openai_realtime'
  */
-export function createRealtimeProvider(config: VoiceProviderConfig): RealtimeProvider {
+export async function createRealtimeProvider(config: VoiceProviderConfig): Promise<RealtimeProvider> {
   if (config.provider !== 'openai_realtime') {
     log.error({ provider: config.provider }, 'Realtime provider only available for openai_realtime');
     throw new Error(
@@ -267,7 +267,7 @@ export function createRealtimeProvider(config: VoiceProviderConfig): RealtimePro
     throw new Error('OPENAI_API_KEY is required for openai_realtime provider');
   }
 
-  const { createOpenAIRealtimeProvider } = require('./openai-realtime.js') as typeof import('./openai-realtime.js');
+  const { createOpenAIRealtimeProvider } = await import('./openai-realtime.js');
   const vadConfig = config.openai_realtime?.vad;
   const cfg: OpenAIRealtimeConfig = {
     apiKey,
@@ -293,16 +293,16 @@ export function createRealtimeProvider(config: VoiceProviderConfig): RealtimePro
  * @param config - The `voice:` section from application.yaml
  * @returns Object with stt, tts, and optionally realtime providers
  */
-export function createProviders(config: VoiceProviderConfig): {
+export async function createProviders(config: VoiceProviderConfig): Promise<{
   stt?: STTProvider;
   tts?: TTSProvider;
   realtime?: RealtimeProvider;
-} {
+}> {
   const isRealtime = config.provider === 'openai_realtime';
 
   return {
-    stt: isRealtime ? undefined : createSTTProvider(config),
-    tts: isRealtime ? undefined : createTTSProvider(config),
-    realtime: isRealtime ? createRealtimeProvider(config) : undefined,
+    stt: isRealtime ? undefined : await createSTTProvider(config),
+    tts: isRealtime ? undefined : await createTTSProvider(config),
+    realtime: isRealtime ? await createRealtimeProvider(config) : undefined,
   };
 }

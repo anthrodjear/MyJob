@@ -146,11 +146,11 @@ type yamlApprovalTiersConfig struct {
 }
 
 type yamlTierDef struct {
-	MinScore int `yaml:"min_score"`
-	MaxScore int `yaml:"max_score"`
+	MinScore int    `yaml:"min_score"`
+	MaxScore int    `yaml:"max_score"`
 	Action   string `yaml:"action"`
-	Notify   bool `yaml:"notify"`
-	Log      bool `yaml:"log"`
+	Notify   bool   `yaml:"notify"`
+	Log      bool   `yaml:"log"`
 }
 
 // loadApprovalTiersFromYAML parses approval_tiers from raw application.yaml bytes.
@@ -219,104 +219,104 @@ func Load() *Config {
 	yamlData, _ := os.ReadFile(configPath) //nolint:gosec // G304: config path is from env var, not user input
 
 	cfg := &Config{
-			Server: ServerConfig{
-				Port:         getEnvInt("SERVER_PORT", 8080),
-				ReadTimeout:  getEnvDuration("SERVER_READ_TIMEOUT", 30*time.Second),
-				WriteTimeout: getEnvDuration("SERVER_WRITE_TIMEOUT", 30*time.Second),
-				CORSOrigins:  parseCommaList(getEnv("CORS_ORIGINS", "http://localhost:3000")),
-			},
-			Database: DatabaseConfig{
-				URL:             getEnv("DATABASE_URL", ""),
-				MaxOpenConns:    getEnvInt("DB_MAX_OPEN_CONNS", 25),
-				MaxIdleConns:    getEnvInt("DB_MAX_IDLE_CONNS", 5),
-				ConnMaxLifetime: getEnvDuration("DB_CONN_MAX_LIFETIME", 5*time.Minute),
-			},
-			Redis: RedisConfig{
-				URL: getEnv("REDIS_URL", ""),
-			},
-			Auth: AuthConfig{
-				PasswordHash:       getEnv("AUTH_PASSWORD_HASH", ""),
-				JWTSecret:          getEnv("AUTH_JWT_SECRET", ""),
-				JWTExpiry:          getEnvDuration("JWT_EXPIRY", 30*time.Minute),
-				RefreshTokenExpiry: getEnvDuration("REFRESH_TOKEN_EXPIRY", 7*24*time.Hour), // 7 days
-				ResetTokenExpiry:   getEnvDuration("RESET_TOKEN_EXPIRY", 1*time.Hour),
-				BCryptCost:         getEnvInt("BCRYPT_COST", 12),
-			},
-			LLM: LLMConfig{
-				Primary: LLMProvider{
-					Provider: getEnv("LLM_PRIMARY_PROVIDER", "openai"),
-					Model:    getEnv("OPENAI_MODEL", "gpt-4o"),
-					APIKey:   getEnv("OPENAI_API_KEY", ""),
-				},
-				Local: LLMProvider{
-					Provider: "ollama",
-					Model:    getEnv("OLLAMA_MODEL", "qwen2.5:latest"),
-					BaseURL:  getEnv("OLLAMA_BASE_URL", "http://localhost:11434"),
-				},
-				Embeddings: LLMProvider{
-					Provider: "ollama",
-					Model:    getEnv("OLLAMA_EMBED_MODEL", "mxbai-embed-large"),
-					BaseURL:  getEnv("OLLAMA_BASE_URL", "http://localhost:11434"),
-					Timeout:  getEnvDuration("OLLAMA_TIMEOUT", 60*time.Second),
-				},
-				Fallback: LLMProvider{
-					Provider: getEnv("LLM_FALLBACK_PROVIDER", "anthropic"),
-					Model:    getEnv("ANTHROPIC_MODEL", "claude-sonnet-4"),
-					APIKey:   getEnv("ANTHROPIC_API_KEY", ""),
-				},
-				EmailClassifier: LLMProvider{
-					Provider: getEnv("LLM_EMAIL_CLASSIFIER_PROVIDER", "ollama"),
-					Model:    getEnv("OLLAMA_MODEL", "qwen2.5:latest"),
-					BaseURL:  getEnv("OLLAMA_BASE_URL", "http://localhost:11434"),
-					Timeout:  getEnvDuration("OLLAMA_TIMEOUT", 60*time.Second),
-				},
-			},
-			Voice: VoiceConfig{
-				Provider: getEnv("VOICE_PROVIDER", "ollama"),
-				Model:    getEnv("VOICE_MODEL", "qwen2.5:latest"), //HACK-change to config no hardcodding
+		Server: ServerConfig{
+			Port:         getEnvInt("SERVER_PORT", 8080),
+			ReadTimeout:  getEnvDuration("SERVER_READ_TIMEOUT", 30*time.Second),
+			WriteTimeout: getEnvDuration("SERVER_WRITE_TIMEOUT", 30*time.Second),
+			CORSOrigins:  parseCommaList(getEnv("CORS_ORIGINS", "http://localhost:3000")),
+		},
+		Database: DatabaseConfig{
+			URL:             getEnv("DATABASE_URL", ""),
+			MaxOpenConns:    getEnvInt("DB_MAX_OPEN_CONNS", 25),
+			MaxIdleConns:    getEnvInt("DB_MAX_IDLE_CONNS", 5),
+			ConnMaxLifetime: getEnvDuration("DB_CONN_MAX_LIFETIME", 5*time.Minute),
+		},
+		Redis: RedisConfig{
+			URL: getEnv("REDIS_URL", ""),
+		},
+		Auth: AuthConfig{
+			PasswordHash:       getEnv("AUTH_PASSWORD_HASH", ""),
+			JWTSecret:          getEnv("AUTH_JWT_SECRET", ""),
+			JWTExpiry:          getEnvDuration("JWT_EXPIRY", 30*time.Minute),
+			RefreshTokenExpiry: getEnvDuration("REFRESH_TOKEN_EXPIRY", 7*24*time.Hour), // 7 days
+			ResetTokenExpiry:   getEnvDuration("RESET_TOKEN_EXPIRY", 1*time.Hour),
+			BCryptCost:         getEnvInt("BCRYPT_COST", 12),
+		},
+		LLM: LLMConfig{
+			Primary: LLMProvider{
+				Provider: getEnv("LLM_PRIMARY_PROVIDER", "openai"),
+				Model:    getEnv("OPENAI_MODEL", "gpt-4o"),
 				APIKey:   getEnv("OPENAI_API_KEY", ""),
-				LiveKit: LiveKitConfig{
-					URL:       getEnv("LIVEKIT_WS_URL", "ws://localhost:7880"),
-					APIKey:    getEnv("LIVEKIT_API_KEY", ""),
-					APISecret: getEnv("LIVEKIT_API_SECRET", ""),
-				},
 			},
-			Email: EmailConfig{
-				Provider:      getEnv("EMAIL_PROVIDER", "microsoft_graph"),
-				TenantID:      getEnv("MS_TENANT_ID", ""),
-				ClientID:      getEnv("MS_CLIENT_ID", ""),
-				ClientSecret:  getEnv("MS_CLIENT_SECRET", ""),
-				CheckInterval: getEnvDuration("EMAIL_CHECK_INTERVAL", 30*time.Minute),
-				Folders:       parseFolders(getEnv("EMAIL_FOLDERS", "Inbox")),
+			Local: LLMProvider{
+				Provider: "ollama",
+				Model:    getEnv("OLLAMA_MODEL", "qwen2.5:latest"),
+				BaseURL:  getEnv("OLLAMA_BASE_URL", "http://localhost:11434"),
 			},
-			Queue: QueueConfig{
-				Concurrency: getEnvInt("QUEUE_CONCURRENCY", 5),
-				RetryDelay:  getEnvDuration("QUEUE_RETRY_DELAY", 5*time.Second),
+			Embeddings: LLMProvider{
+				Provider: "ollama",
+				Model:    getEnv("OLLAMA_EMBED_MODEL", "mxbai-embed-large"),
+				BaseURL:  getEnv("OLLAMA_BASE_URL", "http://localhost:11434"),
+				Timeout:  getEnvDuration("OLLAMA_TIMEOUT", 60*time.Second),
 			},
-			Scoring: ScoringConfig{
-				AutoThreshold:      getEnvInt("SCORING_AUTO_THRESHOLD", autoThresholdFromYAML(yamlData)),
-				ReviewThreshold:    getEnvInt("SCORING_REVIEW_THRESHOLD", reviewThresholdFromYAML(yamlData)),
-				Mode:               getEnv("SCORING_MODE", "hybrid"),
-				HybridRejectMargin: getEnvInt("SCORING_HYBRID_REJECT_MARGIN", 20),
-				Weights: ScoringWeights{
-					Skill:       getEnvFloat("SCORING_WEIGHT_SKILL", 0.35),
-					Experience:  getEnvFloat("SCORING_WEIGHT_EXPERIENCE", 0.25),
-					Location:    getEnvFloat("SCORING_WEIGHT_LOCATION", 0.10),
-					Salary:      getEnvFloat("SCORING_WEIGHT_SALARY", 0.15),
-					Description: getEnvFloat("SCORING_WEIGHT_DESCRIPTION", 0.15),
-				},
+			Fallback: LLMProvider{
+				Provider: getEnv("LLM_FALLBACK_PROVIDER", "anthropic"),
+				Model:    getEnv("ANTHROPIC_MODEL", "claude-sonnet-4"),
+				APIKey:   getEnv("ANTHROPIC_API_KEY", ""),
 			},
-			RateLimit: RateLimitConfig{
-				RequestsPerMinute: getEnvInt("RATE_LIMIT_RPM", 60),
-				Burst:             getEnvInt("RATE_LIMIT_BURST", 10),
+			EmailClassifier: LLMProvider{
+				Provider: getEnv("LLM_EMAIL_CLASSIFIER_PROVIDER", "ollama"),
+				Model:    getEnv("OLLAMA_MODEL", "qwen2.5:latest"),
+				BaseURL:  getEnv("OLLAMA_BASE_URL", "http://localhost:11434"),
+				Timeout:  getEnvDuration("OLLAMA_TIMEOUT", 60*time.Second),
 			},
-			AuthRateLimit: AuthRateLimitConfig{
-				RequestsPerMinute: getEnvInt("AUTH_RATE_LIMIT_RPM", 60),
-				Burst:             getEnvInt("AUTH_RATE_LIMIT_BURST", 10),
+		},
+		Voice: VoiceConfig{
+			Provider: getEnv("VOICE_PROVIDER", "ollama"),
+			Model:    getEnv("VOICE_MODEL", "qwen2.5:latest"), //HACK-change to config no hardcodding
+			APIKey:   getEnv("OPENAI_API_KEY", ""),
+			LiveKit: LiveKitConfig{
+				URL:       getEnv("LIVEKIT_WS_URL", "ws://localhost:7880"),
+				APIKey:    getEnv("LIVEKIT_API_KEY", ""),
+				APISecret: getEnv("LIVEKIT_API_SECRET", ""),
 			},
-			Prompts:     LoadPromptsFromYAML(yamlData),
-			Environment: getEnv("APP_ENV", "development"),
-		}
+		},
+		Email: EmailConfig{
+			Provider:      getEnv("EMAIL_PROVIDER", "microsoft_graph"),
+			TenantID:      getEnv("MS_TENANT_ID", ""),
+			ClientID:      getEnv("MS_CLIENT_ID", ""),
+			ClientSecret:  getEnv("MS_CLIENT_SECRET", ""),
+			CheckInterval: getEnvDuration("EMAIL_CHECK_INTERVAL", 30*time.Minute),
+			Folders:       parseFolders(getEnv("EMAIL_FOLDERS", "Inbox")),
+		},
+		Queue: QueueConfig{
+			Concurrency: getEnvInt("QUEUE_CONCURRENCY", 5),
+			RetryDelay:  getEnvDuration("QUEUE_RETRY_DELAY", 5*time.Second),
+		},
+		Scoring: ScoringConfig{
+			AutoThreshold:      getEnvInt("SCORING_AUTO_THRESHOLD", autoThresholdFromYAML(yamlData)),
+			ReviewThreshold:    getEnvInt("SCORING_REVIEW_THRESHOLD", reviewThresholdFromYAML(yamlData)),
+			Mode:               getEnv("SCORING_MODE", "hybrid"),
+			HybridRejectMargin: getEnvInt("SCORING_HYBRID_REJECT_MARGIN", 20),
+			Weights: ScoringWeights{
+				Skill:       getEnvFloat("SCORING_WEIGHT_SKILL", 0.35),
+				Experience:  getEnvFloat("SCORING_WEIGHT_EXPERIENCE", 0.25),
+				Location:    getEnvFloat("SCORING_WEIGHT_LOCATION", 0.10),
+				Salary:      getEnvFloat("SCORING_WEIGHT_SALARY", 0.15),
+				Description: getEnvFloat("SCORING_WEIGHT_DESCRIPTION", 0.15),
+			},
+		},
+		RateLimit: RateLimitConfig{
+			RequestsPerMinute: getEnvInt("RATE_LIMIT_RPM", 60),
+			Burst:             getEnvInt("RATE_LIMIT_BURST", 10),
+		},
+		AuthRateLimit: AuthRateLimitConfig{
+			RequestsPerMinute: getEnvInt("AUTH_RATE_LIMIT_RPM", 60),
+			Burst:             getEnvInt("AUTH_RATE_LIMIT_BURST", 10),
+		},
+		Prompts:     LoadPromptsFromYAML(yamlData),
+		Environment: getEnv("APP_ENV", "development"),
+	}
 	return cfg
 }
 

@@ -1,12 +1,10 @@
 import { Page } from 'playwright';
 import { BaseScraper, ScrapedJob } from '../base.js';
-import { detectATS, ATSScraper } from './ats-detector.js';
+import { detectATS } from './ats-detector.js';
 import { extractJsonLd, JSONLD_MIN_THRESHOLD } from './jsonld-extractor.js';
 import { discoverWithPagination } from './pagination-discovery.js';
 import { scrapeJobPagesConcurrent } from './job-page-scraper.js';
 import { extractPageContent, autoScroll } from './content-extractor.js';
-import { extractApplyUrl } from './apply-link-extractor.js';
-import { resolveRedirect } from './redirect-resolver.js';
 import { deduplicate } from './deduplicator.js';
 import { hashId, inferCompany, extractDomain, detectSourceFromUrl } from './helpers.js';
 import { logger } from '../../utils/logger.js';

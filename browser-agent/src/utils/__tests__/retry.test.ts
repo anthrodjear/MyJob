@@ -5,7 +5,7 @@
  * Pure function — no external dependencies.
  */
 
-import { retry, RetryOptions } from '../retry';
+import { retry } from '../retry';
 
 describe('retry', () => {
   beforeEach(() => {

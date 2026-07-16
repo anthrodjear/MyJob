@@ -77,21 +77,21 @@ const dispatchTimeout = 10 * time.Second
 
 // Workflow orchestrates approval-to-submission business flows.
 type Workflow struct {
-	svc            *Service
+	svc             *Service
 	applicationsSvc *applications.Service
-	dispatcher     SubmitDispatcher
-	activitySvc    *activity.Service
-	logger         *zap.Logger
+	dispatcher      SubmitDispatcher
+	activitySvc     *activity.Service
+	logger          *zap.Logger
 }
 
 // NewWorkflow creates a new approval workflow.
 func NewWorkflow(svc *Service, applicationsSvc *applications.Service, dispatcher SubmitDispatcher, activitySvc *activity.Service, logger *zap.Logger) *Workflow {
 	return &Workflow{
-		svc:            svc,
+		svc:             svc,
 		applicationsSvc: applicationsSvc,
-		dispatcher:     dispatcher,
-		activitySvc:    activitySvc,
-		logger:         logger.Named("approvals.workflow"),
+		dispatcher:      dispatcher,
+		activitySvc:     activitySvc,
+		logger:          logger.Named("approvals.workflow"),
 	}
 }
 

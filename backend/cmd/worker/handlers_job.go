@@ -149,10 +149,14 @@ func newHandleScrapeSource(
 
 		// Mark task as completed
 		if taskID != "" {
-			resultJSON, _ := json.Marshal(map[string]interface{}{
+			resultJSON, err := json.Marshal(map[string]interface{}{
 				"imported": result.Imported,
 				"skipped":  result.Skipped,
 			})
+			if err != nil {
+				log.Warn("failed to marshal result", zap.Error(err))
+				resultJSON = []byte("{}")
+			}
 			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
 				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
 			}
@@ -231,7 +235,11 @@ func newHandleScoring(
 		// 1. Apply match score to job (transitions discovered → matched if auto tier)
 		var detailsJSON json.RawMessage
 		if result.Details != nil {
-			detailsJSON, _ = json.Marshal(result.Details)
+			var err error
+			detailsJSON, err = json.Marshal(result.Details)
+			if err != nil {
+				log.Warn("failed to marshal scoring details", zap.Error(err))
+			}
 		}
 		if err := jobsSvc.ApplyMatchScore(ctx, payload.JobID, result.Score, detailsJSON); err != nil {
 			log.Warn("failed to apply match score", zap.Error(err))
@@ -260,9 +268,9 @@ func newHandleScoring(
 					log.Warn("failed to create application for approval", zap.Error(err))
 				} else {
 					var requirements []string
-				if trimmed := strings.TrimSpace(job.Requirements); trimmed != "" {
-					requirements = strings.Split(trimmed, "\n")
-				}
+					if trimmed := strings.TrimSpace(job.Requirements); trimmed != "" {
+						requirements = strings.Split(trimmed, "\n")
+					}
 					approval := &approvals.ApprovalRequest{
 						ApplicationID: app.ID,
 						Status:        approvals.ApprovalStatusPending,
@@ -296,11 +304,15 @@ func newHandleScoring(
 
 		// Mark task as completed
 		if taskID != "" {
-			resultJSON, _ := json.Marshal(map[string]interface{}{
+			resultJSON, err := json.Marshal(map[string]interface{}{
 				"score":  result.Score,
 				"tier":   result.Tier,
 				"source": result.Source,
 			})
+			if err != nil {
+				log.Warn("failed to marshal result", zap.Error(err))
+				resultJSON = []byte("{}")
+			}
 			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
 				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
 			}

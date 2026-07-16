@@ -16,14 +16,12 @@ import type {
   BrainConfig,
   AudioChunk,
   LiveKitConfig,
-  VoiceSessionConfig,
   STTProviderName,
   TTSProviderName,
   RealtimeProviderName,
 } from './types.js';
 import { LiveKitTransportImpl } from './livekit.js';
 import { createBrain } from './brain/index.js';
-import { createAudioSegmentQueue } from './queue.js';
 import { createInterviewSession, type SessionDeps } from './session.js';
 import { createVAD } from './vad.js';
 import { createSTTProvider, createTTSProvider, createRealtimeProvider, type VoiceProviderConfig } from './providers/factory.js';
@@ -201,7 +199,7 @@ function loadVoiceConfig(): VoiceYamlConfig {
     const config = parseVoiceConfig(content);
     log.info({ message: 'Loaded voice config from file', path: configPath });
     return config;
-  } catch (err) {
+  } catch {
     log.warn({ message: 'Could not load voice config file, using env vars only', path: configPath });
   }
 
@@ -260,14 +258,14 @@ function getNumericEnvOrConfig(
  *
  * @param overrides - Partial overrides for testing/customization
  */
-export function createInterviewSessionFactory(overrides?: {
+export async function createInterviewSessionFactory(overrides?: {
   config?: VoiceYamlConfig;
   lkConfig?: Partial<LiveKitConfig>;
   backendUrl?: string;
-}): {
+}): Promise<{
   session: ReturnType<typeof createInterviewSession>;
   config: VoiceYamlConfig;
-} {
+}> {
   const config = overrides?.config ?? loadVoiceConfig();
 
   // LiveKit config (env vars or YAML)
@@ -391,7 +389,7 @@ export function createInterviewSessionFactory(overrides?: {
   // Create providers based on config
   if (isRealtimeProvider(provider)) {
     // Realtime path (single provider handles STT+TTS)
-    const realtimeProvider = createRealtimeProvider(providerConfig);
+    const realtimeProvider = await createRealtimeProvider(providerConfig);
 
     sessionDeps = {
       transport,
@@ -415,8 +413,8 @@ export function createInterviewSessionFactory(overrides?: {
       silenceThresholdMs: vadConfig.silenceThresholdMs,
       sampleRate: vadConfig.sampleRate,
     });
-    const stt = createSTTProvider(providerConfig);
-    const tts = createTTSProvider(providerConfig);
+    const stt = await createSTTProvider(providerConfig);
+    const tts = await createTTSProvider(providerConfig);
 
     sessionDeps = {
       transport,

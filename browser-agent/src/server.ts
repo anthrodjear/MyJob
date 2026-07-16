@@ -51,10 +51,7 @@ const startInterviewSchema = z.object({
 });
 
 // Derived types (always in sync with schemas)
-type ScrapeJobsRequest = z.infer<typeof scrapeJobsSchema>;
-type FillFormRequest = z.infer<typeof fillFormSchema>;
-type CheckEmailsRequest = z.infer<typeof checkEmailsSchema>;
-type StartInterviewRequest = z.infer<typeof startInterviewSchema>;
+// Types derived inline in handlers via z.infer<typeof schema>
 
 // ----- Error envelope helpers -----
 
@@ -64,10 +61,6 @@ function errorResponse(code: string, message: string, details?: unknown) {
 
 function notImplementedResponse(feature: string) {
   return { error: { code: 'NOT_IMPLEMENTED', message: `${feature} not yet implemented` } };
-}
-
-function serviceUnavailableResponse(feature: string) {
-  return { error: { code: 'SERVICE_UNAVAILABLE', message: `${feature} temporarily unavailable` } };
 }
 
 // ----- SSRF protection -----
@@ -152,7 +145,7 @@ app.post('/api/v1/scrape/jobs', async (req: Request, res: Response, next: NextFu
 /**
  * Fill and submit an application form.
  */
-app.post('/api/v1/forms/fill', async (req: Request, res: Response, next: NextFunction) => {
+app.post('/api/v1/forms/fill', async (req: Request, res: Response, _next: NextFunction) => {
   const parsed = fillFormSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json(errorResponse('INVALID_REQUEST', 'Invalid request body', parsed.error.issues));
@@ -187,7 +180,7 @@ app.post('/api/v1/forms/fill', async (req: Request, res: Response, next: NextFun
  * Check for job-related emails via Microsoft Graph.
  * Currently a placeholder — implementation pending.
  */
-app.post('/api/v1/emails/check', async (req: Request, res: Response, next: NextFunction) => {
+app.post('/api/v1/emails/check', async (req: Request, res: Response, _next: NextFunction) => {
   const parsed = checkEmailsSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json(errorResponse('INVALID_REQUEST', 'Invalid request body', parsed.error.issues));
@@ -200,7 +193,7 @@ app.post('/api/v1/emails/check', async (req: Request, res: Response, next: NextF
  * Start a voice interview session.
  * Long-running endpoint — blocks until the interview completes (up to 30 minutes).
  */
-app.post('/api/v1/interviews/start', async (req: Request, res: Response, next: NextFunction) => {
+app.post('/api/v1/interviews/start', async (req: Request, res: Response, _next: NextFunction) => {
   const parsed = startInterviewSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json(errorResponse('INVALID_REQUEST', 'Invalid request body', parsed.error.issues));
@@ -222,7 +215,7 @@ app.post('/api/v1/interviews/start', async (req: Request, res: Response, next: N
     const token = await at.toJwt();
 
     // Create session via factory (reads config from env/YAML)
-    const { session } = createInterviewSessionFactory();
+    const { session } = await createInterviewSessionFactory();
 
     // Start session and wait for it to end
     const sessionPromise = new Promise<{ success: boolean; message: string }>((resolve) => {
@@ -266,7 +259,7 @@ app.post('/api/v1/interviews/start', async (req: Request, res: Response, next: N
 
 // ----- Global error middleware (must be last) -----
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
   logger.error(
     { err, path: req.path, method: req.method, query: req.query },

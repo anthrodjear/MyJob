@@ -119,10 +119,14 @@ func newHandleGenerateResume(
 
 		// Mark task as completed
 		if taskID != "" {
-			resultJSON, _ := json.Marshal(map[string]interface{}{
+			resultJSON, err := json.Marshal(map[string]interface{}{
 				"resume_id": resumeID.String(),
 				"version":   version,
 			})
+			if err != nil {
+				log.Warn("failed to marshal result", zap.Error(err))
+				resultJSON = []byte("{}")
+			}
 			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
 				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
 			}
@@ -241,10 +245,14 @@ func newHandleGenerateCoverLetter(
 
 		// Mark task as completed
 		if taskID != "" {
-			resultJSON, _ := json.Marshal(map[string]interface{}{
+			resultJSON, err := json.Marshal(map[string]interface{}{
 				"cover_letter_id": payload.CoverLetterID.String(),
 				"version":         cl.Version,
 			})
+			if err != nil {
+				log.Warn("failed to marshal result", zap.Error(err))
+				resultJSON = []byte("{}")
+			}
 			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
 				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
 			}
@@ -340,11 +348,15 @@ func newHandleTailorResume(
 
 		// Mark task as completed
 		if taskID != "" {
-			resultJSON, _ := json.Marshal(map[string]interface{}{
+			resultJSON, err := json.Marshal(map[string]interface{}{
 				"resume_id": payload.ResumeID.String(),
 				"job_id":    payload.JobID.String(),
 				"summary":   tailoredContent.Summary,
 			})
+			if err != nil {
+				log.Warn("failed to marshal result", zap.Error(err))
+				resultJSON = []byte("{}")
+			}
 			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
 				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
 			}
