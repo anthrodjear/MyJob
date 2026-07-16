@@ -20,11 +20,12 @@ import (
 // non-existent Redis port.  This lets us test error paths (connection refused)
 // and verify that error messages are correctly wrapped with the task type —
 // without requiring a running Redis instance.
+// The service is nil so dispatch skips the DB step and exercises the asynq-only path.
 func newTestDispatcher(t *testing.T) *Dispatcher {
 	t.Helper()
 	client := asynq.NewClient(asynq.RedisClientOpt{Addr: "127.0.0.1:1"})
 	t.Cleanup(func() { client.Close() })
-	return NewDispatcher(client, zap.NewNop())
+	return NewDispatcher(client, nil, zap.NewNop())
 }
 
 // ---------------------------------------------------------------------------
@@ -43,6 +44,7 @@ func TestTaskConfig_AllTypesPresent(t *testing.T) {
 		TypeEmailCheck,
 		TypeInterviewPrep,
 		TypeVoiceSession,
+		TypeFillForm,
 	}
 
 	for _, tt := range expectedTypes {
@@ -61,7 +63,7 @@ func TestTaskConfig_NoExtraneousTypes(t *testing.T) {
 		case TypeJobDiscovery, TypeJobScoring, TypeApplicationSubmit,
 			TypeEmbeddingGenerate, TypeCoverLetterGen, TypeResumeGenerate,
 			TypeResumeTailor, TypeEmailCheck, TypeInterviewPrep,
-			TypeVoiceSession:
+			TypeVoiceSession, TypeFillForm:
 			// known
 		default:
 			t.Errorf("unexpected key in taskConfig: %q", key)
@@ -85,6 +87,7 @@ func TestTaskConfig_Values(t *testing.T) {
 		{typ: TypeEmailCheck, wantRetries: 5, wantTimeout: 1 * time.Minute},
 		{typ: TypeInterviewPrep, wantRetries: 3, wantTimeout: 5 * time.Minute},
 		{typ: TypeVoiceSession, wantRetries: 1, wantTimeout: 30 * time.Minute},
+		{typ: TypeFillForm, wantRetries: 3, wantTimeout: 10 * time.Minute},
 	}
 
 	for _, tt := range tests {
@@ -108,7 +111,7 @@ func TestNewDispatcher(t *testing.T) {
 	client := asynq.NewClient(asynq.RedisClientOpt{Addr: "127.0.0.1:1"})
 	defer client.Close()
 
-	d := NewDispatcher(client, logger)
+	d := NewDispatcher(client, nil, logger)
 	require.NotNil(t, d)
 	assert.Equal(t, client, d.client)
 	assert.Equal(t, logger, d.logger)
@@ -120,7 +123,7 @@ func TestNewDispatcher_NilLogger(t *testing.T) {
 
 	// The constructor does not guard against nil logger — caller's
 	// responsibility.  We just verify it doesn't panic at construction.
-	d := NewDispatcher(client, nil)
+	d := NewDispatcher(client, nil, nil)
 	require.NotNil(t, d)
 	assert.Nil(t, d.logger)
 }
@@ -139,7 +142,7 @@ func TestDispatch_MarshalError(t *testing.T) {
 	client := asynq.NewClient(asynq.RedisClientOpt{Addr: "127.0.0.1:1"})
 	defer client.Close()
 
-	d := NewDispatcher(client, logger)
+	d := NewDispatcher(client, nil, logger)
 
 	// A channel cannot be serialised → marshal fails before enqueue.
 	payload := unencodable{Ch: make(chan int)}
@@ -156,7 +159,7 @@ func TestDispatch_MarshalError_NilPayload(t *testing.T) {
 	client := asynq.NewClient(asynq.RedisClientOpt{Addr: "127.0.0.1:1"})
 	defer client.Close()
 
-	d := NewDispatcher(client, logger)
+	d := NewDispatcher(client, nil, logger)
 
 	// nil is a valid JSON value ("null") — no marshal error expected here.
 	taskID, err := d.dispatch(context.Background(), TypeInterviewPrep, nil)

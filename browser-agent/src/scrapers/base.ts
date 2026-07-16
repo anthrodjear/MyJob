@@ -5,7 +5,7 @@ import { stealthConfig } from '../utils/stealth.js';
 import { logger } from '../utils/logger.js';
 
 // Type declaration for browser globals in Playwright initScript context
-declare const navigator: Navigator;
+declare const _navigator: Navigator;
 
 /**
  * Normalized representation of a scraped job posting.

@@ -11,7 +11,9 @@ import (
 	"github.com/hibiken/asynq"
 	"go.uber.org/zap"
 
+	"backend/internal/activity"
 	"backend/internal/applications"
+	"backend/internal/approvals"
 	"backend/internal/config"
 	"backend/internal/database"
 	"backend/internal/embeddings"
@@ -77,14 +79,28 @@ func main() {
 	applicationsRepo := applications.NewRepository(postgres.DB)
 	applicationsService := applications.NewService(applicationsRepo, logger)
 
+	activityRepo := activity.NewRepository(postgres.DB)
+	activityService := activity.NewService(activityRepo, logger)
+
+	approvalsRepo := approvals.NewRepository(postgres.DB)
+	approvalsService := approvals.NewService(approvalsRepo, logger)
+
 	browserAgentURL := getEnv("BROWSER_AGENT_URL", "http://localhost:3000")
 	browserClient := NewHTTPBrowserAgentClient(browserAgentURL, logger)
 
 	embeddingClient := embeddings.NewEmbeddingClientFromConfig(logger, cfg.LLM)
 
-	// --- Asynq server ---
+	// --- Tasks service (for lifecycle tracking) ---
+	tasksRepo := tasks.NewRepository(postgres.DB)
+	tasksService := tasks.NewService(tasksRepo)
+
+	// --- Asynq client + dispatcher (for enqueuing tasks from handlers) ---
 	redisAddr := parseRedisAddr(cfg.Redis.URL, logger)
 
+	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddr})
+	defer asynqClient.Close()
+
+	// --- Asynq server ---
 	srv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: redisAddr},
 		asynq.Config{
@@ -93,17 +109,17 @@ func main() {
 	)
 
 	mux := asynq.NewServeMux()
-	mux.HandleFunc(tasks.TypeJobDiscovery, newHandleScrapeSource(jobsService, scoringService, browserClient, logger))
-	mux.HandleFunc(tasks.TypeJobScoring, newHandleScoring(scoringService, logger))
-	mux.HandleFunc(tasks.TypeResumeGenerate, newHandleGenerateResume(resumesService, jobsService, logger))
-	mux.HandleFunc(tasks.TypeCoverLetterGen, newHandleGenerateCoverLetter(resumesService, jobsService, logger))
-	mux.HandleFunc(tasks.TypeResumeTailor, newHandleTailorResume(resumesService, jobsService, logger))
-	mux.HandleFunc(tasks.TypeFillForm, newHandleFillForm(browserClient, logger))
-	mux.HandleFunc(tasks.TypeApplicationSubmit, newHandleSubmitApplication(applicationsService, jobsService, browserClient, logger))
-	mux.HandleFunc(tasks.TypeEmailCheck, newHandleSyncEmails(applicationsService, browserClient, cfg.Email, logger))
-	mux.HandleFunc(tasks.TypeInterviewPrep, newHandleGenerateInterviewPrep(applicationsService, jobsService, logger))
-	mux.HandleFunc(tasks.TypeEmbeddingGenerate, newHandleCreateEmbeddings(embeddingClient, postgres.DB, logger))
-	mux.HandleFunc(tasks.TypeVoiceSession, newHandleVoiceSession(browserClient, logger))
+	mux.HandleFunc(tasks.TypeJobDiscovery, newHandleScrapeSource(jobsService, scoringService, browserClient, logger, tasksService))
+	mux.HandleFunc(tasks.TypeJobScoring, newHandleScoring(scoringService, jobsService, activityService, approvalsService, applicationsService, logger, tasksService))
+	mux.HandleFunc(tasks.TypeResumeGenerate, newHandleGenerateResume(resumesService, jobsService, logger, tasksService))
+	mux.HandleFunc(tasks.TypeCoverLetterGen, newHandleGenerateCoverLetter(resumesService, jobsService, logger, tasksService))
+	mux.HandleFunc(tasks.TypeResumeTailor, newHandleTailorResume(resumesService, jobsService, logger, tasksService))
+	mux.HandleFunc(tasks.TypeFillForm, newHandleFillForm(browserClient, logger, tasksService))
+	mux.HandleFunc(tasks.TypeApplicationSubmit, newHandleSubmitApplication(applicationsService, jobsService, browserClient, logger, tasksService))
+	mux.HandleFunc(tasks.TypeEmailCheck, newHandleSyncEmails(applicationsService, browserClient, cfg.Email, logger, tasksService))
+	mux.HandleFunc(tasks.TypeInterviewPrep, newHandleGenerateInterviewPrep(applicationsService, jobsService, logger, tasksService))
+	mux.HandleFunc(tasks.TypeEmbeddingGenerate, newHandleCreateEmbeddings(embeddingClient, postgres.DB, logger, tasksService))
+	mux.HandleFunc(tasks.TypeVoiceSession, newHandleVoiceSession(browserClient, logger, tasksService))
 
 	logger.Info("Worker started")
 

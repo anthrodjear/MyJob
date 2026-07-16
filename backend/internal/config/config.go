@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
@@ -133,6 +134,61 @@ type PromptPair struct {
 	User   string
 }
 
+// yamlApprovalTiersConfig maps the application.approval_tiers section of application.yaml.
+type yamlApprovalTiersConfig struct {
+	Application struct {
+		ApprovalTiers struct {
+			AutoApply yamlTierDef `yaml:"auto_apply"`
+			Review    yamlTierDef `yaml:"review"`
+			Reject    yamlTierDef `yaml:"reject"`
+		} `yaml:"approval_tiers"`
+	} `yaml:"application"`
+}
+
+type yamlTierDef struct {
+	MinScore int    `yaml:"min_score"`
+	MaxScore int    `yaml:"max_score"`
+	Action   string `yaml:"action"`
+	Notify   bool   `yaml:"notify"`
+	Log      bool   `yaml:"log"`
+}
+
+// loadApprovalTiersFromYAML parses approval_tiers from raw application.yaml bytes.
+// Returns (autoThreshold, reviewThreshold) with 0 values if data is nil or parsing fails.
+func loadApprovalTiersFromYAML(data []byte) (autoThreshold, reviewThreshold int) {
+	if len(data) == 0 {
+		return 0, 0
+	}
+
+	var yamlCfg yamlApprovalTiersConfig
+	if err := yaml.Unmarshal(data, &yamlCfg); err != nil {
+		// Logger not available at config load time — fmt.Printf is intentional here.
+		// This only fires on YAML parse failure during startup.
+		fmt.Printf("config: failed to parse application.yaml approval_tiers: %v\n", err)
+		return 0, 0
+	}
+
+	return yamlCfg.Application.ApprovalTiers.AutoApply.MinScore, yamlCfg.Application.ApprovalTiers.Review.MinScore
+}
+
+// autoThresholdFromYAML returns the auto threshold from YAML, or 95 as hardcoded fallback.
+func autoThresholdFromYAML(data []byte) int {
+	auto, _ := loadApprovalTiersFromYAML(data)
+	if auto == 0 {
+		return 95
+	}
+	return auto
+}
+
+// reviewThresholdFromYAML returns the review threshold from YAML, or 80 as hardcoded fallback.
+func reviewThresholdFromYAML(data []byte) int {
+	_, review := loadApprovalTiersFromYAML(data)
+	if review == 0 {
+		return 80
+	}
+	return review
+}
+
 type AuthConfig struct {
 	PasswordHash       string        // bcrypt hash of the single user password
 	JWTSecret          string        // HMAC signing secret for JWT
@@ -238,8 +294,8 @@ func Load() *Config {
 			RetryDelay:  getEnvDuration("QUEUE_RETRY_DELAY", 5*time.Second),
 		},
 		Scoring: ScoringConfig{
-			AutoThreshold:      getEnvInt("SCORING_AUTO_THRESHOLD", 95),
-			ReviewThreshold:    getEnvInt("SCORING_REVIEW_THRESHOLD", 80),
+			AutoThreshold:      getEnvInt("SCORING_AUTO_THRESHOLD", autoThresholdFromYAML(yamlData)),
+			ReviewThreshold:    getEnvInt("SCORING_REVIEW_THRESHOLD", reviewThresholdFromYAML(yamlData)),
 			Mode:               getEnv("SCORING_MODE", "hybrid"),
 			HybridRejectMargin: getEnvInt("SCORING_HYBRID_REJECT_MARGIN", 20),
 			Weights: ScoringWeights{

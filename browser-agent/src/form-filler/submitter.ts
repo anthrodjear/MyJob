@@ -244,7 +244,7 @@ async function fillField(page: Page, field: FormField, value: string): Promise<v
       }
       break;
 
-    case 'checkbox':
+    case 'checkbox': {
       const checkValue = value.toLowerCase();
       if (checkValue === 'true' || checkValue === '1' || checkValue === 'yes' || checkValue === 'on') {
         await element.check();
@@ -252,6 +252,7 @@ async function fillField(page: Page, field: FormField, value: string): Promise<v
         await element.uncheck();
       }
       break;
+    }
 
     case 'radio':
       await element.check();

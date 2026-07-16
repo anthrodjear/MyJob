@@ -9,29 +9,34 @@ import (
 
 // Job represents a job listing from a source.
 type Job struct {
-	ID             uuid.UUID       `db:"id" json:"id"`
-	SourceID       uuid.UUID       `db:"source_id" json:"source_id"`
-	ExternalID     string          `db:"external_id" json:"external_id"`
-	Title          string          `db:"title" json:"title"`
-	Company        string          `db:"company" json:"company"`
-	Location       string          `db:"location" json:"location"`
-	RemoteType     string          `db:"remote_type" json:"remote_type"`
-	SalaryMin      int             `db:"salary_min" json:"salary_min"`
-	SalaryMax      int             `db:"salary_max" json:"salary_max"`
-	SalaryCurrency string          `db:"salary_currency" json:"salary_currency"`
-	Description    string          `db:"description" json:"description"`
-	Requirements   string          `db:"requirements" json:"requirements"`
-	URL            string          `db:"url" json:"url"`
-	ApplicationURL string          `db:"application_url" json:"application_url"`
-	CompanyURL     string          `db:"company_url" json:"company_url"`
-	Source         string          `db:"source" json:"source"`
-	PostedAt       *time.Time      `db:"posted_at" json:"posted_at,omitempty"`
-	ScrapedAt      time.Time       `db:"scraped_at" json:"scraped_at"`
-	MatchScore     float64         `db:"match_score" json:"match_score"`
-	MatchDetails   json.RawMessage `db:"match_details" json:"match_details,omitempty"`
-	Status         string          `db:"status" json:"status"`
-	CreatedAt      time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt      time.Time       `db:"updated_at" json:"updated_at"`
+	ID               uuid.UUID       `db:"id" json:"id"`
+	SourceID         uuid.UUID       `db:"source_id" json:"source_id"`
+	ExternalID       string          `db:"external_id" json:"external_id"`
+	Title            string          `db:"title" json:"title"`
+	Company          string          `db:"company" json:"company"`
+	Location         string          `db:"location" json:"location"`
+	RemoteType       string          `db:"remote_type" json:"remote_type"`
+	SalaryMin        int             `db:"salary_min" json:"salary_min"`
+	SalaryMax        int             `db:"salary_max" json:"salary_max"`
+	SalaryCurrency   string          `db:"salary_currency" json:"salary_currency"`
+	Description      string          `db:"description" json:"description"`
+	Requirements     string          `db:"requirements" json:"requirements"`
+	URL              string          `db:"url" json:"url"`
+	ApplicationURL   string          `db:"application_url" json:"application_url"`
+	CompanyURL       string          `db:"company_url" json:"company_url"`
+	Source           string          `db:"source" json:"source"`
+	PostedAt         *time.Time      `db:"posted_at" json:"posted_at,omitempty"`
+	ScrapedAt        time.Time       `db:"scraped_at" json:"scraped_at"`
+	MatchScore       float64         `db:"match_score" json:"match_score"`
+	MatchDetails     json.RawMessage `db:"match_details" json:"match_details,omitempty"`
+	Status           string          `db:"status" json:"status"`
+	ScoreTier        *string         `db:"score_tier" json:"score_tier,omitempty"`
+	ScoredAt         *time.Time      `db:"scored_at" json:"scored_at,omitempty"`
+	ScoringReasoning *string         `db:"scoring_reasoning" json:"scoring_reasoning,omitempty"`
+	ScoringModel     *string         `db:"scoring_model" json:"scoring_model,omitempty"`
+	ScoringSource    *string         `db:"scoring_source" json:"scoring_source,omitempty"`
+	CreatedAt        time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt        time.Time       `db:"updated_at" json:"updated_at"`
 
 	// Populated via JOIN for API responses
 	SourceName string `db:"source_name" json:"source_name,omitempty"`

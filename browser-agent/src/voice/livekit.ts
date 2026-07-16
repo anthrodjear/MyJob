@@ -303,12 +303,7 @@ export class LiveKitTransportImpl implements ILiveKitTransport {
     const options = new TrackPublishOptions();
     options.source = TrackSource.SOURCE_MICROPHONE;
 
-    try {
-      await this.room.localParticipant.publishTrack(track, options);
-    } catch (err) {
-      // Note: track and source have no explicit close() — native resources freed by GC
-      throw err;
-    }
+    await this.room.localParticipant.publishTrack(track, options);
 
     // Only assign after successful publish
     this.publishSource = source;
@@ -447,7 +442,7 @@ export class LiveKitTransportImpl implements ILiveKitTransport {
 
   /** Close all active audio streams. */
   private closeAllStreams(): void {
-    for (const [identity, stream] of this.activeStreams) {
+    for (const [_identity, stream] of this.activeStreams) {
       stream.removeAllListeners();
       stream.close();
     }

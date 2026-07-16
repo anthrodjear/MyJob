@@ -32,6 +32,7 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Job, error) {
 			j.remote_type, j.salary_min, j.salary_max, j.salary_currency,
 			j.description, j.requirements, j.url, j.application_url, j.company_url, j.source,
 			j.posted_at, j.scraped_at, j.match_score, j.match_details,
+			j.score_tier, j.scored_at, j.scoring_reasoning, j.scoring_model, j.scoring_source,
 			j.status, j.created_at, j.updated_at,
 			s.name as source_name
 		FROM jobs j
@@ -64,6 +65,7 @@ func (r *Repository) List(ctx context.Context, filter ListFilter) ([]Job, int, e
 			j.remote_type, j.salary_min, j.salary_max, j.salary_currency,
 			j.description, j.requirements, j.url, j.application_url, j.company_url, j.source,
 			j.posted_at, j.scraped_at, j.match_score, j.match_details,
+			j.score_tier, j.scored_at, j.scoring_reasoning, j.scoring_model, j.scoring_source,
 			j.status, j.created_at, j.updated_at,
 			s.name as source_name
 		FROM jobs j
@@ -169,6 +171,16 @@ func (r *Repository) ExistsBySourceAndExternalID(ctx context.Context, sourceID u
 		return false, fmt.Errorf("jobs: exists: %w", err)
 	}
 	return exists, nil
+}
+
+// GetSourceNameByID returns the source name for a given job_sources UUID.
+func (r *Repository) GetSourceNameByID(ctx context.Context, id uuid.UUID) (string, error) {
+	var name string
+	err := r.db.GetContext(ctx, &name, `SELECT name FROM job_sources WHERE id = $1`, id)
+	if err != nil {
+		return "", fmt.Errorf("jobs: get source name: %w", err)
+	}
+	return name, nil
 }
 
 // UpdateStatus updates a job's status.

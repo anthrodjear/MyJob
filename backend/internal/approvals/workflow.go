@@ -23,6 +23,9 @@ import (
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"backend/internal/activity"
+	"backend/internal/applications"
 )
 
 // ---------------------------------------------------------------------------
@@ -74,17 +77,21 @@ const dispatchTimeout = 10 * time.Second
 
 // Workflow orchestrates approval-to-submission business flows.
 type Workflow struct {
-	svc        *Service
-	dispatcher SubmitDispatcher
-	logger     *zap.Logger
+	svc             *Service
+	applicationsSvc *applications.Service
+	dispatcher      SubmitDispatcher
+	activitySvc     *activity.Service
+	logger          *zap.Logger
 }
 
 // NewWorkflow creates a new approval workflow.
-func NewWorkflow(svc *Service, dispatcher SubmitDispatcher, logger *zap.Logger) *Workflow {
+func NewWorkflow(svc *Service, applicationsSvc *applications.Service, dispatcher SubmitDispatcher, activitySvc *activity.Service, logger *zap.Logger) *Workflow {
 	return &Workflow{
-		svc:        svc,
-		dispatcher: dispatcher,
-		logger:     logger.Named("approvals.workflow"),
+		svc:             svc,
+		applicationsSvc: applicationsSvc,
+		dispatcher:      dispatcher,
+		activitySvc:     activitySvc,
+		logger:          logger.Named("approvals.workflow"),
 	}
 }
 
@@ -106,6 +113,26 @@ func (w *Workflow) Approve(ctx context.Context, id uuid.UUID) (*ApprovalRequest,
 	approval, err := w.svc.Approve(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("workflow approve: %w", err)
+	}
+
+	// Log the approval event
+	if err := w.activitySvc.LogEvent(ctx, activity.EventApprovalApproved, "approval", id, nil); err != nil {
+		w.logger.Error("failed to log approval event",
+			zap.String("approval_id", id.String()),
+			zap.Error(err),
+		)
+	}
+
+	// Transition application from draft → queued (required by FSM before queued → applied)
+	if err := w.applicationsSvc.UpdateStatus(ctx, approval.ApplicationID, applications.StatusQueued, "Approved — queued for submission"); err != nil {
+		w.logger.Error("failed to queue application — approval succeeded but submission cannot proceed",
+			zap.String("application_id", approval.ApplicationID.String()),
+			zap.Error(err),
+		)
+		return nil, &DispatchError{
+			ApprovalID: id,
+			Err:        fmt.Errorf("queue application: %w", err),
+		}
 	}
 
 	// Step 2: Dispatch submission task with detached context
@@ -135,4 +162,32 @@ func (w *Workflow) Approve(ctx context.Context, id uuid.UUID) (*ApprovalRequest,
 		zap.String("correlation_id", correlationID.String()),
 	)
 	return approval, nil
+}
+
+// Reject rejects the approval request and logs the event.
+//
+// The flow:
+//  1. Service.Reject transitions status pending → rejected
+//  2. Workflow logs the rejection event for the activity feed
+//
+// Returns:
+//   - nil — reject succeeded
+//   - error — reject failed (ErrNotFound, ErrInvalidStatus, ErrReasonRequired)
+func (w *Workflow) Reject(ctx context.Context, id uuid.UUID, reason string) error {
+	if err := w.svc.Reject(ctx, id, reason); err != nil {
+		return fmt.Errorf("workflow reject: %w", err)
+	}
+
+	// Log the rejection event
+	if err := w.activitySvc.LogEvent(ctx, activity.EventApprovalRejected, "approval", id, nil); err != nil {
+		w.logger.Error("failed to log rejection event",
+			zap.String("approval_id", id.String()),
+			zap.Error(err),
+		)
+	}
+
+	w.logger.Info("approval rejected",
+		zap.String("approval_id", id.String()),
+	)
+	return nil
 }

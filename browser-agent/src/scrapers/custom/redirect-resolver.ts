@@ -1,4 +1,3 @@
-import { Page } from 'playwright';
 import { BaseScraper } from '../base.js';
 import { logger } from '../../utils/logger.js';
 

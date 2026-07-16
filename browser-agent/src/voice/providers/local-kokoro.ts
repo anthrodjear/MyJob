@@ -98,7 +98,7 @@ const DAEMON_REQUEST_TIMEOUT_MS = 30_000;
  * This balances streaming granularity (not too many yields)
  * against latency (not too large a batch before first yield).
  */
-const CHUNK_SIZE = 4096;
+const _CHUNK_SIZE = 4096;
 
 /** Length prefix size in bytes (4-byte little-endian uint32). */
 const LENGTH_PREFIX_SIZE = 4;

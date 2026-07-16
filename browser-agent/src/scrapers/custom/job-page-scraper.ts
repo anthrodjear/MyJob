@@ -1,4 +1,3 @@
-import { Page } from 'playwright';
 import { BaseScraper, ScrapedJob } from '../base.js';
 import { extractJsonLd } from './jsonld-extractor.js';
 import { extractPageContent } from './content-extractor.js';

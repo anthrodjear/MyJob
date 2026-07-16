@@ -1,6 +1,5 @@
 import { Page } from 'playwright';
 import { ScrapedJob } from '../base.js';
-import crypto from 'node:crypto';
 import { hashId, inferCompany, extractDomain, detectSourceFromUrl } from './helpers.js';
 import { logger } from '../../utils/logger.js';
 

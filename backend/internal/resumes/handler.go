@@ -49,6 +49,8 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 		coverLetters.POST("/:id/generate", h.GenerateCoverLetter)
 		coverLetters.PUT("/:id/content", h.UpdateCoverLetterContent)
 		coverLetters.DELETE("/:id", h.DeleteCoverLetter)
+		coverLetters.GET("/:id/versions", h.ListCoverLetterVersions)
+		coverLetters.GET("/:id/versions/:version", h.GetCoverLetterVersion)
 	}
 }
 
@@ -704,6 +706,87 @@ func (h *Handler) DeleteCoverLetter(c *gin.Context) {
 	}
 
 	httpresp.OK(c, gin.H{"message": "cover letter deleted"})
+}
+
+// --- Cover Letter Version handlers ---
+
+// ListCoverLetterVersions handles GET /cover-letters/:id/versions.
+// @Summary List cover letter versions
+// @Description Get all historical versions of a cover letter
+// @Tags CoverLetters
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Cover letter UUID" format(uuid)
+// @Success 200 {object} CoverLetterVersionListResponse "List of cover letter versions"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid cover letter ID"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Cover letter not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /cover-letters/{id}/versions [get]
+func (h *Handler) ListCoverLetterVersions(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httpresp.BadRequest(c, "INVALID_ID", "invalid cover letter id")
+		return
+	}
+
+	versions, err := h.svc.ListCoverLetterVersions(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			httpresp.NotFound(c, "COVER_LETTER_NOT_FOUND", err.Error())
+			return
+		}
+		h.logger.Error("list cover letter versions", zap.String("id", id.String()), zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, CoverLetterVersionListResponse{
+		Versions: ToCoverLetterVersionResponses(versions),
+	})
+}
+
+// GetCoverLetterVersion handles GET /cover-letters/:id/versions/:version.
+// @Summary Get cover letter version
+// @Description Get a specific historical version of a cover letter
+// @Tags CoverLetters
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Cover letter UUID" format(uuid)
+// @Param version path int true "Version number"
+// @Success 200 {object} CoverLetterVersionResponse "Cover letter version with content"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid cover letter ID or version"
+// @Failure 401 {object} httpresp.ErrorResponse "Unauthorized"
+// @Failure 404 {object} httpresp.ErrorResponse "Version not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /cover-letters/{id}/versions/{version} [get]
+func (h *Handler) GetCoverLetterVersion(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httpresp.BadRequest(c, "INVALID_ID", "invalid cover letter id")
+		return
+	}
+
+	version, err := strconv.ParseInt(c.Param("version"), 10, 32)
+	if err != nil {
+		httpresp.BadRequest(c, "INVALID_VERSION", "invalid version number")
+		return
+	}
+
+	v, err := h.svc.GetCoverLetterVersion(c.Request.Context(), id, int32(version))
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			httpresp.NotFound(c, "VERSION_NOT_FOUND", "version not found")
+			return
+		}
+		h.logger.Error("get cover letter version", zap.String("id", id.String()), zap.Int64("version", version), zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, ToCoverLetterVersionResponse(v))
 }
 
 // --- Helpers ---

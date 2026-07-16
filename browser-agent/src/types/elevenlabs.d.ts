@@ -22,7 +22,7 @@ declare module 'elevenlabs' {
     };
   }
 
-  export interface ElevenLabsClient {
+  export interface ElevenLabsClientInterface {
     textToSpeech: {
       convert: (
         voiceId: string,
@@ -35,7 +35,7 @@ declare module 'elevenlabs' {
     };
   }
 
-  export class ElevenLabsClient implements ElevenLabsClient {
+  export class ElevenLabsClient implements ElevenLabsClientInterface {
     constructor(config: ElevenLabsClientConfig);
     textToSpeech: ElevenLabsClient['textToSpeech'];
   }

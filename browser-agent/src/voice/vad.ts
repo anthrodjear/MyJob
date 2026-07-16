@@ -55,11 +55,11 @@ export function createVAD(initialConfig: VADConfig = {}): VoiceActivityDetector 
   // ----- Thresholds (mutable via updateConfig) -----
 
   /** Seconds of silence below threshold before speech_ended fires. */
-  let silenceDurationS = (initialConfig.silenceThresholdMs ?? 700) / 1000;
+  let silenceDurationS = (initialConfig.silenceThresholdMs ?? DEFAULT_SILENCE_DURATION_S * 1000) / 1000;
   /** Seconds of sustained energy above threshold before speech_started fires. */
-  let onsetDebounceS = (initialConfig.speechThresholdMs ?? 200) / 1000;
+  let onsetDebounceS = (initialConfig.speechThresholdMs ?? DEFAULT_ONSET_DEBOUNCE_S * 1000) / 1000;
   /** Hard maximum speech duration — forces speech_ended even if still talking. 0 = disabled. */
-  let maxSpeechDurationS = DEFAULT_MAX_SPEECH_DURATION_S;
+  const maxSpeechDurationS = DEFAULT_MAX_SPEECH_DURATION_S;
 
   // ----- Adaptive noise floor -----
 

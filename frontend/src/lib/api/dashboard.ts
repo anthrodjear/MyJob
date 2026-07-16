@@ -2,10 +2,19 @@
  * Dashboard API client — stats, activity, tasks endpoints.
  *
  * Provides typed fetchers for dashboard data used in Server Components.
- * All functions use the base apiFetch for consistent error handling.
+ * All functions use dalFetch (Data Access Layer) which reads the session
+ * cookie server-side and forwards the auth token to the Go backend.
+ *
+ * Why dalFetch instead of apiFetch:
+ *   - Server Components can't use localStorage (browser API)
+ *   - dalFetch reads the encrypted session cookie via next/headers cookies()
+ *   - dalFetch forwards the access token as Authorization header
+ *
+ * @see lib/dal.ts — Data Access Layer (auth + fetch)
+ * @see lib/api/client.ts — Client-side API client (localStorage-based)
  */
 
-import { apiGet } from "@/lib/api/client";
+import { dalFetch } from "@/lib/dal";
 import type { ApplicationStatsResponse } from "@/lib/types/applications";
 import type { ActivityListResponse } from "@/lib/types/activity";
 import type { TaskListResponse } from "@/lib/types/tasks";
@@ -14,12 +23,13 @@ import type { TaskListResponse } from "@/lib/types/tasks";
  * Fetch application statistics for KPI cards and pipeline funnel.
  *
  * @returns Application stats including totals by status and tier
- * @throws ApiError if response is undefined or non-2xx
+ * @throws AuthError if session cookie is missing/invalid
+ * @throws DalError if backend returns non-2xx
  */
 export async function fetchDashboardStats(): Promise<ApplicationStatsResponse> {
-  const result = await apiGet<ApplicationStatsResponse>("applications/stats");
+  const result = await dalFetch<ApplicationStatsResponse>("/applications/stats");
   if (result === undefined) {
-    throw new Error("Unexpected empty response shape response shape from applications/stats");
+    throw new Error("Unexpected empty response from applications/stats");
   }
   return result;
 }
@@ -30,7 +40,8 @@ export async function fetchDashboardStats(): Promise<ApplicationStatsResponse> {
  * @param limit - Number of activities to fetch (default: 10)
  * @param offset - Pagination offset (default: 0)
  * @returns Paginated activity list
- * @throws ApiError if response is undefined or non-2xx
+ * @throws AuthError if session cookie is missing/invalid
+ * @throws DalError if backend returns non-2xx
  */
 export async function fetchRecentActivity(
   limit = 10,
@@ -40,7 +51,7 @@ export async function fetchRecentActivity(
   params.set("limit", String(limit));
   params.set("offset", String(offset));
 
-  const result = await apiGet<ActivityListResponse>(`activity-logs?${params}`);
+  const result = await dalFetch<ActivityListResponse>(`/activity-logs?${params}`);
   if (result === undefined) {
     throw new Error("Unexpected empty response from activity-logs");
   }
@@ -54,7 +65,8 @@ export async function fetchRecentActivity(
  * @param offset - Pagination offset (default: 0)
  * @param status - Task status filter (default: "pending")
  * @returns List of tasks matching the filter
- * @throws ApiError if response is undefined or non-2xx
+ * @throws AuthError if session cookie is missing/invalid
+ * @throws DalError if backend returns non-2xx
  */
 export async function fetchPendingTasks(
   limit = 5,
@@ -66,7 +78,7 @@ export async function fetchPendingTasks(
   params.set("limit", String(limit));
   params.set("offset", String(offset));
 
-  const result = await apiGet<TaskListResponse>(`tasks?${params}`);
+  const result = await dalFetch<TaskListResponse>(`/tasks?${params}`);
   if (result === undefined) {
     throw new Error("Unexpected empty response from tasks");
   }

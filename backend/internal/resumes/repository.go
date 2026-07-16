@@ -39,6 +39,9 @@ type Repository interface {
 	UpdateCoverLetterContent(ctx context.Context, id uuid.UUID, content string, model, promptVersion *string, resumeVersion *int32, strengths, gaps *StringSliceDB, wordCount *int, currentVersion int32) (int32, error)
 	UpdateCoverLetterPdfKey(ctx context.Context, id uuid.UUID, pdfKey string) error
 	DeleteCoverLetter(ctx context.Context, id uuid.UUID) error
+	SaveCoverLetterVersion(ctx context.Context, v *CoverLetterVersion) error
+	GetCoverLetterVersions(ctx context.Context, coverLetterID uuid.UUID) ([]*CoverLetterVersion, error)
+	GetCoverLetterVersion(ctx context.Context, coverLetterID uuid.UUID, version int32) (*CoverLetterVersion, error)
 }
 
 // PostgresRepository implements Repository using PostgreSQL.
@@ -354,4 +357,46 @@ func (r *PostgresRepository) DeleteCoverLetter(ctx context.Context, id uuid.UUID
 		return ErrNotFound
 	}
 	return nil
+}
+
+// --- Cover Letter Version methods ---
+
+// SaveCoverLetterVersion inserts a versioned snapshot of cover letter content.
+func (r *PostgresRepository) SaveCoverLetterVersion(ctx context.Context, v *CoverLetterVersion) error {
+	return r.db.QueryRowxContext(ctx,
+		`INSERT INTO cover_letter_versions (id, cover_letter_id, content, version, model, prompt_version, resume_version, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		 RETURNING created_at`,
+		v.ID, v.CoverLetterID, v.Content, v.Version, v.Model, v.PromptVersion, v.ResumeVersion, v.CreatedAt,
+	).Scan(&v.CreatedAt)
+}
+
+// GetCoverLetterVersions returns all versions for a cover letter, newest first.
+func (r *PostgresRepository) GetCoverLetterVersions(ctx context.Context, coverLetterID uuid.UUID) ([]*CoverLetterVersion, error) {
+	var versions []*CoverLetterVersion
+	err := r.db.SelectContext(ctx, &versions,
+		`SELECT id, cover_letter_id, content, version, model, prompt_version, resume_version, created_at
+		 FROM cover_letter_versions
+		 WHERE cover_letter_id = $1
+		 ORDER BY version DESC`, coverLetterID)
+	if err != nil {
+		return nil, fmt.Errorf("get cover letter versions: %w", err)
+	}
+	return versions, nil
+}
+
+// GetCoverLetterVersion returns a specific version of a cover letter.
+func (r *PostgresRepository) GetCoverLetterVersion(ctx context.Context, coverLetterID uuid.UUID, version int32) (*CoverLetterVersion, error) {
+	var v CoverLetterVersion
+	err := r.db.GetContext(ctx, &v,
+		`SELECT id, cover_letter_id, content, version, model, prompt_version, resume_version, created_at
+		 FROM cover_letter_versions
+		 WHERE cover_letter_id = $1 AND version = $2`, coverLetterID, version)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("get cover letter version: %w", err)
+	}
+	return &v, nil
 }

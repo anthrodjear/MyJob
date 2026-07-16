@@ -40,7 +40,7 @@ const LLMResponseSchema = z.object({
   strategy: z.enum(['answer', 'clarify', 'defer', 'silent']),
 });
 
-type LLMResponse = z.infer<typeof LLMResponseSchema>;
+type _LLMResponse = z.infer<typeof LLMResponseSchema>;
 
 // ----- Prompt Templates -----
 
@@ -490,9 +490,12 @@ Respond as the candidate to the above question. Return ONLY valid JSON.`;
       };
     }
 
-    // Budget allocation
-    const truncMemory = truncateMemory(memory, promptBudget.summary! + promptBudget.transcript!);
-    const truncChunks = truncateChunks(contextChunks, promptBudget.retrieval!);
+    // Budget allocation — fields always set via defaults at construction, but guard for type safety
+    const summaryBudget = promptBudget.summary ?? 2000;
+    const transcriptBudget = promptBudget.transcript ?? 4000;
+    const retrievalBudget = promptBudget.retrieval ?? 6000;
+    const truncMemory = truncateMemory(memory, summaryBudget + transcriptBudget);
+    const truncChunks = truncateChunks(contextChunks, retrievalBudget);
 
     const prompt = buildPrompt(segment, truncChunks, interviewContext, truncMemory);
 

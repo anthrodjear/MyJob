@@ -19,7 +19,7 @@ type CreateApplicationRequest struct {
 
 // UpdateStatusRequest is the payload for PUT /applications/:id/status.
 type UpdateStatusRequest struct {
-	Status string `json:"status" binding:"required,oneof=pending approved applied interviewed offered rejected archived" example:"applied" enums:"pending,approved,applied,interviewed,offered,rejected,archived"`
+	Status string `json:"status" binding:"required,oneof=draft queued applied assessment phone_screen technical final offer rejected" example:"applied" enums:"draft,queued,applied,assessment,phone_screen,technical,final,offer,rejected"`
 	Notes  string `json:"notes" example:"Applied via Greenhouse portal"`
 }
 

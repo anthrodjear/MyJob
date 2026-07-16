@@ -68,6 +68,14 @@ type ApplicationSubmitPayload struct {
 	CorrelationID uuid.UUID       `json:"correlation_id"`
 }
 
+// FillFormPayload is the params for a fill_form task.
+type FillFormPayload struct {
+	PortalURL  string            `json:"portal_url"`
+	PortalType string            `json:"portal_type"`
+	FormData   map[string]string `json:"form_data"`
+	ResumePath string            `json:"resume_path,omitempty"`
+}
+
 // EmbeddingPayload is the params for an embedding generation task.
 type EmbeddingPayload struct {
 	SourceType    string    `json:"source_type"`

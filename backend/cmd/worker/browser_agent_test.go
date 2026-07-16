@@ -31,7 +31,7 @@ func TestHTTPBrowserAgentClient_ScrapeJobs_Success(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPost, r.Method)
-		assert.Equal(t, "/api/scrape/jobs", r.URL.Path)
+		assert.Equal(t, "/api/v1/scrape/jobs", r.URL.Path)
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
 		var req ScrapeJobsRequest
@@ -93,7 +93,7 @@ func TestHTTPBrowserAgentClient_FillForm_Success(t *testing.T) {
 	expected := FillFormResponse{Success: true, Message: "Form submitted"}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/forms/fill", r.URL.Path)
+		assert.Equal(t, "/api/v1/forms/fill", r.URL.Path)
 
 		var req FillFormRequest
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
@@ -142,7 +142,7 @@ func TestHTTPBrowserAgentClient_CheckEmails_Success(t *testing.T) {
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/emails/check", r.URL.Path)
+		assert.Equal(t, "/api/v1/emails/check", r.URL.Path)
 
 		var req CheckEmailsRequest
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
@@ -185,7 +185,7 @@ func TestHTTPBrowserAgentClient_StartVoiceSession_Success(t *testing.T) {
 	expected := VoiceSessionResponse{Success: true, Message: "Interview completed"}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/interviews/start", r.URL.Path)
+		assert.Equal(t, "/api/v1/interviews/start", r.URL.Path)
 
 		var req VoiceSessionRequest
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&req))

@@ -142,7 +142,7 @@ func (c *HTTPBrowserAgentClient) ScrapeJobs(ctx context.Context, req ScrapeJobsR
 		return nil, fmt.Errorf("browser-agent: marshal request: %w", err)
 	}
 
-	url := c.baseURL + "/api/scrape/jobs"
+	url := c.baseURL + "/api/v1/scrape/jobs"
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("browser-agent: create request: %w", err)
@@ -191,7 +191,7 @@ func (c *HTTPBrowserAgentClient) FillForm(ctx context.Context, req FillFormReque
 		return nil, fmt.Errorf("browser-agent: marshal fill form request: %w", err)
 	}
 
-	url := c.baseURL + "/api/forms/fill"
+	url := c.baseURL + "/api/v1/forms/fill"
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("browser-agent: create fill form request: %w", err)
@@ -239,7 +239,7 @@ func (c *HTTPBrowserAgentClient) CheckEmails(ctx context.Context, req CheckEmail
 		return nil, fmt.Errorf("browser-agent: marshal check emails request: %w", err)
 	}
 
-	url := c.baseURL + "/api/emails/check"
+	url := c.baseURL + "/api/v1/emails/check"
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("browser-agent: create check emails request: %w", err)
@@ -286,7 +286,7 @@ func (c *HTTPBrowserAgentClient) StartVoiceSession(ctx context.Context, req Voic
 		return nil, fmt.Errorf("browser-agent: marshal voice session request: %w", err)
 	}
 
-	url := c.baseURL + "/api/interviews/start"
+	url := c.baseURL + "/api/v1/interviews/start"
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("browser-agent: create voice session request: %w", err)

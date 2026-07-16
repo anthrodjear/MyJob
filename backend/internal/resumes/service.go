@@ -360,6 +360,11 @@ func (s *Service) CreateCoverLetter(ctx context.Context, req CreateCoverLetterRe
 		return nil, fmt.Errorf("create cover letter: %w", err)
 	}
 
+	// Save initial version snapshot
+	if snapErr := s.saveCoverLetterVersionSnapshot(ctx, cl); snapErr != nil {
+		s.logger.Warn("cover letter version snapshot failed (non-fatal)", zap.Error(snapErr))
+	}
+
 	s.logger.Info("cover letter created",
 		zap.String("id", cl.ID.String()),
 		zap.String("job_id", req.JobID.String()),
@@ -373,6 +378,11 @@ func (s *Service) GenerateCoverLetter(ctx context.Context, clID uuid.UUID, req G
 	cl, err := s.getCoverLetter(ctx, clID)
 	if err != nil {
 		return nil, fmt.Errorf("generate cover letter: %w", err)
+	}
+
+	// Save version snapshot before updating
+	if snapErr := s.saveCoverLetterVersionSnapshot(ctx, cl); snapErr != nil {
+		s.logger.Warn("cover letter version snapshot failed (non-fatal)", zap.Error(snapErr))
 	}
 
 	// Determine resume to use
@@ -447,6 +457,11 @@ func (s *Service) UpdateCoverLetterContent(ctx context.Context, clID uuid.UUID, 
 		return nil, fmt.Errorf("update cover letter content: %w", err)
 	}
 
+	// Save version snapshot before updating
+	if snapErr := s.saveCoverLetterVersionSnapshot(ctx, cl); snapErr != nil {
+		s.logger.Warn("cover letter version snapshot failed (non-fatal)", zap.Error(snapErr))
+	}
+
 	wordCount := len(strings.Fields(content))
 	newVersion, err := s.repo.UpdateCoverLetterContent(ctx, clID, content,
 		cl.Model, cl.PromptVersion, cl.ResumeVersion, cl.Strengths, cl.Gaps, &wordCount, cl.Version)
@@ -494,6 +509,50 @@ func (s *Service) DeleteCoverLetter(ctx context.Context, id uuid.UUID) error {
 	}
 	s.logger.Info("cover letter deleted", zap.String("id", id.String()))
 	return nil
+}
+
+// --- Cover Letter Version methods ---
+
+// ListCoverLetterVersions returns the version history for a cover letter.
+func (s *Service) ListCoverLetterVersions(ctx context.Context, coverLetterID uuid.UUID) ([]*CoverLetterVersion, error) {
+	// Verify cover letter exists
+	if _, err := s.getCoverLetter(ctx, coverLetterID); err != nil {
+		return nil, fmt.Errorf("list cover letter versions: %w", err)
+	}
+	return s.repo.GetCoverLetterVersions(ctx, coverLetterID)
+}
+
+// GetCoverLetterVersion returns a specific historical version.
+func (s *Service) GetCoverLetterVersion(ctx context.Context, coverLetterID uuid.UUID, version int32) (*CoverLetterVersion, error) {
+	v, err := s.repo.GetCoverLetterVersion(ctx, coverLetterID, version)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("get cover letter version: %w", err)
+	}
+	return v, nil
+}
+
+// saveCoverLetterVersionSnapshot creates a version snapshot before content changes.
+// Returns an error so callers can decide whether to treat failure as fatal.
+func (s *Service) saveCoverLetterVersionSnapshot(ctx context.Context, cl *CoverLetter) error {
+	var resumeVersion *int32
+	if cl.ResumeVersion != nil {
+		v := *cl.ResumeVersion
+		resumeVersion = &v
+	}
+	v := &CoverLetterVersion{
+		ID:            uuid.New(),
+		CoverLetterID: cl.ID,
+		Content:       cl.Content,
+		Version:       cl.Version,
+		Model:         cl.Model,
+		PromptVersion: cl.PromptVersion,
+		ResumeVersion: resumeVersion,
+		CreatedAt:     cl.UpdatedAt,
+	}
+	return s.repo.SaveCoverLetterVersion(ctx, v)
 }
 
 // TailorResume adapts an existing resume for a specific job using the ResumeTailor interface.

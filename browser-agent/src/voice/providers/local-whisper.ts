@@ -295,7 +295,7 @@ export class LocalWhisperSTT implements STTProvider {
    * @param inputPath - Path to the input WAV file
    * @param outputPath - Path for JSON output (faster-whisper) or ignored (whisper)
    */
-  private buildArgs(inputPath: string, outputPath: string): string[] {
+  private buildArgs(inputPath: string, _outputPath: string): string[] {
     const args: string[] = [];
 
     if (this.config.backend === 'faster-whisper') {

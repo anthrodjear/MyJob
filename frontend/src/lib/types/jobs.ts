@@ -20,6 +20,11 @@ export interface Job {
   scraped_at: string;
   match_score: number;
   match_details: Record<string, unknown> | null;
+  score_tier: string | null;
+  scored_at: string | null;
+  scoring_reasoning: string | null;
+  scoring_model: string | null;
+  scoring_source: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -64,4 +69,33 @@ export interface JobApplicationHistory {
   status: string;
   applied_at: string | null;
   created_at: string;
+}
+
+/**
+ * ScoreDetails — per-factor scoring breakdown.
+ * Aligned with backend/internal/scoring/model.go ScoreDetails.
+ */
+export interface ScoreDetails {
+  skill_match: number;
+  experience_match: number;
+  location_match: number;
+  salary_match: number;
+  description_match: number;
+}
+
+/**
+ * ScoreResponse — result of scoring a job, returned by the scoring task poll.
+ * Aligned with backend/internal/scoring/dto.go ScoreResponse.
+ */
+export interface ScoreResponse {
+  job_id: string;
+  score: number;
+  tier: "AUTO" | "REVIEW" | "REJECT";
+  reasoning?: string;
+  source?: string;
+  model?: string;
+  confidence?: number;
+  strengths?: string[];
+  gaps?: string[];
+  details?: ScoreDetails;
 }

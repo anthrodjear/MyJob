@@ -186,14 +186,15 @@ func main() {
 		return completed
 	}
 
+	// Initialize tasks domain (repo + service first, needed by dispatcher)
+	tasksRepo := tasks.NewRepository(postgres.DB)
+	tasksService := tasks.NewService(tasksRepo)
+
 	// Initialize asynq client for task dispatch
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: cfg.Redis.URL})
 	defer asynqClient.Close()
-	dispatcher := tasks.NewDispatcher(asynqClient, logger)
+	dispatcher := tasks.NewDispatcher(asynqClient, tasksService, logger)
 
-	// Initialize tasks domain
-	tasksRepo := tasks.NewRepository(postgres.DB)
-	tasksService := tasks.NewService(tasksRepo)
 	tasksHandler := tasks.NewHandler(tasksService, logger)
 
 	// Initialize jobs domain
@@ -230,12 +231,17 @@ func main() {
 	profileService := profile.NewService(profileRepo, logger)
 	profileHandler := profile.NewHandler(profileService, logger)
 
+	// Initialize activity domain
+	activityRepo := activity.NewRepository(postgres.DB)
+	activityService := activity.NewService(activityRepo, logger)
+	activityHandler := activity.NewHandler(activityService, logger)
+
 	// Initialize approvals domain
 	approvalsRepo := approvals.NewRepository(postgres.DB)
 	approvalsService := approvals.NewService(approvalsRepo, logger)
 	// Adapter: approvals.SubmitDispatcher interface → *tasks.Dispatcher
 	approvalsDispatcher := approvalsDispatcherAdapter{dispatcher: dispatcher}
-	approvalsWorkflow := approvals.NewWorkflow(approvalsService, approvalsDispatcher, logger)
+	approvalsWorkflow := approvals.NewWorkflow(approvalsService, appsService, approvalsDispatcher, activityService, logger)
 	approvalsHandler := approvals.NewHandler(approvalsWorkflow, approvalsService, logger)
 
 	// Initialize RAG domain
@@ -243,11 +249,6 @@ func main() {
 	embeddingClient := embeddings.NewEmbeddingClientFromConfig(logger, cfg.LLM)
 	ragService := rag.NewService(ragRepo, embeddingClient, logger)
 	ragHandler := rag.NewHandler(ragService, logger)
-
-	// Initialize activity domain
-	activityRepo := activity.NewRepository(postgres.DB)
-	activityService := activity.NewService(activityRepo, logger)
-	activityHandler := activity.NewHandler(activityService, logger)
 
 	// Initialize emails domain
 	emailsRepo := emails.NewRepository(postgres.DB)

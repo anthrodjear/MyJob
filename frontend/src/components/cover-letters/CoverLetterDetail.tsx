@@ -12,7 +12,7 @@
 import { useState } from "react";
 import { Mail, Trash2, Sparkles } from "lucide-react";
 import type { CoverLetter } from "@/lib/types/resumes";
-import { useDeleteCoverLetter } from "@/hooks/useResumes";
+import { useDeleteCoverLetter, useGenerateCoverLetter } from "@/hooks/useResumes";
 import { Button } from "@/components/shared/Button";
 
 interface CoverLetterDetailProps {
@@ -38,12 +38,29 @@ function getErrorMessage(error: unknown): string {
 export function CoverLetterDetail({ coverLetter }: CoverLetterDetailProps) {
   const [error, setError] = useState<string | null>(null);
   const deleteMutation = useDeleteCoverLetter();
+  const generateMutation = useGenerateCoverLetter();
 
   const handleDelete = () => {
     if (!window.confirm("Are you sure you want to delete this cover letter?")) return;
     deleteMutation.mutate(coverLetter.id, {
       onError: (err) => setError(getErrorMessage(err)),
     });
+  };
+
+  const handleGenerate = () => {
+    setError(null);
+    generateMutation.mutate(
+      {
+        id: coverLetter.id,
+        request: {
+          job_title: coverLetter.job_title ?? "",
+          job_requirements: "",
+          job_description: "",
+          resume_id: coverLetter.resume_id,
+        },
+      },
+      { onError: (err) => setError(getErrorMessage(err)) },
+    );
   };
 
   return (
@@ -67,6 +84,16 @@ export function CoverLetterDetail({ coverLetter }: CoverLetterDetailProps) {
 
         {/* Actions */}
         <div className="flex items-center gap-2">
+          <Button
+            variant="primary"
+            size="sm"
+            loading={generateMutation.isPending}
+            loadingText="Generating…"
+            onClick={handleGenerate}
+          >
+            <Sparkles className="mr-1 h-4 w-4" aria-hidden="true" />
+            Generate
+          </Button>
           <Button
             variant="danger"
             size="sm"

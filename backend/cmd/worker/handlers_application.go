@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
@@ -19,19 +20,37 @@ import (
 	"backend/internal/tasks"
 )
 
+// parseUUID is a helper that parses a string into a UUID.
+// Returns uuid.Nil on parse failure so callers can still proceed gracefully.
+func parseUUID(s string) uuid.UUID {
+	id, err := uuid.Parse(s)
+	if err != nil {
+		return uuid.Nil
+	}
+	return id
+}
+
 // newHandleFillForm processes fill_form tasks.
-func newHandleFillForm(browserClient BrowserAgentClient, logger *zap.Logger) asynq.HandlerFunc {
+func newHandleFillForm(browserClient BrowserAgentClient, logger *zap.Logger, taskSvc *tasks.Service) asynq.HandlerFunc {
 	return func(ctx context.Context, t *asynq.Task) error {
 		log := logger.Named("task.fill_form")
+		taskID := taskIDFromTask(t)
 
-		var payload struct {
-			PortalURL  string            `json:"portal_url"`
-			PortalType string            `json:"portal_type"`
-			FormData   map[string]string `json:"form_data"`
-			ResumePath string            `json:"resume_path,omitempty"`
+		// Mark task as running
+		if taskID != "" {
+			if _, err := taskSvc.Start(ctx, parseUUID(taskID)); err != nil {
+				log.Warn("failed to mark task as running", zap.String("task_id", taskID), zap.Error(err))
+			}
 		}
+
+		var payload tasks.FillFormPayload
 		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 			log.Error("unmarshal payload", zap.String("task_type", t.Type()), zap.Error(err))
+			if taskID != "" {
+				if _, err := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("unmarshal payload: %v", err)); err != nil {
+					log.Warn("failed to mark task as failed", zap.Error(err))
+				}
+			}
 			return fmt.Errorf("fill_form: unmarshal payload: %w", err)
 		}
 
@@ -46,10 +65,30 @@ func newHandleFillForm(browserClient BrowserAgentClient, logger *zap.Logger) asy
 		})
 		if err != nil {
 			log.Error("fill form", zap.String("portal_url", payload.PortalURL), zap.Error(err))
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("%s: %v", payload.PortalURL, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("fill_form: %s: %w", payload.PortalURL, err)
 		}
 
 		log.Info("form filled", zap.String("portal_url", payload.PortalURL), zap.Bool("success", resp.Success))
+
+		// Mark task as completed
+		if taskID != "" {
+			resultJSON, err := json.Marshal(map[string]interface{}{
+				"success": resp.Success,
+			})
+			if err != nil {
+				log.Warn("failed to marshal result", zap.Error(err))
+				resultJSON = []byte("{}")
+			}
+			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
+				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
+			}
+		}
+
 		return nil
 	}
 }
@@ -60,13 +99,27 @@ func newHandleSubmitApplication(
 	jobsSvc *jobs.Service,
 	browserClient BrowserAgentClient,
 	logger *zap.Logger,
+	taskSvc *tasks.Service,
 ) asynq.HandlerFunc {
 	return func(ctx context.Context, t *asynq.Task) error {
 		log := logger.Named("task.application_submit")
+		taskID := taskIDFromTask(t)
+
+		// Mark task as running
+		if taskID != "" {
+			if _, err := taskSvc.Start(ctx, parseUUID(taskID)); err != nil {
+				log.Warn("failed to mark task as running", zap.String("task_id", taskID), zap.Error(err))
+			}
+		}
 
 		var payload tasks.ApplicationSubmitPayload
 		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 			log.Error("unmarshal payload", zap.String("task_type", t.Type()), zap.Error(err))
+			if taskID != "" {
+				if _, err := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("unmarshal payload: %v", err)); err != nil {
+					log.Warn("failed to mark task as failed", zap.Error(err))
+				}
+			}
 			return fmt.Errorf("application_submit: unmarshal payload: %w", err)
 		}
 
@@ -82,9 +135,19 @@ func newHandleSubmitApplication(
 		if err != nil {
 			if errors.Is(err, applications.ErrNotFound) {
 				log.Warn("application not found, skipping")
+				if taskID != "" {
+					if _, cerr := taskSvc.Complete(ctx, parseUUID(taskID), nil); cerr != nil {
+						log.Warn("failed to mark task as completed", zap.Error(cerr))
+					}
+				}
 				return nil
 			}
 			log.Error("fetch application", zap.Error(err))
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("fetch %s: %v", payload.ApplicationID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("application_submit: fetch %s: %w", payload.ApplicationID, err)
 		}
 
@@ -92,9 +155,19 @@ func newHandleSubmitApplication(
 		if err != nil {
 			if errors.Is(err, jobs.ErrNotFound) {
 				log.Warn("job not found, skipping", zap.String("job_id", app.JobID.String()))
+				if taskID != "" {
+					if _, cerr := taskSvc.Complete(ctx, parseUUID(taskID), nil); cerr != nil {
+						log.Warn("failed to mark task as completed", zap.Error(cerr))
+					}
+				}
 				return nil
 			}
 			log.Error("fetch job", zap.String("job_id", app.JobID.String()), zap.Error(err))
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("fetch job %s: %v", app.JobID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("application_submit: fetch job %s: %w", app.JobID, err)
 		}
 
@@ -107,10 +180,14 @@ func newHandleSubmitApplication(
 			portalType = *app.PortalType
 		}
 
+		// Use application's stored form data (the task payload may have nil FormData
+		// when dispatched via the approve→submit workflow adapter).
 		var formData map[string]string
-		if err := json.Unmarshal(payload.FormData, &formData); err != nil {
-			log.Error("unmarshal form data", zap.Error(err))
-			return fmt.Errorf("application_submit: unmarshal form data: %w", err)
+		if len(app.FormData) > 0 {
+			if err := json.Unmarshal(app.FormData, &formData); err != nil {
+				log.Warn("invalid form data on application", zap.Error(err))
+				formData = nil
+			}
 		}
 
 		resp, err := browserClient.FillForm(ctx, FillFormRequest{
@@ -118,6 +195,11 @@ func newHandleSubmitApplication(
 		})
 		if err != nil {
 			log.Error("fill form", zap.String("portal_url", portalURL), zap.Error(err))
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("fill form %s: %v", payload.ApplicationID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("application_submit: fill form %s: %w", payload.ApplicationID, err)
 		}
 		if !resp.Success {
@@ -126,11 +208,30 @@ func newHandleSubmitApplication(
 				zap.String("portal_url", portalURL),
 				zap.String("message", resp.Message),
 			)
+			// Mark task as completed (business-level failure, not a task error)
+			if taskID != "" {
+				resultJSON, err := json.Marshal(map[string]interface{}{
+					"success": false,
+					"message": resp.Message,
+				})
+				if err != nil {
+					log.Warn("failed to marshal result", zap.Error(err))
+					resultJSON = []byte("{}")
+				}
+				if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
+					log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
+				}
+			}
 			return nil // business-level failure, not retryable
 		}
 
 		if err := applicationsSvc.UpdateStatus(ctx, payload.ApplicationID, applications.StatusApplied, "Submitted via browser agent"); err != nil {
 			log.Error("update status", zap.Error(err))
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("update status %s: %v", payload.ApplicationID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("application_submit: update status %s: %w", payload.ApplicationID, err)
 		}
 
@@ -138,6 +239,22 @@ func newHandleSubmitApplication(
 			zap.String("application_id", payload.ApplicationID.String()),
 			zap.String("portal_url", portalURL),
 		)
+
+		// Mark task as completed
+		if taskID != "" {
+			resultJSON, err := json.Marshal(map[string]interface{}{
+				"application_id": payload.ApplicationID.String(),
+				"portal_url":     portalURL,
+			})
+			if err != nil {
+				log.Warn("failed to marshal result", zap.Error(err))
+				resultJSON = []byte("{}")
+			}
+			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
+				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
+			}
+		}
+
 		return nil
 	}
 }
@@ -148,13 +265,27 @@ func newHandleSyncEmails(
 	browserClient BrowserAgentClient,
 	emailCfg config.EmailConfig,
 	logger *zap.Logger,
+	taskSvc *tasks.Service,
 ) asynq.HandlerFunc {
 	return func(ctx context.Context, t *asynq.Task) error {
 		log := logger.Named("task.email_check")
+		taskID := taskIDFromTask(t)
+
+		// Mark task as running
+		if taskID != "" {
+			if _, err := taskSvc.Start(ctx, parseUUID(taskID)); err != nil {
+				log.Warn("failed to mark task as running", zap.String("task_id", taskID), zap.Error(err))
+			}
+		}
 
 		var payload tasks.EmailCheckPayload
 		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 			log.Error("unmarshal payload", zap.String("task_type", t.Type()), zap.Error(err))
+			if taskID != "" {
+				if _, err := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("unmarshal payload: %v", err)); err != nil {
+					log.Warn("failed to mark task as failed", zap.Error(err))
+				}
+			}
 			return fmt.Errorf("email_check: unmarshal payload: %w", err)
 		}
 
@@ -170,14 +301,29 @@ func newHandleSyncEmails(
 		if err != nil {
 			if errors.Is(err, applications.ErrNotFound) {
 				log.Warn("application not found, skipping")
+				if taskID != "" {
+					if _, cerr := taskSvc.Complete(ctx, parseUUID(taskID), nil); cerr != nil {
+						log.Warn("failed to mark task as completed", zap.Error(cerr))
+					}
+				}
 				return nil
 			}
 			log.Error("fetch application", zap.Error(err))
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("fetch %s: %v", payload.ApplicationID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("email_check: fetch %s: %w", payload.ApplicationID, err)
 		}
 
 		if emailCfg.Provider == "" || emailCfg.TenantID == "" {
 			log.Warn("email provider not configured, skipping")
+			if taskID != "" {
+				if _, cerr := taskSvc.Complete(ctx, parseUUID(taskID), nil); cerr != nil {
+					log.Warn("failed to mark task as completed", zap.Error(cerr))
+				}
+			}
 			return nil
 		}
 
@@ -188,6 +334,11 @@ func newHandleSyncEmails(
 		})
 		if err != nil {
 			log.Error("check emails", zap.Error(err))
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("%s: %v", payload.ApplicationID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("email_check: %s: %w", payload.ApplicationID, err)
 		}
 
@@ -216,6 +367,11 @@ func newHandleSyncEmails(
 					zap.String("correlation_id", payload.CorrelationID.String()),
 					zap.Error(statusErr),
 				)
+				if taskID != "" {
+					if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("update status %s: %v", payload.ApplicationID, statusErr)); failErr != nil {
+						log.Warn("failed to mark task as failed", zap.Error(failErr))
+					}
+				}
 				return fmt.Errorf("email_check: update status %s: %w", payload.ApplicationID, statusErr)
 			}
 		}
@@ -224,6 +380,21 @@ func newHandleSyncEmails(
 			zap.String("application_id", payload.ApplicationID.String()),
 			zap.Int("emails_found", len(resp.Emails)),
 		)
+
+		// Mark task as completed
+		if taskID != "" {
+			resultJSON, err := json.Marshal(map[string]interface{}{
+				"emails_found": len(resp.Emails),
+			})
+			if err != nil {
+				log.Warn("failed to marshal result", zap.Error(err))
+				resultJSON = []byte("{}")
+			}
+			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
+				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
+			}
+		}
+
 		return nil
 	}
 }
@@ -233,13 +404,27 @@ func newHandleGenerateInterviewPrep(
 	applicationsSvc *applications.Service,
 	jobsSvc *jobs.Service,
 	logger *zap.Logger,
+	taskSvc *tasks.Service,
 ) asynq.HandlerFunc {
 	return func(ctx context.Context, t *asynq.Task) error {
 		log := logger.Named("task.interview_prep")
+		taskID := taskIDFromTask(t)
+
+		// Mark task as running
+		if taskID != "" {
+			if _, err := taskSvc.Start(ctx, parseUUID(taskID)); err != nil {
+				log.Warn("failed to mark task as running", zap.String("task_id", taskID), zap.Error(err))
+			}
+		}
 
 		var payload tasks.InterviewPrepPayload
 		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 			log.Error("unmarshal payload", zap.String("task_type", t.Type()), zap.Error(err))
+			if taskID != "" {
+				if _, err := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("unmarshal payload: %v", err)); err != nil {
+					log.Warn("failed to mark task as failed", zap.Error(err))
+				}
+			}
 			return fmt.Errorf("interview_prep: unmarshal payload: %w", err)
 		}
 
@@ -255,19 +440,39 @@ func newHandleGenerateInterviewPrep(
 		if err != nil {
 			if errors.Is(err, applications.ErrNotFound) {
 				log.Warn("application not found, skipping")
+				if taskID != "" {
+					if _, cerr := taskSvc.Complete(ctx, parseUUID(taskID), nil); cerr != nil {
+						log.Warn("failed to mark task as completed", zap.Error(cerr))
+					}
+				}
 				return nil
 			}
 			log.Error("fetch application", zap.Error(err))
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("fetch %s: %v", payload.ApplicationID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("interview_prep: fetch %s: %w", payload.ApplicationID, err)
 		}
 
 		job, err := jobsSvc.GetByID(ctx, app.JobID)
 		if err != nil {
 			if errors.Is(err, jobs.ErrNotFound) {
-				log.Warn("job not found, skipping")
+				log.Warn("job not found, skipping", zap.String("job_id", app.JobID.String()))
+				if taskID != "" {
+					if _, cerr := taskSvc.Complete(ctx, parseUUID(taskID), nil); cerr != nil {
+						log.Warn("failed to mark task as completed", zap.Error(cerr))
+					}
+				}
 				return nil
 			}
 			log.Error("fetch job", zap.Error(err))
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("fetch job %s: %v", app.JobID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("interview_prep: fetch job %s: %w", app.JobID, err)
 		}
 
@@ -277,6 +482,21 @@ func newHandleGenerateInterviewPrep(
 			zap.String("company", job.Company),
 			zap.String("status", "placeholder — LLM generation pending"),
 		)
+
+		// Mark task as completed
+		if taskID != "" {
+			resultJSON, err := json.Marshal(map[string]interface{}{
+				"job_title": job.Title,
+				"company":   job.Company,
+			})
+			if err != nil {
+				log.Warn("failed to marshal result", zap.Error(err))
+				resultJSON = []byte("{}")
+			}
+			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
+				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
+			}
+		}
 
 		return nil
 	}
@@ -289,13 +509,27 @@ func newHandleCreateEmbeddings(
 	embeddingClient embeddings.EmbeddingClient,
 	db *sqlx.DB,
 	logger *zap.Logger,
+	taskSvc *tasks.Service,
 ) asynq.HandlerFunc {
 	return func(ctx context.Context, t *asynq.Task) error {
 		log := logger.Named("task.embedding_generate")
+		taskID := taskIDFromTask(t)
+
+		// Mark task as running
+		if taskID != "" {
+			if _, err := taskSvc.Start(ctx, parseUUID(taskID)); err != nil {
+				log.Warn("failed to mark task as running", zap.String("task_id", taskID), zap.Error(err))
+			}
+		}
 
 		var payload tasks.EmbeddingPayload
 		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 			log.Error("unmarshal payload", zap.String("task_type", t.Type()), zap.Error(err))
+			if taskID != "" {
+				if _, err := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("unmarshal payload: %v", err)); err != nil {
+					log.Warn("failed to mark task as failed", zap.Error(err))
+				}
+			}
 			return fmt.Errorf("embedding_generate: unmarshal payload: %w", err)
 		}
 
@@ -315,6 +549,11 @@ func newHandleCreateEmbeddings(
 				zap.String("source_id", payload.SourceID.String()),
 				zap.Error(err),
 			)
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("embed %s/%s: %v", payload.SourceType, payload.SourceID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("embedding_generate: embed %s/%s: %w", payload.SourceType, payload.SourceID, err)
 		}
 
@@ -340,6 +579,11 @@ func newHandleCreateEmbeddings(
 				zap.String("source_id", payload.SourceID.String()),
 				zap.Error(err),
 			)
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("upsert %s/%s: %v", payload.SourceType, payload.SourceID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("embedding_generate: upsert %s/%s: %w", payload.SourceType, payload.SourceID, err)
 		}
 
@@ -348,6 +592,23 @@ func newHandleCreateEmbeddings(
 			zap.String("source_id", payload.SourceID.String()),
 			zap.Int("dimensions", len(vec)),
 		)
+
+		// Mark task as completed
+		if taskID != "" {
+			resultJSON, err := json.Marshal(map[string]interface{}{
+				"source_type": payload.SourceType,
+				"source_id":   payload.SourceID.String(),
+				"dimensions":  len(vec),
+			})
+			if err != nil {
+				log.Warn("failed to marshal result", zap.Error(err))
+				resultJSON = []byte("{}")
+			}
+			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
+				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
+			}
+		}
+
 		return nil
 	}
 }
@@ -356,13 +617,26 @@ func newHandleCreateEmbeddings(
 // It calls the browser-agent to start a voice interview session, which
 // joins a LiveKit room and runs the interview (assist or autonomous mode).
 // This is a long-running task (up to 30 minutes).
-func newHandleVoiceSession(browserClient BrowserAgentClient, logger *zap.Logger) asynq.HandlerFunc {
+func newHandleVoiceSession(browserClient BrowserAgentClient, logger *zap.Logger, taskSvc *tasks.Service) asynq.HandlerFunc {
 	return func(ctx context.Context, t *asynq.Task) error {
 		log := logger.Named("task.voice_session")
+		taskID := taskIDFromTask(t)
+
+		// Mark task as running
+		if taskID != "" {
+			if _, err := taskSvc.Start(ctx, parseUUID(taskID)); err != nil {
+				log.Warn("failed to mark task as running", zap.String("task_id", taskID), zap.Error(err))
+			}
+		}
 
 		var payload tasks.VoiceSessionPayload
 		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 			log.Error("unmarshal payload", zap.String("task_type", t.Type()), zap.Error(err))
+			if taskID != "" {
+				if _, err := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("unmarshal payload: %v", err)); err != nil {
+					log.Warn("failed to mark task as failed", zap.Error(err))
+				}
+			}
 			return fmt.Errorf("voice_session: unmarshal payload: %w", err)
 		}
 
@@ -389,6 +663,11 @@ func newHandleVoiceSession(browserClient BrowserAgentClient, logger *zap.Logger)
 				zap.String("interview_id", payload.InterviewID.String()),
 				zap.Error(err),
 			)
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("%s: %v", payload.InterviewID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
 			return fmt.Errorf("voice_session: %s: %w", payload.InterviewID, err)
 		}
 
@@ -397,6 +676,22 @@ func newHandleVoiceSession(browserClient BrowserAgentClient, logger *zap.Logger)
 			zap.Bool("success", resp.Success),
 			zap.String("message", resp.Message),
 		)
+
+		// Mark task as completed
+		if taskID != "" {
+			resultJSON, err := json.Marshal(map[string]interface{}{
+				"success": resp.Success,
+				"message": resp.Message,
+			})
+			if err != nil {
+				log.Warn("failed to marshal result", zap.Error(err))
+				resultJSON = []byte("{}")
+			}
+			if _, err := taskSvc.Complete(ctx, parseUUID(taskID), resultJSON); err != nil {
+				log.Warn("failed to mark task as completed", zap.String("task_id", taskID), zap.Error(err))
+			}
+		}
+
 		return nil
 	}
 }

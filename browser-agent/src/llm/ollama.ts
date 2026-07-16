@@ -69,7 +69,7 @@ const OllamaResponseSchema = z.object({
 });
 
 type OllamaRequest = z.infer<typeof OllamaRequestSchema>;
-type OllamaResponse = z.infer<typeof OllamaResponseSchema>;
+type _OllamaResponse = z.infer<typeof OllamaResponseSchema>;
 
 // ----- Constants -----
 
@@ -361,7 +361,7 @@ export function getOllamaClient(): OllamaClient {
     ollamaClientInstance = new OllamaClient();
     return ollamaClientInstance;
   })();
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+   
   return ollamaClientInstance!;
 }
 

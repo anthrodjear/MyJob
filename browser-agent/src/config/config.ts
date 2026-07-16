@@ -258,28 +258,30 @@ let configCache: Config | null = null;
  * Critical values can be overridden without editing the YAML file.
  */
 function applyEnvOverrides(config: Config): Config {
-  const override = <T>(envVar: string | undefined, value: T): T =>
-    envVar !== undefined && envVar !== '' ? (envVar as T) : value;
+  const overrideString = (envVar: string | undefined, value: string): string =>
+    envVar !== undefined && envVar !== '' ? envVar : value;
 
   return {
     ...config,
     queue: {
       ...config.queue,
-      redis_url: override(process.env.REDIS_URL, config.queue.redis_url),
+      redis_url: overrideString(process.env.REDIS_URL, config.queue.redis_url),
     },
     voice: {
       ...config.voice,
       livekit: {
         ...config.voice.livekit,
-        api_key: override(process.env.LIVEKIT_API_KEY, config.voice.livekit.api_key),
-        api_secret: override(process.env.LIVEKIT_API_SECRET, config.voice.livekit.api_secret),
+        api_key: overrideString(process.env.LIVEKIT_API_KEY, config.voice.livekit.api_key),
+        api_secret: overrideString(process.env.LIVEKIT_API_SECRET, config.voice.livekit.api_secret),
       },
     },
     llm: {
       ...config.llm,
       local: {
         ...config.llm.local,
-        baseUrl: override(process.env.OLLAMA_BASE_URL, config.llm.local.baseUrl),
+        baseUrl: process.env.OLLAMA_BASE_URL !== undefined && process.env.OLLAMA_BASE_URL !== ''
+          ? process.env.OLLAMA_BASE_URL
+          : config.llm.local.baseUrl,
       },
     },
   };
