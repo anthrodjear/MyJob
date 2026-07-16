@@ -8,7 +8,7 @@ import { z } from 'zod';
 const RateLimitSchema = z.object({
   requests_per_second: z.number().positive(),
   daily_cap: z.number().int().positive(),
-  respect_robots_txt: z.boolean().optional(),
+  respect_robots_txt: z.boolean().default(true),
 });
 
 const SelectorsSchema = z.object({

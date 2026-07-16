@@ -74,11 +74,11 @@ func (d ScoreDetails) Validate() error {
 
 // Weights holds factor weights for score computation.
 type Weights struct {
-	Skill       float64
-	Experience  float64
-	Location    float64
-	Salary      float64
-	Description float64
+	Skill       float64 `json:"skill"`
+	Experience  float64 `json:"experience"`
+	Location    float64 `json:"location"`
+	Salary      float64 `json:"salary"`
+	Description float64 `json:"description"`
 }
 
 // Validate checks that all weights are non-negative and sum to ~1.0.

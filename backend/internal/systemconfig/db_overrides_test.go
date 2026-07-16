@@ -78,11 +78,11 @@ func newScoringConfig() *EffectiveConfig {
 
 // ScoringWeights is a local alias to avoid import cycle — mirrors scoring.Weights.
 type ScoringWeights = struct {
-	Skill       float64
-	Experience  float64
-	Location    float64
-	Salary      float64
-	Description float64
+	Skill       float64 `json:"skill"`
+	Experience  float64 `json:"experience"`
+	Location    float64 `json:"location"`
+	Salary      float64 `json:"salary"`
+	Description float64 `json:"description"`
 }
 
 // ---------------------------------------------------------------------------
