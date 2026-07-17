@@ -265,7 +265,8 @@ export async function apiFetch<T>(
   options?: RequestInit & { skipAuth?: boolean },
 ): Promise<T | undefined> {
   // new URL() prevents double slashes from misconfigured env vars
-  const url = new URL(`${API_PREFIX}/${path}`, BACKEND_URL);
+  // Strip leading slash from path to avoid /api/v1//endpoint when path = "/endpoint"
+  const url = new URL(`${API_PREFIX}/${path.replace(/^\//, "")}`, BACKEND_URL);
 
   // Build headers — only set Content-Type if not already provided
   const headers = new Headers(options?.headers);

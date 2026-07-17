@@ -98,14 +98,27 @@ func (s *Service) SetOverride(ctx context.Context, key string, value json.RawMes
 		return fmt.Errorf("%w: %w", ErrInvalidValue, err)
 	}
 
-	// Determine category from key prefix
-	category := CategoryForKey(key)
+	return s.setOverrideRaw(ctx, key, value)
+}
 
-	// Upsert to database
+// SetSecretOverride persists a secret config value (API keys, passwords) bypassing the allowlist.
+// Secrets are stored in the same table but with CategoryInfrastructure.
+func (s *Service) SetSecretOverride(ctx context.Context, key string, value json.RawMessage) error {
+	if err := ValidateOverrideKey(key); err != nil {
+		return err
+	}
+	if err := ValidateOverrideValue(value); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidValue, err)
+	}
+	return s.setOverrideRaw(ctx, key, value)
+}
+
+// setOverrideRaw is the shared implementation for upserting a config override.
+func (s *Service) setOverrideRaw(ctx context.Context, key string, value json.RawMessage) error {
+	category := CategoryForKey(key)
 	if err := s.repo.UpsertOverride(ctx, key, value, category, "", nil); err != nil {
 		return fmt.Errorf("systemconfig: upsert override: %w", err)
 	}
-
 	return nil
 }
 

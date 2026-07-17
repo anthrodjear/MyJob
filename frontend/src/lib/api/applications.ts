@@ -59,7 +59,7 @@ export async function fetchApplications(
   if (params?.offset != null) searchParams.set("offset", String(params.offset));
 
   const queryString = searchParams.toString();
-  const path = queryString ? `applications?${queryString}` : "applications";
+  const path = queryString ? `/applications?${queryString}` : "/applications";
 
   const result = await apiGet<ApplicationListResponse>(path);
   if (result === undefined) {
@@ -74,7 +74,7 @@ export async function fetchApplications(
  * @returns Application stats
  */
 export async function fetchApplicationStats(): Promise<ApplicationStatsResponse> {
-  const result = await apiGet<ApplicationStatsResponse>("applications/stats");
+  const result = await apiGet<ApplicationStatsResponse>("/applications/stats");
   if (result === undefined) {
     throw new Error("Unexpected empty response from application stats");
   }
@@ -88,7 +88,7 @@ export async function fetchApplicationStats(): Promise<ApplicationStatsResponse>
  * @returns Application detail
  */
 export async function fetchApplication(id: string): Promise<Application> {
-  const result = await apiGet<Application>(`applications/${id}`);
+  const result = await apiGet<Application>(`/applications/${id}`);
   if (result === undefined) {
     throw new Error(`Application not found: ${id}`);
   }
@@ -108,7 +108,7 @@ export async function createApplication(payload: {
   portal_type?: string;
   portal_url?: string;
 }): Promise<Application> {
-  const result = await apiPost<Application>("applications", payload);
+  const result = await apiPost<Application>("/applications", payload);
   if (result === undefined) {
     throw new Error("Failed to create application");
   }
@@ -142,7 +142,7 @@ export async function updateApplicationStatus(
   status: ApplicationStatus,
   notes?: string,
 ): Promise<{ message: string }> {
-  const result = await apiPut<{ message: string }>(`applications/${id}/status`, {
+  const result = await apiPut<{ message: string }>(`/applications/${id}/status`, {
     status,
     notes: notes ?? "",
   });
@@ -166,7 +166,7 @@ export async function updateApplicationNotes(
   id: string,
   notes: string,
 ): Promise<{ message: string }> {
-  const result = await apiPatch<{ message: string }>(`applications/${id}/notes`, {
+  const result = await apiPatch<{ message: string }>(`/applications/${id}/notes`, {
     notes,
   });
   if (result === undefined) {
@@ -185,7 +185,7 @@ export async function fetchApplicationTimeline(
   id: string,
 ): Promise<ApplicationTimelineResponse> {
   const result = await apiGet<ApplicationTimelineResponse>(
-    `applications/${id}/events`,
+    `/applications/${id}/events`,
   );
   if (result === undefined) {
     throw new Error(`Failed to fetch timeline for application: ${id}`);

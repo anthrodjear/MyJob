@@ -29,7 +29,7 @@ export async function fetchJobs(params?: JobListParams): Promise<JobListResponse
   if (params?.offset != null) searchParams.set("offset", String(params.offset));
 
   const queryString = searchParams.toString();
-  const path = queryString ? `jobs?${queryString}` : "jobs";
+  const path = queryString ? `/jobs?${queryString}` : "/jobs";
 
   const result = await apiGet<JobListResponse>(path);
   if (result === undefined) {
@@ -45,7 +45,7 @@ export async function fetchJobs(params?: JobListParams): Promise<JobListResponse
  * @returns Job detail
  */
 export async function fetchJob(id: string): Promise<Job> {
-  const result = await apiGet<Job>(`jobs/${id}`);
+  const result = await apiGet<Job>(`/jobs/${id}`);
   if (result === undefined) {
     throw new Error(`Job not found: ${id}`);
   }
@@ -59,7 +59,7 @@ export async function fetchJob(id: string): Promise<Job> {
  * @returns Created application
  */
 export async function applyToJob(jobId: string): Promise<{ application_id: string }> {
-  const result = await apiPost<{ application_id: string }>(`jobs/${jobId}/apply`);
+  const result = await apiPost<{ application_id: string }>(`/jobs/${jobId}/apply`);
   if (result === undefined) {
     throw new Error("Failed to submit application");
   }
@@ -73,7 +73,7 @@ export async function applyToJob(jobId: string): Promise<{ application_id: strin
  * @returns Scoring task info
  */
 export async function scoreJob(jobId: string): Promise<{ task_id: string }> {
-  const result = await apiPost<{ task_id: string }>(`jobs/${jobId}/score`);
+  const result = await apiPost<{ task_id: string }>(`/jobs/${jobId}/score`);
   if (result === undefined) {
     throw new Error("Failed to queue job scoring");
   }
@@ -88,7 +88,7 @@ export async function scoreJob(jobId: string): Promise<{ task_id: string }> {
  * @returns Updated job
  */
 export async function saveJob(jobId: string, save: boolean): Promise<Job> {
-  const result = await apiPatch<Job>(`jobs/${jobId}/save`, { save });
+  const result = await apiPatch<Job>(`/jobs/${jobId}/save`, { save });
   if (result === undefined) {
     throw new Error(save ? "Failed to save job" : "Failed to unsave job");
   }
@@ -103,7 +103,7 @@ export async function saveJob(jobId: string, save: boolean): Promise<Job> {
  * @returns Updated job
  */
 export async function updateJobStatus(jobId: string, status: JobStatus): Promise<Job> {
-  const result = await apiPatch<Job>(`jobs/${jobId}`, { status });
+  const result = await apiPatch<Job>(`/jobs/${jobId}`, { status });
   if (result === undefined) {
     throw new Error("Failed to update job status");
   }
@@ -117,7 +117,7 @@ export async function updateJobStatus(jobId: string, status: JobStatus): Promise
  * @returns void
  */
 export async function deleteJob(jobId: string): Promise<void> {
-  const result = await apiDelete<void>(`jobs/${jobId}`);
+  const result = await apiDelete<void>(`/jobs/${jobId}`);
   if (result !== undefined) {
     throw new Error("Unexpected response from delete job");
   }
@@ -130,7 +130,7 @@ export async function deleteJob(jobId: string): Promise<void> {
  * @returns List of similar jobs
  */
 export async function fetchSimilarJobs(jobId: string): Promise<Job[]> {
-  const result = await apiGet<{ jobs: Job[] }>(`jobs/${jobId}/similar`);
+  const result = await apiGet<{ jobs: Job[] }>(`/jobs/${jobId}/similar`);
   if (result === undefined) {
     throw new Error("Failed to fetch similar jobs");
   }
@@ -147,7 +147,7 @@ export async function fetchJobApplications(
   jobId: string,
 ): Promise<JobApplicationHistory[]> {
   const result = await apiGet<JobApplicationHistory[]>(
-    `jobs/${jobId}/applications`,
+    `/jobs/${jobId}/applications`,
   );
   if (result === undefined) {
     throw new Error("Failed to fetch job applications");

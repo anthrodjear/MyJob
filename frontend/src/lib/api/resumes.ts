@@ -47,7 +47,7 @@ export async function fetchResumes(
   if (params.limit != null) searchParams.set("limit", String(params.limit));
   if (params.offset != null) searchParams.set("offset", String(params.offset));
   const qs = searchParams.toString();
-  const path = qs.length > 0 ? `resumes?${qs}` : "resumes";
+  const path = qs.length > 0 ? `/resumes?${qs}` : "/resumes";
   const resp = await apiGet<ResumeListResponse>(path);
   return resp ?? { resumes: [], total: 0, limit: 20, offset: 0 };
 }
@@ -60,7 +60,7 @@ export async function fetchResumes(
  * @throws ApiError on 404 or server error
  */
 export async function fetchResume(id: string): Promise<ResumeDetail> {
-  const resp = await apiGet<ResumeDetail>(`resumes/${id}`);
+  const resp = await apiGet<ResumeDetail>(`/resumes/${id}`);
   if (resp == null) {
     throw new Error("Resume not found");
   }
@@ -77,7 +77,7 @@ export async function fetchResume(id: string): Promise<ResumeDetail> {
 export async function createResume(
   data: CreateResumeRequest,
 ): Promise<ResumeDetail> {
-  const resp = await apiPost<ResumeDetail>("resumes", data);
+  const resp = await apiPost<ResumeDetail>("/resumes", data);
   if (resp == null) {
     throw new Error("Failed to create resume");
   }
@@ -96,7 +96,7 @@ export async function updateResume(
   id: string,
   data: UpdateResumeRequest,
 ): Promise<ResumeDetail> {
-  const resp = await apiPut<ResumeDetail>(`resumes/${id}`, data);
+  const resp = await apiPut<ResumeDetail>(`/resumes/${id}`, data);
   if (resp == null) {
     throw new Error("Failed to update resume");
   }
@@ -110,7 +110,7 @@ export async function updateResume(
  * @throws ApiError on 404 or server error
  */
 export async function deleteResume(id: string): Promise<void> {
-  await apiDelete(`resumes/${id}`);
+  await apiDelete(`/resumes/${id}`);
 }
 
 // ============================================================================
@@ -127,7 +127,7 @@ export async function deleteResume(id: string): Promise<void> {
 export async function fetchResumeContent(
   id: string,
 ): Promise<ResumeContentResponse> {
-  const resp = await apiGet<ResumeContentResponse>(`resumes/${id}/content`);
+  const resp = await apiGet<ResumeContentResponse>(`/resumes/${id}/content`);
   if (resp == null) {
     throw new Error("Resume has no content");
   }
@@ -146,7 +146,7 @@ export async function updateResumeContent(
   id: string,
   content: ResumeContentResponse["content"],
 ): Promise<ResumeContentResponse> {
-  const resp = await apiPut<ResumeContentResponse>(`resumes/${id}/content`, {
+  const resp = await apiPut<ResumeContentResponse>(`/resumes/${id}/content`, {
     content,
   } satisfies UpdateResumeContentRequest);
   if (resp == null) {
@@ -168,7 +168,7 @@ export async function generateResumeContent(
   request: GenerateResumeContentRequest = {},
 ): Promise<ResumeContentResponse> {
   const resp = await apiPost<ResumeContentResponse>(
-    `resumes/${id}/generate`,
+    `/resumes/${id}/generate`,
     request,
   );
   if (resp == null) {
@@ -192,7 +192,7 @@ export async function fetchResumeVersions(
   id: string,
 ): Promise<ResumeVersionListResponse> {
   const resp = await apiGet<ResumeVersionListResponse>(
-    `resumes/${id}/versions`,
+    `/resumes/${id}/versions`,
   );
   return resp ?? { versions: [] };
 }
@@ -215,7 +215,7 @@ export async function fetchCoverLetters(
   if (params.limit != null) searchParams.set("limit", String(params.limit));
   if (params.offset != null) searchParams.set("offset", String(params.offset));
   const qs = searchParams.toString();
-  const path = qs.length > 0 ? `cover-letters?${qs}` : "cover-letters";
+  const path = qs.length > 0 ? `/cover-letters?${qs}` : "/cover-letters";
   const resp = await apiGet<CoverLetterListResponse>(path);
   return resp ?? { cover_letters: [], total: 0, limit: 20, offset: 0 };
 }
@@ -228,7 +228,7 @@ export async function fetchCoverLetters(
  * @throws ApiError on 404 or server error
  */
 export async function fetchCoverLetter(id: string): Promise<CoverLetter> {
-  const resp = await apiGet<CoverLetter>(`cover-letters/${id}`);
+  const resp = await apiGet<CoverLetter>(`/cover-letters/${id}`);
   if (resp == null) {
     throw new Error("Cover letter not found");
   }
@@ -245,7 +245,7 @@ export async function fetchCoverLetter(id: string): Promise<CoverLetter> {
 export async function createCoverLetter(
   data: CreateCoverLetterRequest,
 ): Promise<CoverLetter> {
-  const resp = await apiPost<CoverLetter>("cover-letters", data);
+  const resp = await apiPost<CoverLetter>("/cover-letters", data);
   if (resp == null) {
     throw new Error("Failed to create cover letter");
   }
@@ -265,7 +265,7 @@ export async function generateCoverLetter(
   request: GenerateCoverLetterRequest,
 ): Promise<CoverLetter> {
   const resp = await apiPost<CoverLetter>(
-    `cover-letters/${id}/generate`,
+    `/cover-letters/${id}/generate`,
     request,
   );
   if (resp == null) {
@@ -286,7 +286,7 @@ export async function updateCoverLetterContent(
   id: string,
   content: string,
 ): Promise<CoverLetter> {
-  const resp = await apiPut<CoverLetter>(`cover-letters/${id}/content`, {
+  const resp = await apiPut<CoverLetter>(`/cover-letters/${id}/content`, {
     content,
   } satisfies UpdateCoverLetterContentRequest);
   if (resp == null) {
@@ -302,5 +302,5 @@ export async function updateCoverLetterContent(
  * @throws ApiError on 404 or server error
  */
 export async function deleteCoverLetter(id: string): Promise<void> {
-  await apiDelete(`cover-letters/${id}`);
+  await apiDelete(`/cover-letters/${id}`);
 }

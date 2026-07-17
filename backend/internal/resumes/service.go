@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"go.uber.org/zap"
 )
 
@@ -82,7 +83,7 @@ func (s *Service) Create(ctx context.Context, req CreateResumeRequest) (*Resume,
 
 	resume := NewResume(req.Name, req.Specialization, req.TemplatePath, req.FocusSkills)
 	if len(req.HighlightExperience) > 0 {
-		resume.HighlightExperience = req.HighlightExperience
+		resume.HighlightExperience = pq.StringArray(uuidsToStringSlice(req.HighlightExperience))
 	}
 
 	if err := s.repo.Create(ctx, resume); err != nil {

@@ -34,7 +34,7 @@ export async function fetchApprovals(
   if (params?.offset != null) searchParams.set("offset", String(params.offset));
 
   const queryString = searchParams.toString();
-  const path = queryString ? `approvals?${queryString}` : "approvals";
+  const path = queryString ? `/approvals?${queryString}` : "/approvals";
 
   const result = await apiGet<ApprovalListResponse>(path);
   if (result === undefined) {
@@ -50,7 +50,7 @@ export async function fetchApprovals(
  * @returns Approval detail
  */
 export async function fetchApproval(id: string): Promise<Approval> {
-  const result = await apiGet<Approval>(`approvals/${id}`);
+  const result = await apiGet<Approval>(`/approvals/${id}`);
   if (result === undefined) {
     throw new Error(`Approval not found: ${id}`);
   }
@@ -69,7 +69,7 @@ export async function fetchApproval(id: string): Promise<Approval> {
  */
 export async function approveApproval(id: string): Promise<Approval | ApprovePartialResponse> {
   const result = await apiPost<Approval | ApprovePartialResponse>(
-    `approvals/${id}/approve`,
+    `/approvals/${id}/approve`,
     {},
   );
   if (result === undefined) {
@@ -89,7 +89,7 @@ export async function rejectApproval(
   id: string,
   reason: string,
 ): Promise<Approval> {
-  const result = await apiPost<Approval>(`approvals/${id}/reject`, { reason });
+  const result = await apiPost<Approval>(`/approvals/${id}/reject`, { reason });
   if (result === undefined) {
     throw new Error("Failed to reject request");
   }

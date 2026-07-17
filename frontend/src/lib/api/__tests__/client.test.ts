@@ -77,6 +77,22 @@ describe("apiFetch", () => {
     expect(url.toString()).toContain("/api/v1/jobs/123");
   });
 
+  it("strips leading slash from path to avoid double slash", async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: 1 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await apiFetch("/jobs/123");
+
+    const [url] = mockFetch.mock.calls[0];
+    expect(url.toString()).toContain("/api/v1/jobs/123");
+    // Ensure no double slash in the path portion (ignoring protocol http://)
+    expect(url.pathname).not.toContain("//");
+  });
+
   it("sets Content-Type to application/json by default", async () => {
     mockFetch.mockResolvedValueOnce(
       new Response(JSON.stringify({}), {
