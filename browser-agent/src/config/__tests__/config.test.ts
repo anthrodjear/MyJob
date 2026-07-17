@@ -50,9 +50,6 @@ llm:
     provider: ollama
     model: llama2
     baseUrl: http://localhost:11434
-  embeddings:
-    provider: ollama
-    model: nomic-embed-text
 voice:
   provider: openai
   model: gpt-4

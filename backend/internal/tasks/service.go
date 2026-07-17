@@ -38,7 +38,7 @@ var validTransitions = map[string][]string{
 	StatusPending:   {StatusRunning, StatusCancelled},
 	StatusRunning:   {StatusCompleted, StatusFailed, StatusCancelled},
 	StatusCompleted: {},
-	StatusFailed:    {},
+	StatusFailed:    {StatusFailed}, // idempotent: re-failing a failed task is a no-op
 	StatusCancelled: {},
 }
 
@@ -180,27 +180,23 @@ func (s *Service) Complete(ctx context.Context, id uuid.UUID, result json.RawMes
 	return task, nil
 }
 
-// Fail marks a running task as failed. Retries if attempts remain.
+// Fail marks a running task as failed. Idempotent — if already failed, returns as-is.
+// Retry is handled by asynq at the queue level, not here.
 func (s *Service) Fail(ctx context.Context, id uuid.UUID, errMsg string) (*Task, error) {
 	task, err := s.getTask(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("tasks: fail: %w", err)
+	}
+	// Already terminal — idempotent no-op
+	if task.Status == StatusFailed {
+		return task, nil
 	}
 	if !canTransition(task.Status, StatusFailed) {
 		return nil, ErrInvalidStatus
 	}
 
 	task.Error = &errMsg
-
-	// Retry: re-queue with backoff if attempts remain
-	if task.Attempts < task.MaxAttempts {
-		task.Status = StatusPending
-		task.StartedAt = nil
-		backoff := time.Duration(task.Attempts) * 30 * time.Second
-		task.ScheduledAt = time.Now().Add(backoff)
-	} else {
-		task.Status = StatusFailed
-	}
+	task.Status = StatusFailed
 
 	if err := s.repo.Update(ctx, task); err != nil {
 		return nil, fmt.Errorf("tasks: fail update: %w", err)
