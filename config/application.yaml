@@ -31,10 +31,13 @@ queue:
 llm:
   primary:
     provider: "ollama"
-    model: "qwen2.5:latest"
+    model: "nemotron-3-super:cloud"
   local:
     provider: "ollama"
-    model: "qwen2.5:latest"
+    model: "nemotron-3-super:cloud"
+  embeddings:
+    provider: "ollama"
+    model: "granite-embedding:latest"
 
 voice:
   provider: "openai_realtime"
