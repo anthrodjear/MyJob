@@ -11,7 +11,7 @@
  * @see backend/internal/profile/handler.go
  */
 
-import { ApiError } from "@/lib/api/client";
+import { authFetch, ApiError } from "@/lib/api/client";
 import type { Profile, PatchProfileRequest, UpdateProfileRequest } from "@/lib/types/profile";
 
 /**
@@ -40,41 +40,9 @@ export interface ProfileResponseWithETag {
  *   await updateProfile(etag, { preferences: { remote_only: true } });
  */
 export async function fetchProfile(): Promise<ProfileResponseWithETag> {
-  const url = new URL("profile", process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080");
-  // Prepend /api/v1 to match backend route
-  const fullUrl = new URL(`/api/v1${url.pathname}`, url.origin);
-
-  const headers = new Headers({ "Content-Type": "application/json" });
-
-  // Inject auth token
-  if (typeof window !== "undefined") {
-    const token = localStorage.getItem("token");
-    if (token != null) {
-      headers.set("Authorization", `Bearer ${token}`);
-    }
-  }
-
-  const res = await fetch(fullUrl, {
-    method: "GET",
-    headers,
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    let body: { error?: { code?: string; message?: string } } | null = null;
-    try {
-      body = await res.json();
-    } catch {
-      // Non-JSON error
-    }
-    const code = body?.error?.code ?? "UNKNOWN_ERROR";
-    const message = body?.error?.message ?? `Request failed with status ${res.status}`;
-    throw new ApiError(res.status, code, message);
-  }
-
+  const res = await authFetch("/profile", { method: "GET" });
   const profile = (await res.json()) as Profile;
   const etag = res.headers.get("etag") ?? "";
-
   return { profile, etag };
 }
 
@@ -100,43 +68,13 @@ export async function updateProfile(
   etag: string,
   data: UpdateProfileRequest,
 ): Promise<ProfileResponseWithETag> {
-  const url = new URL("profile", process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080");
-  const fullUrl = new URL(`/api/v1${url.pathname}`, url.origin);
-
-  const headers = new Headers({
-    "Content-Type": "application/json",
-    "If-Match": etag,
-  });
-
-  if (typeof window !== "undefined") {
-    const token = localStorage.getItem("token");
-    if (token != null) {
-      headers.set("Authorization", `Bearer ${token}`);
-    }
-  }
-
-  const res = await fetch(fullUrl, {
+  const res = await authFetch("/profile", {
     method: "PUT",
-    headers,
+    headers: { "If-Match": etag },
     body: JSON.stringify(data),
-    cache: "no-store",
   });
-
-  if (!res.ok) {
-    let body: { error?: { code?: string; message?: string } } | null = null;
-    try {
-      body = await res.json();
-    } catch {
-      // Non-JSON error
-    }
-    const code = body?.error?.code ?? "UNKNOWN_ERROR";
-    const message = body?.error?.message ?? `Request failed with status ${res.status}`;
-    throw new ApiError(res.status, code, message);
-  }
-
   const profile = (await res.json()) as Profile;
   const newEtag = res.headers.get("etag") ?? "";
-
   return { profile, etag: newEtag };
 }
 
@@ -163,42 +101,12 @@ export async function patchProfile(
   etag: string,
   data: PatchProfileRequest,
 ): Promise<ProfileResponseWithETag> {
-  const url = new URL("profile", process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080");
-  const fullUrl = new URL(`/api/v1${url.pathname}`, url.origin);
-
-  const headers = new Headers({
-    "Content-Type": "application/json",
-    "If-Match": etag,
-  });
-
-  if (typeof window !== "undefined") {
-    const token = localStorage.getItem("token");
-    if (token != null) {
-      headers.set("Authorization", `Bearer ${token}`);
-    }
-  }
-
-  const res = await fetch(fullUrl, {
+  const res = await authFetch("/profile", {
     method: "PATCH",
-    headers,
+    headers: { "If-Match": etag },
     body: JSON.stringify(data),
-    cache: "no-store",
   });
-
-  if (!res.ok) {
-    let body: { error?: { code?: string; message?: string } } | null = null;
-    try {
-      body = await res.json();
-    } catch {
-      // Non-JSON error
-    }
-    const code = body?.error?.code ?? "UNKNOWN_ERROR";
-    const message = body?.error?.message ?? `Request failed with status ${res.status}`;
-    throw new ApiError(res.status, code, message);
-  }
-
   const profile = (await res.json()) as Profile;
   const newEtag = res.headers.get("etag") ?? "";
-
   return { profile, etag: newEtag };
 }

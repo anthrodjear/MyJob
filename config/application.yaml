@@ -35,9 +35,6 @@ llm:
   local:
     provider: "ollama"
     model: "qwen2.5:latest"
-  embeddings:
-    provider: "ollama"
-    model: "mxbai-embed-large"
 
 voice:
   provider: "openai_realtime"

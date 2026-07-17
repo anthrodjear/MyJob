@@ -27,7 +27,6 @@ const LLMConfigSchema = z.object({
   local: ProviderConfigSchema.extend({
     baseUrl: z.string().url().optional(),
   }),
-  embeddings: ProviderConfigSchema,
 });
 
 const PromptPairSchema = z.object({

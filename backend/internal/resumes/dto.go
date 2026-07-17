@@ -6,6 +6,34 @@ import (
 	"github.com/google/uuid"
 )
 
+// uuidsToStringSlice converts []uuid.UUID to []string for pq.StringArray storage.
+func uuidsToStringSlice(ids []uuid.UUID) []string {
+	if ids == nil {
+		return nil
+	}
+	out := make([]string, len(ids))
+	for i, id := range ids {
+		out[i] = id.String()
+	}
+	return out
+}
+
+// stringSliceToUUIDs converts []string from pq.StringArray back to []uuid.UUID.
+func stringSliceToUUIDs(ss []string) []uuid.UUID {
+	if ss == nil {
+		return nil
+	}
+	out := make([]uuid.UUID, 0, len(ss))
+	for _, s := range ss {
+		id, err := uuid.Parse(s)
+		if err != nil {
+			continue // skip malformed UUIDs
+		}
+		out = append(out, id)
+	}
+	return out
+}
+
 // --- Request DTOs ---
 
 // CreateResumeRequest is the payload for POST /resumes.
@@ -153,7 +181,7 @@ func ToResponse(r *Resume) ResumeResponse {
 		Specialization:      r.Specialization,
 		TemplatePath:        r.TemplatePath,
 		FocusSkills:         r.FocusSkills,
-		HighlightExperience: r.HighlightExperience,
+		HighlightExperience: stringSliceToUUIDs(r.HighlightExperience),
 		HasContent:          hasContent(r.Content),
 		PdfKey:              r.PdfKey,
 		Version:             r.Version,

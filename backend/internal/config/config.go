@@ -61,7 +61,6 @@ type LLMConfig struct {
 	Primary         LLMProvider
 	Local           LLMProvider
 	Embeddings      LLMProvider
-	Fallback        LLMProvider
 	EmailClassifier LLMProvider
 }
 
@@ -259,11 +258,6 @@ func Load() *Config {
 				BaseURL:  getEnv("OLLAMA_BASE_URL", "http://localhost:11434"),
 				Timeout:  getEnvDuration("OLLAMA_TIMEOUT", 60*time.Second),
 			},
-			Fallback: LLMProvider{
-				Provider: getEnv("LLM_FALLBACK_PROVIDER", "anthropic"),
-				Model:    getEnv("ANTHROPIC_MODEL", "claude-sonnet-4"),
-				APIKey:   getEnv("ANTHROPIC_API_KEY", ""),
-			},
 			EmailClassifier: LLMProvider{
 				Provider: getEnv("LLM_EMAIL_CLASSIFIER_PROVIDER", "ollama"),
 				Model:    getEnv("OLLAMA_MODEL", "qwen2.5:latest"),
@@ -387,9 +381,6 @@ func (c *Config) Validate() error {
 	// LLM validation — provider-based (only validate what's configured)
 	if c.LLM.Primary.Provider == "openai" && c.LLM.Primary.APIKey == "" {
 		return errors.New("config: OpenAI API key required when primary provider is openai")
-	}
-	if c.LLM.Fallback.Provider == "anthropic" && c.LLM.Fallback.APIKey == "" {
-		return errors.New("config: Anthropic API key required when fallback provider is anthropic")
 	}
 
 	// Voice validation — only if provider is set

@@ -265,7 +265,8 @@ export async function apiFetch<T>(
   options?: RequestInit & { skipAuth?: boolean },
 ): Promise<T | undefined> {
   // new URL() prevents double slashes from misconfigured env vars
-  const url = new URL(`${API_PREFIX}/${path}`, BACKEND_URL);
+  // Strip leading slash from path to avoid /api/v1//endpoint when path = "/endpoint"
+  const url = new URL(`${API_PREFIX}/${path.replace(/^\//, "")}`, BACKEND_URL);
 
   // Build headers — only set Content-Type if not already provided
   const headers = new Headers(options?.headers);
@@ -518,4 +519,45 @@ export function apiDeleteWithRefresh<T = void>(
   options?: RequestInit,
 ): Promise<T | undefined> {
   return apiFetchWithRefresh<T>(path, { ...options, method: "DELETE" });
+}
+
+/**
+ * Raw fetch with auth injection and error parsing.
+ * Returns the full Response so callers can access headers (e.g., ETag).
+ *
+ * Use this when you need response headers that apiFetch doesn't expose.
+ * Auth token is injected automatically. Errors are parsed into ApiError.
+ */
+export async function authFetch(
+  input: string | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const url = typeof input === "string"
+    ? new URL(`${API_PREFIX}/${input.replace(/^\//, "")}`, BACKEND_URL)
+    : input;
+
+  const headers = new Headers(init?.headers);
+  if (!headers.has("Content-Type") && init?.body != null) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const token = getAuthToken();
+  if (token != null) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const res = await fetch(url, { ...init, headers, cache: "no-store" });
+
+  if (!res.ok) {
+    const rawBody = await res.text().catch(() => "");
+    let parsed: { error?: { code?: string; message?: string } } | null = null;
+    if (rawBody.length > 0) {
+      try { parsed = JSON.parse(rawBody); } catch { /* non-JSON */ }
+    }
+    const code = parsed?.error?.code ?? "UNKNOWN_ERROR";
+    const message = parsed?.error?.message ?? `Request failed with status ${res.status}`;
+    throw new ApiError(res.status, code, message, rawBody || undefined);
+  }
+
+  return res;
 }

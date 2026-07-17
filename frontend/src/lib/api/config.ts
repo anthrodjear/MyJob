@@ -32,7 +32,7 @@ import type {
  *   console.log(config.scoring.mode); // "hybrid"
  */
 export async function fetchSystemConfig(): Promise<SystemConfigResponse> {
-  const result = await apiGetWithRefresh<SystemConfigResponse>("system/config");
+  const result = await apiGetWithRefresh<SystemConfigResponse>("/system/config");
   if (result === undefined) {
     throw new Error("Failed to fetch system config");
   }
@@ -58,7 +58,7 @@ export async function setOverride(
   key: string,
   value: unknown,
 ): Promise<SetOverrideResponse> {
-  const result = await apiPatchWithRefresh<SetOverrideResponse>("system/config", {
+  const result = await apiPatchWithRefresh<SetOverrideResponse>("/system/config", {
     key,
     value,
   } as SetOverrideRequest);

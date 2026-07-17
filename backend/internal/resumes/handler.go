@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"go.uber.org/zap"
 
 	"backend/internal/httpresp"
@@ -203,7 +204,7 @@ func (h *Handler) UpdateResume(c *gin.Context) {
 	existing.Specialization = req.Specialization
 	existing.TemplatePath = req.TemplatePath
 	existing.FocusSkills = req.FocusSkills
-	existing.HighlightExperience = req.HighlightExperience
+	existing.HighlightExperience = pq.StringArray(uuidsToStringSlice(req.HighlightExperience))
 
 	if err := h.svc.Update(c.Request.Context(), existing); err != nil {
 		if errors.Is(err, ErrNotFound) {

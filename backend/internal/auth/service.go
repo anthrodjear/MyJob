@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -422,35 +423,51 @@ func (s *Service) UpdateOnboardingStep(ctx context.Context, step string) error {
 
 // SaveOnboardingConfig persists all onboarding config overrides.
 func (s *Service) SaveOnboardingConfig(ctx context.Context, req *OnboardingConfigRequest) error {
-	configs := map[string]string{}
+	type configEntry struct {
+		key    string
+		value  string
+		secret bool
+	}
+	entries := []configEntry{}
 	if req.OpenAIKey != "" {
-		configs["llm.primary.api_key"] = req.OpenAIKey
+		entries = append(entries, configEntry{"llm.primary.api_key", req.OpenAIKey, true})
 	}
 	if req.AnthropicKey != "" {
-		configs["llm.fallback.api_key"] = req.AnthropicKey
+		entries = append(entries, configEntry{"llm.fallback.api_key", req.AnthropicKey, true})
 	}
 	if req.LivekitURL != "" {
-		configs["voice.livekit.url"] = req.LivekitURL
+		entries = append(entries, configEntry{"voice.livekit.url", req.LivekitURL, false})
 	}
 	if req.LivekitKey != "" {
-		configs["voice.livekit.api_key"] = req.LivekitKey
+		entries = append(entries, configEntry{"voice.livekit.api_key", req.LivekitKey, true})
 	}
 	if req.LivekitSecret != "" {
-		configs["voice.livekit.api_secret"] = req.LivekitSecret
+		entries = append(entries, configEntry{"voice.livekit.api_secret", req.LivekitSecret, true})
 	}
 	if req.MSTenantID != "" {
-		configs["email.ms_365.tenant_id"] = req.MSTenantID
+		entries = append(entries, configEntry{"email.ms_365.tenant_id", req.MSTenantID, false})
 	}
 	if req.MSClientID != "" {
-		configs["email.ms_365.client_id"] = req.MSClientID
+		entries = append(entries, configEntry{"email.ms_365.client_id", req.MSClientID, true})
 	}
 	if req.MSClientSecret != "" {
-		configs["email.ms_365.client_secret"] = req.MSClientSecret
+		entries = append(entries, configEntry{"email.ms_365.client_secret", req.MSClientSecret, true})
 	}
 
-	for key, value := range configs {
-		if err := s.configSvc.SetOverride(ctx, key, []byte(value)); err != nil {
-			return fmt.Errorf("auth: save config %s: %w", key, err)
+	for _, e := range entries {
+		// JSON-encode the value — the DB column is JSON, so strings must be quoted
+		jsonVal, err := json.Marshal(e.value)
+		if err != nil {
+			return fmt.Errorf("auth: marshal config %s: %w", e.key, err)
+		}
+		if e.secret {
+			if err := s.configSvc.SetSecretOverride(ctx, e.key, jsonVal); err != nil {
+				return fmt.Errorf("auth: save secret %s: %w", e.key, err)
+			}
+		} else {
+			if err := s.configSvc.SetOverride(ctx, e.key, jsonVal); err != nil {
+				return fmt.Errorf("auth: save config %s: %w", e.key, err)
+			}
 		}
 	}
 	return nil

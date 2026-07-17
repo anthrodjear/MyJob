@@ -54,7 +54,7 @@ export interface MessageResponse {
  *   // Tokens are now stored in localStorage — all apiFetch calls use the access token
  */
 export async function login(password: string): Promise<LoginResponse> {
-  const resp = await apiPost<LoginResponse>("auth/login", { password });
+  const resp = await apiPost<LoginResponse>("/auth/login", { password });
   if (resp == null) {
     throw new ApiError(500, "EMPTY_RESPONSE", "Login failed: no response from server");
   }
@@ -87,7 +87,7 @@ export async function refreshAccessToken(): Promise<LoginResponse> {
   }
 
   const resp = await apiPost<LoginResponse>(
-    "auth/refresh",
+    "/auth/refresh",
     { refresh_token: refreshToken },
     { skipAuth: true }, // Refresh endpoint only needs the refresh token
   );
@@ -118,7 +118,7 @@ export async function changePassword(
   currentPassword: string,
   newPassword: string,
 ): Promise<MessageResponse> {
-  const resp = await apiPost<MessageResponse>("auth/change-password", {
+  const resp = await apiPost<MessageResponse>("/auth/change-password", {
     current_password: currentPassword,
     new_password: newPassword,
   });
@@ -142,7 +142,7 @@ export async function changePassword(
  *   clearAuthTokens(); // Always clear local state even if server call fails
  */
 export async function logout(): Promise<MessageResponse> {
-  const resp = await apiPost<MessageResponse>("auth/logout", {});
+  const resp = await apiPost<MessageResponse>("/auth/logout", {});
   if (resp == null) {
     throw new ApiError(500, "EMPTY_RESPONSE", "Logout failed: no response from server");
   }
@@ -170,7 +170,7 @@ export interface SetupResponse {
  * @throws ApiError on server error
  */
 export async function getSetupStatus(): Promise<SetupStatusResponse> {
-  const resp = await apiGet<SetupStatusResponse>("auth/setup/status");
+  const resp = await apiGet<SetupStatusResponse>("/auth/setup/status");
   if (resp == null) {
     throw new ApiError(500, "EMPTY_RESPONSE", "Setup status check failed: no response from server");
   }
@@ -194,7 +194,7 @@ export async function completeSetup(
   email: string,
   password: string,
 ): Promise<SetupResponse> {
-  const resp = await apiPost<SetupResponse>("auth/setup", {
+  const resp = await apiPost<SetupResponse>("/auth/setup", {
     username,
     email,
     password,
@@ -245,7 +245,7 @@ export async function testLLMKey(
   provider: "openai" | "anthropic",
   apiKey: string,
 ): Promise<TestServiceResponse> {
-  const resp = await apiPost<TestServiceResponse>("auth/setup/test-llm", {
+  const resp = await apiPost<TestServiceResponse>("/auth/setup/test-llm", {
     provider,
     api_key: apiKey,
   });
@@ -269,7 +269,7 @@ export async function testVoiceConfig(
   apiKey: string,
   apiSecret: string,
 ): Promise<TestServiceResponse> {
-  const resp = await apiPost<TestServiceResponse>("auth/setup/test-voice", {
+  const resp = await apiPost<TestServiceResponse>("/auth/setup/test-voice", {
     url,
     api_key: apiKey,
     api_secret: apiSecret,
@@ -294,7 +294,7 @@ export async function testEmailConfig(
   clientId: string,
   clientSecret: string,
 ): Promise<TestServiceResponse> {
-  const resp = await apiPost<TestServiceResponse>("auth/setup/test-email", {
+  const resp = await apiPost<TestServiceResponse>("/auth/setup/test-email", {
     tenant_id: tenantId,
     client_id: clientId,
     client_secret: clientSecret,
@@ -315,7 +315,7 @@ export async function testEmailConfig(
 export async function saveOnboardingConfig(
   config: OnboardingConfigPayload,
 ): Promise<OnboardingResponse> {
-  const resp = await apiPost<OnboardingResponse>("auth/setup/config", config);
+  const resp = await apiPost<OnboardingResponse>("/auth/setup/config", config);
   if (resp == null) {
     throw new ApiError(500, "EMPTY_RESPONSE", "Config save failed: no response from server");
   }
@@ -333,7 +333,7 @@ export async function updateOnboardingStep(
   step: string,
 ): Promise<OnboardingResponse> {
   const resp = await apiPost<OnboardingResponse>(
-    "auth/setup/onboarding-step",
+    "/auth/setup/onboarding-step",
     { step },
   );
   if (resp == null) {
@@ -350,7 +350,7 @@ export async function updateOnboardingStep(
  */
 export async function completeOnboarding(): Promise<OnboardingResponse> {
   const resp = await apiPost<OnboardingResponse>(
-    "auth/setup/complete-onboarding",
+    "/auth/setup/complete-onboarding",
     {},
   );
   if (resp == null) {
@@ -373,7 +373,7 @@ export async function requestPasswordReset(
   email: string,
 ): Promise<{ reset_token?: string; message: string }> {
   const resp = await apiPost<{ reset_token?: string; message: string }>(
-    "auth/password/reset",
+    "/auth/password/reset",
     { email },
   );
   if (resp == null) {
@@ -395,7 +395,7 @@ export async function resetPassword(
   newPassword: string,
 ): Promise<MessageResponse> {
   const resp = await apiPost<MessageResponse>(
-    "auth/password/reset/confirm",
+    "/auth/password/reset/confirm",
     { token, new_password: newPassword },
   );
   if (resp == null) {

@@ -21,7 +21,7 @@
 
 import { z } from 'zod';
 import { logger } from '../../utils/logger.js';
-import { OllamaClient, OllamaError } from '../../llm/ollama.js';
+import { OllamaClient } from '../../llm/ollama.js';
 import type {
   BrainResponse,
   ContextChunk,
@@ -128,7 +128,6 @@ export function createResponder(config: ResponderConfig): {
   const model = config.model ?? 'llama3.1';
   const llmConfig = config.llm ?? {};
   const timeoutMs = llmConfig.timeout_ms ?? 30_000;
-  const maxRetries = llmConfig.max_retries ?? 2;
 
   const promptBudget: PromptBudget = {
     system: config.prompt_budget?.system ?? 3000,
@@ -453,20 +452,6 @@ Respond as the candidate to the above question. Return ONLY valid JSON.`;
     };
   }
 
-  function isTransientError(err: unknown): boolean {
-    if (err instanceof OllamaError) {
-      return err.statusCode === undefined || err.statusCode >= 500;
-    }
-    if (err instanceof Error) {
-      return err.name === 'AbortError' || err.message.includes('fetch');
-    }
-    return false;
-  }
-
-  function delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
   // ----- Generate function -----
 
   async function generate(
@@ -506,37 +491,21 @@ Respond as the candidate to the above question. Return ONLY valid JSON.`;
       speaker: segment.speaker,
     });
 
-    // Retry with backoff for transient failures
-    let lastError: unknown;
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        const startTime = Date.now();
-        const rawResponse = await ollama.generate(prompt);
-        const response = parseResponse(rawResponse);
-        response.metadata = {
-          ...response.metadata,
-          responseTimeMs: Date.now() - startTime,
-          sources: ['ollama', ...truncChunks.chunks.map((c) => c.source)],
-        };
-        return response;
-      } catch (err) {
-        lastError = err;
-        if (attempt < maxRetries && isTransientError(err)) {
-          logger.warn({
-            message: 'Ollama generate failed, retrying',
-            err,
-            attempt: attempt + 1,
-          });
-          await delay(500 * (attempt + 1));
-          continue;
-        }
-        break;
-      }
+    // Single call — OllamaClient handles retry with exponential backoff + jitter internally
+    try {
+      const startTime = Date.now();
+      const rawResponse = await ollama.generate(prompt);
+      const response = parseResponse(rawResponse);
+      response.metadata = {
+        ...response.metadata,
+        responseTimeMs: Date.now() - startTime,
+        sources: ['ollama', ...truncChunks.chunks.map((c) => c.source)],
+      };
+      return response;
+    } catch (err) {
+      logger.error({ message: 'Ollama generate failed', err });
+      return fallbackResponse('');
     }
-
-    // All retries exhausted — try to salvage raw output
-    logger.error({ message: 'Ollama generate failed after retries', err: lastError });
-    return fallbackResponse('');
   }
 
   function destroy(): void {
