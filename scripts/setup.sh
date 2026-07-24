@@ -12,16 +12,16 @@ fi
 
 # Start infrastructure
 echo "Starting infrastructure services..."
-docker compose up -d postgres redis ollama
+docker compose up -d postgres redis
 
 # Wait for services
 echo "Waiting for services to be ready..."
 sleep 10
 
-# Pull Ollama models
-echo "Pulling Ollama models..."
-docker compose exec ollama ollama pull mxbai-embed-large
-docker compose exec ollama ollama pull qwen2.5:latest
+# Ollama runs on the host machine (http://localhost:11434)
+# Pull models manually if needed:
+#   ollama pull mxbai-embed-large
+#   ollama pull qwen2.5:latest
 
 echo "Setup complete!"
 echo "Next steps:"

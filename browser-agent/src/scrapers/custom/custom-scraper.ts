@@ -19,11 +19,11 @@ const NAV_TIMEOUT_MS = 30_000;
  * Fallback scraper for unknown or custom career sites.
  *
  * Hybrid discovery strategy (orchestration):
- *   0. ATS detection — redirect to dedicated scraper if known
- *   1. JSON-LD structured data (JobPosting schema) — cheapest
- *   2. Pagination-aware link discovery — crawl multiple pages
- *   3. Concurrent job page extraction — parallel with concurrency limit
- *   4. LLM fallback — most expensive, last resort
+ *   0. ATS detection â€” redirect to dedicated scraper if known
+ *   1. JSON-LD structured data (JobPosting schema) â€” cheapest
+ *   2. Pagination-aware link discovery â€” crawl multiple pages
+ *   3. Concurrent job page extraction â€” parallel with concurrency limit
+ *   4. LLM fallback â€” most expensive, last resort
  *
  * All heavy lifting is delegated to focused modules in custom/.
  */
@@ -36,13 +36,13 @@ export class CustomScraper extends BaseScraper {
    * @param location - Optional location filter (logged, not used for filtering).
    * @returns Extracted and normalised job postings.
    */
-  async scrape(baseUrl: string, keywords?: string[], location?: string): Promise<ScrapedJob[]> {
+  async scrape(baseUrl: string, keywords?: string[], location?: string, signal?: AbortSignal): Promise<ScrapedJob[]> {
     log.info({ baseUrl, keywords, location }, 'Starting CustomScraper');
 
     const page = await this.createPage();
 
     try {
-      // ── Step 0: ATS detection ─────────────────────────────────────
+      // â”€â”€ Step 0: ATS detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const ats = await detectATS(page, baseUrl);
       if (ats) {
         log.info({ baseUrl, scraper: ats.name }, 'Detected known ATS, redirecting');
@@ -57,12 +57,13 @@ export class CustomScraper extends BaseScraper {
       await page.goto(baseUrl, {
         waitUntil: 'domcontentloaded',
         timeout: NAV_TIMEOUT_MS,
+        signal,
       });
 
       // Scroll to load lazy content (non-blocking)
       await autoScroll(page).catch(err => log.warn({ err }, 'Auto-scroll failed, continuing'));
 
-      // ── Step 1: JSON-LD extraction (cheapest) ────────────────────
+      // â”€â”€ Step 1: JSON-LD extraction (cheapest) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const jsonLdJobs = await extractJsonLd(page, baseUrl);
       if (jsonLdJobs.length >= JSONLD_MIN_THRESHOLD) {
         log.info({ count: jsonLdJobs.length }, 'Extracted jobs from JSON-LD (above threshold)');
@@ -73,7 +74,7 @@ export class CustomScraper extends BaseScraper {
         log.info({ count: jsonLdJobs.length }, 'JSON-LD found below threshold, continuing discovery');
       }
 
-      // ── Step 2: Pagination-aware link discovery ──────────────────
+      // â”€â”€ Step 2: Pagination-aware link discovery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const allJobLinks = await discoverWithPagination(page, baseUrl);
       if (allJobLinks.length > 0) {
         log.info({ count: allJobLinks.length }, 'Discovered job links across pages');
@@ -81,11 +82,12 @@ export class CustomScraper extends BaseScraper {
         return deduplicate([...jsonLdJobs, ...scraped]);
       }
 
-      // ── Step 3: LLM fallback (most expensive) ────────────────────
-      // Re-navigate to baseUrl — discoverWithPagination may have moved the page
+      // â”€â”€ Step 3: LLM fallback (most expensive) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // Re-navigate to baseUrl â€” discoverWithPagination may have moved the page
       await page.goto(baseUrl, {
         waitUntil: 'domcontentloaded',
         timeout: NAV_TIMEOUT_MS,
+        signal,
       });
 
       log.info({ baseUrl }, 'No structured data or job links found, using LLM fallback');
@@ -100,7 +102,7 @@ export class CustomScraper extends BaseScraper {
   }
 
   /**
-   * Full-page LLM extraction — last resort.
+   * Full-page LLM extraction â€” last resort.
    * Attempts to extract multiple jobs by chunking page content.
    */
   private async llmFallback(page: Page, baseUrl: string, location?: string): Promise<ScrapedJob[]> {

@@ -1,4 +1,4 @@
-# kustomize/overlays/staging/kustomization.yaml
+﻿# kustomize/overlays/staging/kustomization.yaml
 # Staging environment — moderate scaling, debug-friendly
 
 apiVersion: kustomize.config.k8s.io/v1beta1
@@ -94,3 +94,15 @@ configMapGenerator:
     literals:
       - APP_ENV=staging
       - LOG_LEVEL=debug
+secretGenerator:
+  - name: myjob-secrets
+    literals:
+      - DATABASE_URL=postgres://myjob:myjob_staging@myjob-postgres:5432/myjob?sslmode=disable
+      - REDIS_URL=redis://:myjob_staging@myjob-redis:6379
+      - REDIS_PASSWORD=myjob_staging
+      - AUTH_PASSWORD_HASH=PLACEHOLDER_CHANGE_ME
+      - AUTH_JWT_SECRET=staging-jwt-secret-change-in-production
+      - POSTGRES_PASSWORD=myjob_staging
+      - LIVEKIT_WS_URL=ws://myjob-livekit:7880
+    options:
+      disableNameSuffixHash: true

@@ -1,4 +1,4 @@
-apiVersion: apps/v1
+﻿apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: myjob-worker
@@ -52,3 +52,13 @@ spec:
             limits:
               cpu: 1000m
               memory: 512Mi
+          livenessProbe:
+            exec:
+              command: ["pgrep", "-x", "worker"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["pgrep", "-x", "worker"]
+            initialDelaySeconds: 5
+            periodSeconds: 5

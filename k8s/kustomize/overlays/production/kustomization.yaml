@@ -111,3 +111,18 @@ configMapGenerator:
     literals:
       - APP_ENV=production
       - LOG_LEVEL=warn
+# IMPORTANT: Replace CHANGE_ME values before deploying.
+# Use: kustomize edit set secret/myjob-secrets --from-literal=key=value
+# Or use Sealed Secrets / External Secrets Operator for production.
+secretGenerator:
+  - name: myjob-secrets
+    literals:
+      - DATABASE_URL=postgres://myjob:CHANGE_ME@myjob-postgres:5432/myjob?sslmode=require
+      - REDIS_URL=redis://:CHANGE_ME@myjob-redis:6379
+      - AUTH_PASSWORD_HASH=CHANGE_ME
+      - AUTH_JWT_SECRET=CHANGE_ME
+      - POSTGRES_PASSWORD=CHANGE_ME
+      - REDIS_PASSWORD=CHANGE_ME
+      - LIVEKIT_WS_URL=CHANGE_ME
+    options:
+      disableNameSuffixHash: true

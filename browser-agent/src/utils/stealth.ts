@@ -77,8 +77,8 @@ export const stealthConfig: Readonly<BrowserContextOptions> = {
     'Sec-Fetch-Mode': 'navigate',
     'Sec-Fetch-Site': 'none',
     'Sec-Fetch-User': '?1',
-    'Sec-Ch-Ua': '"Chromium";v="137", "Not=A?Brand";v="24", "Google Chrome";v="137"',
-    'Sec-Ch-Ua-Mobile': '?0',
-    'Sec-Ch-Ua-Platform': '"Windows"',
+    'Sec-CH-UA': '"Chromium";v="137", "Not=A?Brand";v="24", "Google Chrome";v="137"',
+    'Sec-CH-UA-Mobile': '?0',
+    'Sec-CH-UA-Platform': '"Windows"',
   },
 };

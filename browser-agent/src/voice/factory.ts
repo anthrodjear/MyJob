@@ -8,6 +8,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
+import { load as yamlLoad } from 'js-yaml';
 import { logger } from '../utils/logger.js';
 import type {
   LiveKitTransport,
@@ -83,52 +84,17 @@ interface VoiceYamlConfig {
   };
 }
 
-/** Minimal YAML parser (avoids js-yaml dependency for just top-level keys). */
+/** YAML config voice section parser using js-yaml. */
 function parseVoiceConfig(yamlContent: string): VoiceYamlConfig {
-  const config: VoiceYamlConfig = {};
-  const lines = yamlContent.split('\n');
-  let currentSection: string | null = null;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-
-    const indent = line.length - line.trimStart().length;
-
-    if (indent === 0) {
-      const colonIdx = trimmed.indexOf(':');
-      if (colonIdx > 0) {
-        currentSection = trimmed.slice(0, colonIdx).trim();
-        const value = trimmed.slice(colonIdx + 1).trim();
-        if (currentSection === 'provider' && value) {
-          config.provider = value.replace(/['"]/g, '');
-        }
-      } else {
-        currentSection = trimmed;
-      }
-    } else if (indent >= 2 && currentSection) {
-      const colonIdx = trimmed.indexOf(':');
-      if (colonIdx > 0) {
-        const key = trimmed.slice(0, colonIdx).trim();
-        const value = trimmed.slice(colonIdx + 1).trim();
-        if (!value) {
-          // Sub-section header
-          if (!config[currentSection as keyof VoiceYamlConfig]) {
-            (config as Record<string, unknown>)[currentSection] = {};
-          }
-          continue;
-        }
-        const parsed = value.replace(/['"]/g, '');
-        const section = config[currentSection as keyof VoiceYamlConfig];
-        if (typeof section === 'object' && section !== null) {
-          const numVal = Number(parsed);
-          (section as Record<string, unknown>)[key] = isNaN(numVal) ? parsed : numVal;
-        }
-      }
-    }
+  try {
+    const fullConfig = yamlLoad(yamlContent) as Record<string, unknown>;
+    // Extract just the voice section if it exists, otherwise use root
+    const voiceSection = (fullConfig?.voice ?? fullConfig) as VoiceYamlConfig | undefined;
+    return voiceSection ?? {};
+  } catch (err) {
+    log.warn({ err }, 'Failed to parse voice YAML config, using defaults');
+    return {};
   }
-
-  return config;
 }
 
 // ----- Provider name helpers -----
@@ -314,8 +280,8 @@ export async function createInterviewSessionFactory(overrides?: {
       model: cfg.openai?.model ?? 'gpt-4o-realtime-preview',
       livekit: {
         url: cfg.livekit?.url ?? '',
-        api_key: cfg.livekit?.api_key ?? process.env['LIVEKIT_API_KEY'] ?? '',
-        api_secret: cfg.livekit?.api_secret ?? process.env['LIVEKIT_API_SECRET'] ?? '',
+        api_key: cfg.livekit?.api_key ?? process.env.LIVEKIT_API_KEY ?? '',
+        api_secret: cfg.livekit?.api_secret ?? process.env.LIVEKIT_API_SECRET ?? '',
       },
       openai_realtime: cfg.openai,
       elevenlabs: cfg.elevenlabs,

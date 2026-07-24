@@ -71,7 +71,7 @@ fi
 cp "$ENV_EXAMPLE" "$ENV_FILE"
 
 # Generate JWT secret if empty
-JWT_SECRET=$(openssl rand -hex 32 2>/dev/null || head -c 64 /dev/urandom | base64 | tr -d '\n/+=' | head -c 64)
+JWT_SECRET=$(openssl rand -hex 32 2>/dev/null || python3 -c "import secrets; print(secrets.token_hex(32))" 2>/dev/null || head -c 64 /dev/urandom | base64 | tr -d '\n/+=' | head -c 64)
 
 # Replace empty AUTH_JWT_SECRET with generated secret
 # Remove AUTH_PASSWORD_HASH from .env — it's stored in .env.auth instead.

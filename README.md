@@ -1,6 +1,6 @@
 # AI Job Search Agent
 
-> A local-first AI agent that automates 80–95% of the job application pipeline — from discovery to submission — running entirely on your machine via Docker Compose.
+> A local-first AI agent that automates 80�95% of the job application pipeline � from discovery to submission � running entirely on your machine via Docker Compose.
 
 ## Why This Exists
 
@@ -10,23 +10,23 @@ Job searching is repetitive, time-consuming, and error-prone. You copy-paste the
 
 ## Features
 
-- **Job Discovery** — Scrapes configurable sources (Indeed, RemoteOK, Greenhouse, Lever, and more) on a schedule. New postings are scored and ranked automatically.
-- **AI-Powered Scoring** — Each job is evaluated against your profile and preferences. Scores fall into three tiers: AUTO (95+, submit immediately), REVIEW (80–94, human approval), REJECT (<80, skip).
-- **Resume Generation** — Produces ATS-friendly PDF resumes from LaTeX templates, tailored to each job's requirements.
-- **Cover Letter Generation** — Writes personalized cover letters that reference specific role requirements and your experience.
-- **Automatic Form Filling** — Browser automation fills and submits application forms via Playwright, handling dynamic JS-heavy career pages.
-- **Email Monitoring** — Tracks inbound email via Microsoft Graph API (confirmations, interview invitations, recruiter outreach).
-- **Voice Interview Coaching** — Real-time AI conversation practice using LiveKit and OpenAI's realtime voice model.
-- **RAG Knowledge Base** — Store and retrieve information from your career history, past applications, and research using pgvector embeddings.
+- **Job Discovery** � Scrapes configurable sources (Indeed, RemoteOK, Greenhouse, Lever, and more) on a schedule. New postings are scored and ranked automatically.
+- **AI-Powered Scoring** � Each job is evaluated against your profile and preferences. Scores fall into three tiers: AUTO (95+, submit immediately), REVIEW (80�94, human approval), REJECT (<80, skip).
+- **Resume Generation** � Produces ATS-friendly PDF resumes from LaTeX templates, tailored to each job's requirements.
+- **Cover Letter Generation** � Writes personalized cover letters that reference specific role requirements and your experience.
+- **Automatic Form Filling** � Browser automation fills and submits application forms via Playwright, handling dynamic JS-heavy career pages.
+- **Email Monitoring** � Tracks inbound email via Microsoft Graph API (confirmations, interview invitations, recruiter outreach).
+- **Voice Interview Coaching** � Real-time AI conversation practice using LiveKit and OpenAI's realtime voice model.
+- **RAG Knowledge Base** � Store and retrieve information from your career history, past applications, and research using pgvector embeddings.
 
 ## Tech Stack
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| **Backend API** | Go 1.22, Gin, sqlx, zap | REST API server on `:8080` |
-| **Task Worker** | Go 1.22, Asynq, Redis | Async job processing (scraping, generation, form filling) |
-| **Browser Agent** | TypeScript, Playwright, Express | Headless browser automation on `:3000` |
-| **Frontend** | Next.js 16, React 19, Tailwind CSS v4 | Dashboard UI on `:3001` |
+| **Backend API** | Go 1.26, Gin, sqlx, zap | REST API server on `:8080` |
+| **Task Worker** | Go 1.26, Asynq, Redis | Async job processing (scraping, generation, form filling) |
+| **Browser Agent** | TypeScript, Playwright, Express | Headless browser automation on `:3001` |
+| **Frontend** | Next.js 15, React 19, Tailwind CSS v4 | Dashboard UI on `:3000` |
 | **Database** | PostgreSQL 16 + pgvector | Persistent storage and vector embeddings |
 | **Queue/Cache** | Redis | Asynq task queue and application cache |
 | **LLM Inference** | Ollama (local) | Local embedding and text generation |
@@ -73,8 +73,8 @@ make setup
 
 This will:
 - Create `.env` from `.env.example` if missing
-- Start PostgreSQL, Redis, and Ollama
-- Pull required Ollama models (`mxbai-embed-large` for embeddings, `qwen2.5:latest` for generation)
+- Start PostgreSQL and Redis
+- Generate `.env` with bcrypt password hash
 
 ### 3. Initialize the database
 
@@ -94,15 +94,15 @@ Open [http://localhost:3001](http://localhost:3001) in your browser.
 
 **Default login:**
 - **Username:** `admin`
-- **Password:** `admin123`
+- **Password:** `admin`
 
-> **Important:** Change your password after first login via Settings → Security → Change Password. The backend uses bcrypt with cost 10 for password hashing.
+> **Important:** Change your password after first login via Settings ? Security ? Change Password. The backend uses bcrypt with cost 10 for password hashing.
 
 | Service | URL | Description |
 |---------|-----|-------------|
-| Frontend | http://localhost:3001 | Dashboard UI |
+| Frontend | http://localhost:3000 | Dashboard UI |
 | API | http://localhost:8080 | REST API |
-| Browser Agent | http://localhost:3000 | Automation service |
+| Browser Agent | http://localhost:3001 | Automation service |
 | Ollama | http://localhost:11434 | Local LLM API |
 
 ## Development Setup
@@ -110,8 +110,8 @@ Open [http://localhost:3001](http://localhost:3001) in your browser.
 Run services individually for faster iteration:
 
 ```bash
-# Start only infrastructure (PostgreSQL, Redis, Ollama)
-docker compose up -d postgres redis ollama
+# Start only infrastructure (PostgreSQL, Redis)
+docker compose up -d postgres redis
 
 # Run each service locally in separate terminals
 make dev-api        # Go API on :8080
@@ -123,8 +123,8 @@ make dev-browser    # Browser Agent on :3000
 ### Building locally
 
 ```bash
-make build-api        # Go API binary → bin/api.exe
-make build-worker     # Go Worker binary → bin/worker.exe
+make build-api        # Go API binary ? bin/api.exe
+make build-worker     # Go Worker binary ? bin/worker.exe
 make build-frontend   # Next.js production build
 make build-browser    # TypeScript compilation
 ```
@@ -150,45 +150,45 @@ make shell-worker      # Shell into Worker container
 
 ```
 MyJob/
-├── backend/                    # Go backend (API + Worker)
-│   ├── cmd/
-│   │   ├── api/               # API server entrypoint
-│   │   └── worker/            # Async worker entrypoint
-│   ├── internal/
-│   │   ├── api/               # HTTP handlers and routes
-│   │   ├── applications/      # Application tracking domain
-│   │   ├── approvals/         # Score-tier approval workflow
-│   │   ├── config/            # YAML config loader
-│   │   ├── coverletters/      # Cover letter generation
-│   │   ├── database/          # Migrations and DB setup
-│   │   ├── emails/            # Microsoft Graph email sync
-│   │   ├── interviews/        # Interview coaching
-│   │   ├── jobs/              # Job discovery and scoring
-│   │   ├── profile/           # User profile management
-│   │   ├── rag/               # RAG knowledge base
-│   │   ├── resumes/           # LaTeX resume generation
-│   │   └── tasks/             # Asynq task definitions
-│   ├── Dockerfile.api
-│   ├── Dockerfile.worker
-│   └── go.mod
-├── browser-agent/              # TypeScript browser automation
-│   ├── src/                   # Playwright-based automation
-│   ├── Dockerfile
-│   └── package.json
-├── frontend/                   # Next.js dashboard
-│   ├── src/                   # App Router pages and components
-│   ├── package.json
-│   └── tsconfig.json
-├── config/
-│   └── application.yaml       # Scoring tiers, LLM providers, queue config
-├── templates/
-│   ├── resumes/               # LaTeX resume templates
-│   └── cover-letters/         # LaTeX cover letter templates
-├── storage/                   # Generated files (gitignored)
-├── scripts/                   # Setup and utility scripts
-├── Makefile                   # Dev workflow commands
-├── docker-compose.yml         # 8-service orchestration
-└── .env.example               # Environment variable template
++-- backend/                    # Go backend (API + Worker)
+�   +-- cmd/
+�   �   +-- api/               # API server entrypoint
+�   �   +-- worker/            # Async worker entrypoint
+�   +-- internal/
+�   �   +-- api/               # HTTP handlers and routes
+�   �   +-- applications/      # Application tracking domain
+�   �   +-- approvals/         # Score-tier approval workflow
+�   �   +-- config/            # YAML config loader
+�   �   +-- coverletters/      # Cover letter generation
+�   �   +-- database/          # Migrations and DB setup
+�   �   +-- emails/            # Microsoft Graph email sync
+�   �   +-- interviews/        # Interview coaching
+�   �   +-- jobs/              # Job discovery and scoring
+�   �   +-- profile/           # User profile management
+�   �   +-- rag/               # RAG knowledge base
+�   �   +-- resumes/           # LaTeX resume generation
+�   �   +-- tasks/             # Asynq task definitions
+�   +-- Dockerfile.api
+�   +-- Dockerfile.worker
+�   +-- go.mod
++-- browser-agent/              # TypeScript browser automation
+�   +-- src/                   # Playwright-based automation
+�   +-- Dockerfile
+�   +-- package.json
++-- frontend/                   # Next.js dashboard
+�   +-- src/                   # App Router pages and components
+�   +-- package.json
+�   +-- tsconfig.json
++-- config/
+�   +-- application.yaml       # Scoring tiers, LLM providers, queue config
++-- templates/
+�   +-- resumes/               # LaTeX resume templates
+�   +-- cover-letters/         # LaTeX cover letter templates
++-- storage/                   # Generated files (gitignored)
++-- scripts/                   # Setup and utility scripts
++-- Makefile                   # Dev workflow commands
++-- docker-compose.yml         # 8-service orchestration
++-- .env.example               # Environment variable template
 ```
 
 ## Architecture
@@ -198,21 +198,21 @@ MyJob/
 All mutation endpoints return a `{ taskId }` immediately. Clients poll `GET /tasks/:id` for results. This keeps HTTP requests fast and moves heavy work (scraping, PDF generation, form submission) to the background worker.
 
 ```
-Client → POST /api/jobs/apply → { taskId: "abc123" }
-Client → GET /tasks/abc123 → { status: "completed", result: {...} }
+Client ? POST /api/jobs/apply ? { taskId: "abc123" }
+Client ? GET /tasks/abc123 ? { status: "completed", result: {...} }
 ```
 
 ### Scoring Tiers
 
-Jobs are scored 0–100 against your profile. Tiers are configured in `config/application.yaml`:
+Jobs are scored 0�100 against your profile. Tiers are configured in `config/application.yaml`:
 
 | Tier | Score Range | Action |
 |------|-------------|--------|
 | AUTO | 95+ | Auto-submit application |
-| REVIEW | 80–94 | Pause, notify for human approval |
+| REVIEW | 80�94 | Pause, notify for human approval |
 | REJECT | <80 | Skip, log for reference |
 
-Tiers are **immutable policy** — thresholds live in config, not code. Edit the YAML to tune them without redeployment.
+Tiers are **immutable policy** � thresholds live in config, not code. Edit the YAML to tune them without redeployment.
 
 ### Domain Modules
 
@@ -230,32 +230,32 @@ internal/<domain>/
 ### Services Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Docker Compose                        │
-│                                                          │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────────┐  │
-│  │ Frontend │  │   API    │  │     Worker           │  │
-│  │ Next.js  │  │   Go     │  │  Go (Asynq)          │  │
-│  │  :3001   │  │  :8080   │  │  (async processor)   │  │
-│  └────┬─────┘  └────┬─────┘  └──────────┬───────────┘  │
-│       │              │                    │              │
-│       └──────────────┼────────────────────┘              │
-│                      │                                   │
-│              ┌───────┴───────┐                           │
-│              │     Redis     │                           │
-│              │  (queue+cache)│                           │
-│              └───────┬───────┘                           │
-│                      │                                   │
-│  ┌───────────┐  ┌────┴─────┐  ┌──────────────────┐     │
-│  │ PostgreSQL │  │  Ollama  │  │  Browser Agent   │     │
-│  │ +pgvector  │  │ (local   │  │  Playwright      │     │
-│  │            │  │   LLM)   │  │  :3000           │     │
-│  └────────────┘  └──────────┘  └──────────────────┘     │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │              LiveKit (voice coaching)             │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
++---------------------------------------------------------+
+�                    Docker Compose                        �
+�                                                          �
+�  +----------+  +----------+  +----------------------+  �
+�  � Frontend �  �   API    �  �     Worker           �  �
+�  � Next.js  �  �   Go     �  �  Go (Asynq)          �  �
+�  �  :3000   �  �  :8080   �  �  (async processor)   �  �
+�  +----------+  +----------+  +----------------------+  �
+�       �              �                    �              �
+�       +--------------+--------------------+              �
+�                      �                                   �
+�              +---------------+                           �
+�              �     Redis     �                           �
+�              �  (queue+cache)�                           �
+�              +---------------+                           �
+�                      �                                   �
+�  +-----------+  +----------+  +------------------+     �
+�  � PostgreSQL �  �  Ollama  �  �  Browser Agent   �     �
+�  � +pgvector  �  � (local   �  �  Playwright      �     �
+�  �            �  �   LLM)   �  �  :3001           �     �
+�  +------------+  +----------+  +------------------+     �
+�                                                          �
+�  +--------------------------------------------------+   �
+�  �              LiveKit (voice coaching)             �   �
+�  +--------------------------------------------------+   �
++---------------------------------------------------------+
 ```
 
 ## Configuration
@@ -350,12 +350,12 @@ All generated data stays local:
 
 ```
 storage/
-├── resumes/           # Generated PDF resumes
-├── coverletters/      # Generated PDF cover letters
-├── screenshots/       # Browser automation screenshots
-├── job_descriptions/  # Scraped job postings
-├── interview_prep/    # Interview coaching data
-└── voice_recordings/  # Voice coaching sessions
++-- resumes/           # Generated PDF resumes
++-- coverletters/      # Generated PDF cover letters
++-- screenshots/       # Browser automation screenshots
++-- job_descriptions/  # Scraped job postings
++-- interview_prep/    # Interview coaching data
++-- voice_recordings/  # Voice coaching sessions
 ```
 
 ## Contributing
@@ -370,21 +370,21 @@ storage/
 
 **Go (`backend/`):**
 - Domain modules in `internal/<domain>/` with handler, service, repository, model, dto files
-- Return errors up the stack — never `log.Fatal` in handlers
-- Use `zap.Logger` for structured logging — no `fmt.Println`
-- Raw SQL in repository layer only (sqlx) — no ORM
-- All async work goes through Asynq task queue — no inline processing in handlers
+- Return errors up the stack � never `log.Fatal` in handlers
+- Use `zap.Logger` for structured logging � no `fmt.Println`
+- Raw SQL in repository layer only (sqlx) � no ORM
+- All async work goes through Asynq task queue � no inline processing in handlers
 
 **TypeScript (`browser-agent/`):**
-- Strict `tsconfig.json` — no `any`, no `@ts-ignore`
+- Strict `tsconfig.json` � no `any`, no `@ts-ignore`
 - One class per file, class name matches filename
 - Playwright for all browser interaction
 - Zod for input validation
 
 **Next.js (`frontend/`):**
-- App Router only — no `pages/` directory
-- Server Components by default — add `"use client"` only when needed
-- Tailwind CSS v4 — no `tailwind.config.js`
+- App Router only � no `pages/` directory
+- Server Components by default � add `"use client"` only when needed
+- Tailwind CSS v4 � no `tailwind.config.js`
 - API calls via `fetch` with `NEXT_PUBLIC_API_URL` env var
 
 ## License
