@@ -5,7 +5,7 @@ name: Deploy Local
 
 on:
   workflow_run:
-    workflows: ["CI Pipeline"]
+    workflows: ["CI"]
     branches: [main]
     types: [completed]
   workflow_dispatch:
@@ -35,7 +35,7 @@ deploy:
     runs-on: self-hosted
     timeout-minutes: 45
     env:
-      KUBECONFIG: /home/dark/.kube/config
+      KUBECONFIG: ${{ env.KUBECONFIG || '~/.kube/config' }}
       TAG: ${{ github.sha }}
       ENV: ${{ github.event.inputs.environment || 'staging' }}
     steps:
@@ -58,7 +58,7 @@ deploy:
         run: |
           if ! command -v helm &> /dev/null; then
             echo "Installing Helm..."
-            curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash -s -- --version v3.17.3
+            curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash -s -- --version v3.16.4
           fi
           helm version
 
@@ -293,7 +293,7 @@ deploy:
     runs-on: self-hosted
     timeout-minutes: 10
     env:
-      KUBECONFIG: /home/dark/.kube/config
+      KUBECONFIG: ${{ env.KUBECONFIG || '~/.kube/config' }}
     steps:
       - name: Rollback Helm
         run: |

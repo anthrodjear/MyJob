@@ -12,7 +12,7 @@ app.use(express.json({ limit: '10mb' }));
 
 const DEFAULT_PORT = 3000;
 const PORT = Number(process.env.PORT) || DEFAULT_PORT;
-const SCRAPE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes — matches Go worker's job_discovery timeout
+const SCRAPE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes â€” matches Go worker's job_discovery timeout
 
 // ----- Request/Response Schemas (Zod = single source of truth) -----
 
@@ -125,16 +125,24 @@ app.post('/api/v1/scrape/jobs', async (req: Request, res: Response, next: NextFu
   const controller = new AbortController();
   const timeoutHandle = setTimeout(() => controller.abort(), SCRAPE_TIMEOUT_MS);
 
+  const scrapeErrors: string[] = [];
   try {
-    const jobs = await Promise.race([
-      scraper(payload.base_url, payload.keywords, payload.location, controller.signal),
-      new Promise<never>((_, reject) =>
-        controller.signal.addEventListener('abort', () =>
-          reject(new Error(`Scrape timed out after ${SCRAPE_TIMEOUT_MS}ms`))
-        )
-      ),
-    ]);
-    return res.json({ jobs, source: 'custom', scrape_errors: [] as string[] });
+    let jobs: import('./scrapers/base.js').ScrapedJob[] = [];
+    try {
+      jobs = await Promise.race([
+        scraper(payload.base_url, payload.keywords, payload.location, controller.signal),
+        new Promise<never>((_, reject) =>
+          controller.signal.addEventListener('abort', () =>
+            reject(new Error(`Scrape timed out after ${SCRAPE_TIMEOUT_MS}ms`))
+          )
+        ),
+      ]);
+    } catch (scrapeErr) {
+      const msg = scrapeErr instanceof Error ? scrapeErr.message : String(scrapeErr);
+      scrapeErrors.push(msg);
+      logger.error({ err: scrapeErr, source_id: payload.source_id }, 'Scraper error collected');
+    }
+    return res.json({ jobs, source: result.source, scrape_errors: scrapeErrors });
   } catch (e) {
     return next(e);
   } finally {
@@ -178,7 +186,7 @@ app.post('/api/v1/forms/fill', async (req: Request, res: Response, _next: NextFu
 
 /**
  * Check for job-related emails via Microsoft Graph.
- * Currently a placeholder — implementation pending.
+ * Currently a placeholder â€” implementation pending.
  */
 app.post('/api/v1/emails/check', async (req: Request, res: Response, _next: NextFunction) => {
   const parsed = checkEmailsSchema.safeParse(req.body);
@@ -191,7 +199,7 @@ app.post('/api/v1/emails/check', async (req: Request, res: Response, _next: Next
 
 /**
  * Start a voice interview session.
- * Long-running endpoint — blocks until the interview completes (up to 30 minutes).
+ * Long-running endpoint â€” blocks until the interview completes (up to 30 minutes).
  */
 app.post('/api/v1/interviews/start', async (req: Request, res: Response, _next: NextFunction) => {
   const parsed = startInterviewSchema.safeParse(req.body);
@@ -202,8 +210,8 @@ app.post('/api/v1/interviews/start', async (req: Request, res: Response, _next: 
 
   try {
     // Generate LiveKit token for the agent to join the room
-    const apiKey = process.env['LIVEKIT_API_KEY'];
-    const apiSecret = process.env['LIVEKIT_API_SECRET'];
+    const apiKey = process.env.LIVEKIT_API_KEY;
+    const apiSecret = process.env.LIVEKIT_API_SECRET;
     if (!apiKey || !apiSecret) {
       return res.status(500).json(errorResponse('CONFIGURATION_ERROR', 'LiveKit credentials not configured'));
     }
@@ -228,7 +236,7 @@ app.post('/api/v1/interviews/start', async (req: Request, res: Response, _next: 
       session.on('error', (error) => {
         resolve({
           success: false,
-          message: error.message ?? 'Interview session failed',
+          message: error.message || 'Interview session failed',
         });
       });
     });

@@ -22,7 +22,7 @@ export interface ScraperEntry {
   name: string;
   scrape: ScraperFn;
   patterns: RegExp[];
-  /** Allowed domains for SSRF protection — derived from patterns */
+  /** Allowed domains for SSRF protection Ã¢â‚¬â€ derived from patterns */
   allowedDomains: string[];
 }
 
@@ -30,10 +30,10 @@ export interface ScraperEntry {
  * Map job site type to its scraper function.
  */
 const SCRAPER_FACTORY: Record<string, (site: JobSiteConfig) => ScraperFn> = {
-  greenhouse: (_site) => (baseUrl, _keywords, _location) => scrapeGreenhouse(baseUrl),
-  lever: (_site) => (baseUrl, _keywords, _location) => scrapeLever(baseUrl),
-  remoteok: (_site) => (baseUrl, keywords, _location) => scrapeRemoteOK(baseUrl, keywords ?? []),
-  indeed: (_site) => (baseUrl, keywords, location) => scrapeIndeed(baseUrl, keywords ?? [], location ?? ''),
+  greenhouse: (_site) => (baseUrl, _keywords, _location, signal) => scrapeGreenhouse(baseUrl, undefined, undefined, signal),
+  lever: (_site) => (baseUrl, _keywords, _location, signal) => scrapeLever(baseUrl, undefined, undefined, signal),
+  remoteok: (_site) => (baseUrl, keywords, _location, signal) => scrapeRemoteOK(baseUrl, keywords ?? [], undefined, signal),
+  indeed: (_site) => (baseUrl, keywords, location, signal) => scrapeIndeed(baseUrl, keywords ?? [], location ?? '', signal),
 };
 
 /**
@@ -112,7 +112,7 @@ function buildScraperRegistry(): ScraperEntry[] {
 }
 
 /**
- * Scraper registry — single source of truth for all scraping strategies.
+ * Scraper registry Ã¢â‚¬â€ single source of truth for all scraping strategies.
  * Populated dynamically from config/jobsites/*.yaml files.
  * Adding a new scraper = add YAML file in config/jobsites/.
  *
@@ -157,14 +157,14 @@ export function getAllowedDomains(): string[] {
       }
     }
   } catch {
-    // Config load already logged — continue with what we have
+    // Config load already logged Ã¢â‚¬â€ continue with what we have
   }
 
   return Array.from(domains);
 }
 
 /**
- * CustomScraper instance — reused across requests.
+ * CustomScraper instance Ã¢â‚¬â€ reused across requests.
  * Falls back to generic scraping for unknown sources.
  */
 const customScraper = new CustomScraper();
@@ -188,7 +188,7 @@ export function selectScraper(url: string): { scraper: ScraperFn; source: string
   // Fallback to CustomScraper
   log.debug({ url, event: 'fallback_selected' }, 'No dedicated scraper matched, using CustomScraper');
   return {
-    scraper: (baseUrl, keywords, location) => customScraper.scrape(baseUrl, keywords, location),
+    scraper: (baseUrl, keywords, location, signal) => customScraper.scrape(baseUrl, keywords, location, signal),
     source: 'custom',
   };
 }
@@ -217,7 +217,7 @@ export function selectScraperBySourceId(sourceId: string): { scraper: ScraperFn;
       }
     }
     return {
-      scraper: (baseUrl, keywords, location) => customScraper.scrape(baseUrl, keywords, location),
+      scraper: (baseUrl, keywords, location, signal) => customScraper.scrape(baseUrl, keywords, location, signal),
       source: 'custom',
       allowedDomains: domains,
     };
@@ -264,6 +264,6 @@ export async function closeScrapers(): Promise<void> {
     log.info({ event: 'scrapers_closed' }, 'All scrapers closed');
   } catch (err) {
     log.error({ err, event: 'scrapers_close_failed' }, 'Failed to close scrapers');
-    // Don't rethrow — cleanup should be best-effort
+    // Don't rethrow Ã¢â‚¬â€ cleanup should be best-effort
   }
 }

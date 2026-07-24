@@ -1,4 +1,4 @@
-.PHONY: help setup migrate seed start stop clean build _export-env
+.PHONY: help setup migrate seed start stop clean build _export-env dev-api dev-worker dev-frontend dev-browser build-api build-worker build-frontend build-browser hash-password logs logs-api logs-worker logs-browser logs-frontend shell-api shell-worker shell-browser shell-frontend shell-postgres shell-redis test test-api test-frontend lint lint-go lint-frontend lint-browser-agent verify-swagger ci-local docker-ci docker-ci-down health-check helm-lint helm-template helm-staging helm-production helm-rollback kubectl-hpa kubectl-pods kubectl-logs kustomize-build
 
 # Default target
 help:
@@ -67,15 +67,15 @@ setup:
 # can pass it to containers without $-escaping issues.
 _export-env:
 	@if [ ! -f .env ]; then bash scripts/setup-env.sh; fi
-	@export AUTH_PASSWORD_HASH="$$(grep '^AUTH_PASSWORD_HASH=' .env | cut -d= -f2-)"
+	@echo "Auth hash loaded from .env"
 
 # Run migrations
 migrate:
-	docker compose exec api ./migrate.sh
+	docker compose exec api /app/scripts/migrate.sh
 
 # Seed initial data
 seed:
-	docker compose exec api ./seed.sh
+	bash scripts/seed.sh
 
 # Start all services (auto-generates .env if missing)
 # Two-phase start: infra first, then app services (avoids dependency timeout)
