@@ -33,7 +33,19 @@ import { useLogin } from "@/hooks/useAuth";
 import { getSetupStatus } from "@/lib/api/auth";
 import { Button } from "@/components/shared/Button";
 import { Input } from "@/components/shared/Input";
-import { Eye, EyeOff, Lock, AlertCircle, CheckCircle, Shield, ShieldAlert } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Lock,
+  AlertCircle,
+  CheckCircle,
+  Shield,
+  ShieldAlert,
+  Zap,
+  Target,
+  FileText,
+  Briefcase,
+} from "lucide-react";
 
 /** Password strength levels. */
 type PasswordStrength = "weak" | "fair" | "good" | "strong";
@@ -48,6 +60,14 @@ const STRENGTH_CONFIG: Record<PasswordStrength, { color: string; label: string; 
   good: { color: "text-primary", label: "Good", icon: <Shield className="h-3 w-3" /> },
   strong: { color: "text-success", label: "Strong", icon: <CheckCircle className="h-3 w-3" /> },
 };
+
+/** Key features to display on the brand side. */
+const FEATURES = [
+  { icon: <Zap className="h-5 w-5" />, text: "Auto-Apply to matching jobs" },
+  { icon: <Target className="h-5 w-5" />, text: "Smart job matching & alerts" },
+  { icon: <FileText className="h-5 w-5" />, text: "AI resume tailoring per role" },
+  { icon: <Briefcase className="h-5 w-5" />, text: "Track applications in one place" },
+];
 
 /**
  * Calculate password strength based on common criteria.
@@ -194,7 +214,7 @@ function LoginInner() {
       }
 
       // Send trimmed password to backend (consistent with strength calculation)
-loginMutation.mutate(trimmedPassword, {
+      loginMutation.mutate(trimmedPassword, {
         onSuccess: () => {
           router.push(redirectUrl);
         },
@@ -241,119 +261,199 @@ loginMutation.mutate(trimmedPassword, {
   const strengthConfig = STRENGTH_CONFIG[strength];
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-bg-secondary">
-      <div className="w-full max-w-sm space-y-6 px-4">
-        {/* Brand */}
+    <main className="flex min-h-screen bg-bg-secondary">
+      {/* ── Brand / Hero Section ─────────────────────────────────────── */}
+      <section
+        className="relative hidden w-1/2 items-center justify-center overflow-hidden lg:flex"
+        aria-hidden="true"
+      >
+        {/* Gradient background */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
+          }}
+        />
+
+        {/* Decorative floating shapes */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-white/10" />
+          <div className="absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-white/5" />
+          <div className="absolute left-1/4 top-1/3 h-40 w-40 rounded-full bg-white/5" />
+        </div>
+
+        {/* Content */}
+        <div className="relative z-10 max-w-md px-8">
+          <h1 className="text-5xl font-extrabold tracking-tight text-white">
+            MyJob
+          </h1>
+          <p className="mt-3 text-lg font-medium text-white/90">
+            Your AI-Powered Job Search Assistant
+          </p>
+
+          <ul className="mt-10 space-y-4">
+            {FEATURES.map((f) => (
+              <li key={f.text} className="flex items-center gap-3 text-white/90">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15 backdrop-blur-sm">
+                  {f.icon}
+                </span>
+                <span className="text-sm font-medium">{f.text}</span>
+              </li>
+            ))}
+          </ul>
+
+          <p className="mt-12 text-xs text-white/60">
+            Local-first &middot; Your data stays on your machine
+          </p>
+        </div>
+      </section>
+
+      {/* ── Mobile brand header (visible < lg) ────────────────────────── */}
+      <div
+        className="flex w-full items-center justify-center px-6 pt-10 lg:hidden"
+        style={{
+          background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
+        }}
+      >
         <div className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-light">
-            <Lock className="h-6 w-6 text-primary" aria-hidden="true" />
-          </div>
-          <h1 className="text-3xl font-bold text-primary">MyJob</h1>
-          <p className="mt-1 text-sm text-text-secondary">AI Job Search Agent</p>
+          <h1 className="text-3xl font-extrabold text-white">MyJob</h1>
+          <p className="mt-1 text-sm text-white/80">
+            AI-Powered Job Search Assistant
+          </p>
         </div>
-
-        {/* Login card */}
-        <div className="rounded-lg border border-border bg-bg-secondary p-6 shadow-sm">
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-            {/* Error message */}
-            {error != null && (
-              <div
-                role="alert"
-                className="flex items-start gap-2 rounded-md bg-danger-light px-3 py-2 text-sm text-danger-dark"
-              >
-                <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            {/* Password input with visibility toggle */}
-            <Input
-              id="password"
-              label="Password"
-              type={showPassword ? "text" : "password"}
-              autoComplete="current-password"
-              required
-              autoFocus
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onBlur={() => setTouched(true)}
-              disabled={loginMutation.isPending}
-              placeholder="Enter your password"
-              rightIcon={
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="cursor-pointer text-text-tertiary hover:text-text-secondary focus:outline-none"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              }
-              helperText={
-                showStrength && (
-                  <div className="mt-2 space-y-1.5">
-                    {/* Strength bar */}
-                    <div className="flex gap-1" role="progressbar" aria-valuenow={STRENGTH_LEVELS.indexOf(strength) + 1} aria-valuemin={1} aria-valuemax={4}>
-                      {STRENGTH_LEVELS.map((level, index) => (
-                        <div
-                          key={level}
-                          className={`h-1.5 flex-1 rounded transition-colors ${
-                            index <= STRENGTH_LEVELS.indexOf(strength)
-                              ? STRENGTH_CONFIG[level].color.replace("text-", "bg-")
-                              : "bg-border"
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    {/* Strength label — sole source of screen reader feedback */}
-                    <p className={`text-xs font-medium ${strengthConfig.color}`} aria-live="polite">
-                      {strengthConfig.icon}
-                      Password strength: {strengthConfig.label}
-                    </p>
-                  </div>
-                )
-              }
-            />
-
-            {/* Sign in button */}
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              loading={loginMutation.isPending}
-              loadingText="Signing in…"
-              className="w-full"
-            >
-              Sign In
-            </Button>
-          </form>
-
-          {/* Forgot password & Sign up links */}
-          <div className="flex justify-between text-sm">
-            <a
-              href="/forgot-password"
-              className="text-primary hover:text-primary/80 transition-colors"
-            >
-              Forgot password?
-            </a>
-            <a
-              href="/setup"
-              className="text-primary hover:text-primary/80 transition-colors"
-            >
-              Don&apos;t have an account? Sign up
-            </a>
-          </div>
-        </div>
-
-        {/* Help text */}
-        <p className="text-center text-xs text-text-tertiary">
-          This is a local-first application. Your data stays on your machine.
-        </p>
       </div>
+
+      {/* ── Form Section ─────────────────────────────────────────────── */}
+      <section className="flex w-full items-center justify-center bg-bg-secondary px-4 py-12 lg:w-1/2">
+        <div className="animate-fade-in w-full max-w-sm space-y-6">
+          {/* Mobile-only brand icon */}
+          <div className="text-center lg:hidden">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-light">
+              <Lock className="h-6 w-6 text-primary" aria-hidden="true" />
+            </div>
+          </div>
+
+          {/* Desktop heading */}
+          <div className="hidden text-center lg:block">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-light">
+              <Lock className="h-6 w-6 text-primary" aria-hidden="true" />
+            </div>
+            <h2 className="text-2xl font-bold text-text-primary">Welcome back</h2>
+            <p className="mt-1 text-sm text-text-secondary">
+              Sign in to your account
+            </p>
+          </div>
+
+          {/* Login card */}
+          <div className="rounded-xl border border-border bg-bg-secondary p-6 shadow-sm">
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+              {/* Error message */}
+              {error != null && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2 rounded-md bg-danger-light px-3 py-2 text-sm text-danger-dark"
+                >
+                  <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {/* Password input with visibility toggle */}
+              <Input
+                id="password"
+                label="Password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                required
+                autoFocus
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onBlur={() => setTouched(true)}
+                disabled={loginMutation.isPending}
+                placeholder="Enter your password"
+                rightIcon={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="flex h-8 w-8 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-bg-tertiary hover:text-text-secondary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                }
+                helperText={
+                  showStrength && (
+                    <div className="mt-2 space-y-1.5">
+                      {/* Strength bar */}
+                      <div
+                        className="flex gap-1"
+                        role="progressbar"
+                        aria-valuenow={STRENGTH_LEVELS.indexOf(strength) + 1}
+                        aria-valuemin={1}
+                        aria-valuemax={4}
+                      >
+                        {STRENGTH_LEVELS.map((level, index) => (
+                          <div
+                            key={level}
+                            className={`h-1.5 flex-1 rounded transition-colors ${
+                              index <= STRENGTH_LEVELS.indexOf(strength)
+                                ? STRENGTH_CONFIG[level].color.replace("text-", "bg-")
+                                : "bg-border"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      {/* Strength label — sole source of screen reader feedback */}
+                      <p className={`text-xs font-medium ${strengthConfig.color}`} aria-live="polite">
+                        {strengthConfig.icon}
+                        Password strength: {strengthConfig.label}
+                      </p>
+                    </div>
+                  )
+                }
+              />
+
+              {/* Sign in button */}
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                loading={loginMutation.isPending}
+                loadingText="Signing in…"
+                className="w-full"
+              >
+                Sign In
+              </Button>
+            </form>
+
+            {/* Forgot password & Sign up links */}
+            <div className="flex justify-between pt-2 text-sm">
+              <a
+                href="/forgot-password"
+                className="text-primary transition-colors hover:text-primary/80"
+              >
+                Forgot password?
+              </a>
+              <a
+                href="/setup"
+                className="text-primary transition-colors hover:text-primary/80"
+              >
+                Don&apos;t have an account? Sign up
+              </a>
+            </div>
+          </div>
+
+          {/* Help text */}
+          <p className="text-center text-xs text-text-tertiary">
+            This is a local-first application. Your data stays on your machine.
+          </p>
+        </div>
+      </section>
+
     </main>
   );
 }

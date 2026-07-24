@@ -60,8 +60,20 @@ export function EmptyState({
       )}
     >
       {icon != null && (
-        <div className="mb-4 text-text-tertiary" aria-hidden="true">
-          {icon}
+        <div
+          className={cn(
+            "relative mb-6 flex items-center justify-center",
+            "animate-scale-in",
+          )}
+          aria-hidden="true"
+        >
+          {/* Gradient accent behind the icon */}
+          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/20 to-purple-500/20 blur-md" />
+          {/* Subtle colored circular background */}
+          <div className="relative flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-primary/10 to-purple-500/10 border border-primary/20">
+            {/* Larger 8×8 icon */}
+            <div className="w-8 h-8 text-text-tertiary" aria-hidden="true">{icon}</div>
+          </div>
         </div>
       )}
       <h3 className="text-lg font-semibold text-text-primary">{title}</h3>
@@ -69,7 +81,7 @@ export function EmptyState({
         {description}
       </p>
       {action != null && (
-        <Button onClick={action.onClick} className="mt-4">
+        <Button variant="gradient" onClick={action.onClick} className="mt-4">
           {action.label}
         </Button>
       )}

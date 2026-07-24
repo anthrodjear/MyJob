@@ -3,7 +3,7 @@
 /**
  * Button component — primary interactive element.
  *
- * Provides 4 variants (primary, secondary, ghost, danger) and 3 sizes.
+ * Provides 5 variants (primary, secondary, ghost, danger, gradient) and 3 sizes.
  * Includes loading state with accessible spinner and `aria-busy`.
  *
  * Uses React 19 ref-as-prop pattern (no forwardRef needed).
@@ -12,13 +12,14 @@
  *   <Button variant="primary" size="md">Submit</Button>
  *   <Button variant="ghost" loading={saving}>Save</Button>
  *   <Button variant="danger" onClick={handleDelete}>Delete</Button>
+ *   <Button variant="gradient">Get Started</Button>
  */
 
 import { type ComponentPropsWithRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /** Button visual variant — maps to semantic color tokens. */
-type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "gradient";
 
 /** Button size — controls padding and font size. */
 type ButtonSize = "sm" | "md" | "lg";
@@ -49,6 +50,8 @@ const variantStyles: Record<ButtonVariant, string> = {
     "bg-transparent text-text-secondary hover:bg-bg-tertiary hover:text-text-primary focus-visible:ring-primary",
   danger:
     "bg-danger text-text-inverse hover:bg-danger-hover focus-visible:ring-danger",
+  gradient:
+    "bg-gradient-to-r from-primary to-[#7c3aed] text-text-inverse hover:from-primary-hover hover:to-purple-700 focus-visible:ring-primary btn-shine",
 };
 
 /**
@@ -62,7 +65,12 @@ const sizeStyles: Record<ButtonSize, string> = {
 
 /**
  * Accessible loading spinner (inline SVG).
- * Decorative — hidden from screen readers via `aria-hidden="true"`.
+ * Uses the brand color via `currentColor` inheritance,
+ * ensuring it matches the button's text color for maximum contrast.
+ *
+ * Accessibility:
+ * - Decorative — hidden from screen readers via `aria-hidden="true"`
+ * - `animate-spin` — smooth continuous rotation
  */
 function Spinner() {
   return (
@@ -80,6 +88,7 @@ function Spinner() {
         r="10"
         stroke="currentColor"
         strokeWidth="4"
+        strokeLinecap="round"
       />
       <path
         className="opacity-75"
@@ -103,6 +112,7 @@ function Spinner() {
  * - Always provide explicit `variant` for clarity
  * - Use `loading` for async operations (form submits, API calls)
  * - Use `loadingText` for accessible loading context ("Saving…", "Deleting…")
+ * - Use `variant="gradient"` for primary call-to-action with brand gradient
  */
 export function Button({
   variant = "primary",
@@ -144,5 +154,3 @@ export function Button({
     </button>
   );
 }
-
-

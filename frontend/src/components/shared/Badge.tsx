@@ -39,7 +39,8 @@ interface BadgeProps {
 
 /**
  * Variant-to-Tailwind class mapping.
- * Uses light background + dark text for each semantic color.
+ * Uses light background + dark text for each semantic color,
+ * consistent with the CSS variable token system defined in globals.css.
  */
 const variantStyles: Record<BadgeVariant, string> = {
   default: "bg-bg-tertiary text-text-primary",

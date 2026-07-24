@@ -24,21 +24,20 @@ interface SkeletonProps {
 }
 
 /**
- * Base skeleton block — animated pulse or shimmer placeholder.
+ * Base skeleton block — animated shimmer placeholder.
  * Use specific width/height classes to match the expected content shape.
  *
  * Accessibility:
  * - `aria-hidden="true"` — decorative, hidden from screen readers
- * - `animate-pulse` / `animate-shimmer` — subtle animation indicates loading state
+ * - `animate-shimmer` — gradient motion indicates loading state
  * - Respects `prefers-reduced-motion`
  */
-export function Skeleton({ className, variant = "pulse" }: SkeletonProps & { variant?: "pulse" | "shimmer" }) {
+export function Skeleton({ className }: SkeletonProps) {
   return (
     <div
       className={cn(
-        "rounded-md bg-bg-tertiary",
-        variant === "shimmer" ? "animate-shimmer" : "motion-safe:animate-pulse",
-        className
+        "rounded-lg bg-bg-tertiary animate-shimmer",
+        className,
       )}
       aria-hidden="true"
     />
@@ -97,34 +96,34 @@ export function JobCardSkeleton({ className }: { className?: string }) {
     >
       {/* Header: logo + title + company */}
       <div className="flex items-start gap-3 mb-3">
-        <Skeleton className="h-12 w-12 rounded-lg shrink-0" variant="shimmer" />
+        <Skeleton className="h-12 w-12 rounded-lg shrink-0" />
         <div className="flex-1 min-w-0">
           <Skeleton className="h-5 w-3/4 mb-1.5" />
-          <Skeleton className="h-4 w-1/2" variant="shimmer" />
-          <Skeleton className="h-3 w-3/4 mt-1" variant="shimmer" />
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-3 w-3/4 mt-1" />
         </div>
       </div>
 
       {/* Meta: location, remote, salary */}
       <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary mb-3">
-        <Skeleton className="h-3 w-24" variant="shimmer" />
-        <Skeleton className="h-3 w-20" variant="shimmer" />
-        <Skeleton className="h-3 w-28" variant="shimmer" />
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-3 w-28" />
       </div>
 
       {/* Tags */}
       <div className="flex flex-wrap gap-2 mb-4">
-        <Skeleton className="h-6 w-20 rounded-full" variant="shimmer" />
-        <Skeleton className="h-6 w-24 rounded-full" variant="shimmer" />
-        <Skeleton className="h-6 w-16 rounded-full" variant="shimmer" />
+        <Skeleton className="h-6 w-20 rounded-full" />
+        <Skeleton className="h-6 w-24 rounded-full" />
+        <Skeleton className="h-6 w-16 rounded-full" />
       </div>
 
       {/* Action buttons */}
       <div className="flex items-center justify-between pt-3 border-t border-border">
-        <Skeleton className="h-10 w-24 rounded-md" variant="shimmer" />
+        <Skeleton className="h-10 w-24 rounded-md" />
         <div className="flex gap-2">
-          <Skeleton className="h-10 w-20 rounded-md" variant="shimmer" />
-          <Skeleton className="h-10 w-20 rounded-md" variant="shimmer" />
+          <Skeleton className="h-10 w-20 rounded-md" />
+          <Skeleton className="h-10 w-20 rounded-md" />
         </div>
       </div>
     </div>
@@ -145,36 +144,36 @@ export function ApplicationCardSkeleton({ className }: { className?: string }) {
     >
       {/* Header: logo + title + company */}
       <div className="flex items-start gap-3 mb-3">
-        <Skeleton className="h-12 w-12 rounded-lg shrink-0" variant="shimmer" />
+        <Skeleton className="h-12 w-12 rounded-lg shrink-0" />
         <div className="flex-1 min-w-0">
           <Skeleton className="h-5 w-3/4 mb-1.5" />
-          <Skeleton className="h-4 w-1/2" variant="shimmer" />
-          <Skeleton className="h-3 w-3/4 mt-1" variant="shimmer" />
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-3 w-3/4 mt-1" />
         </div>
       </div>
 
       {/* Meta: status, applied date, tier */}
       <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary mb-3">
-        <Skeleton className="h-6 w-24 rounded-full" variant="shimmer" />
-        <Skeleton className="h-3 w-24" variant="shimmer" />
-        <Skeleton className="h-3 w-20" variant="shimmer" />
+        <Skeleton className="h-6 w-24 rounded-full" />
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-3 w-20" />
       </div>
 
       {/* Score / progress */}
       <div className="mb-4">
-        <Skeleton className="h-2 w-full rounded-full mb-1" variant="shimmer" />
+        <Skeleton className="h-2 w-full rounded-full mb-1" />
         <div className="flex items-center justify-between text-xs text-text-tertiary">
-          <Skeleton className="h-3 w-16" variant="shimmer" />
-          <Skeleton className="h-3 w-12" variant="shimmer" />
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-3 w-12" />
         </div>
       </div>
 
       {/* Action buttons */}
       <div className="flex items-center justify-between pt-3 border-t border-border">
-        <Skeleton className="h-10 w-24 rounded-md" variant="shimmer" />
+        <Skeleton className="h-10 w-24 rounded-md" />
         <div className="flex gap-2">
-          <Skeleton className="h-10 w-20 rounded-md" variant="shimmer" />
-          <Skeleton className="h-10 w-20 rounded-md" variant="shimmer" />
+          <Skeleton className="h-10 w-20 rounded-md" />
+          <Skeleton className="h-10 w-20 rounded-md" />
         </div>
       </div>
     </div>
@@ -194,24 +193,24 @@ export function ResumeCardSkeleton({ className }: { className?: string }) {
       )}
     >
       {/* Template preview placeholder */}
-      <Skeleton className="aspect-video w-full rounded-lg mb-4" variant="shimmer" />
+      <Skeleton className="aspect-video w-full rounded-lg mb-4" />
 
       {/* Name + specialization */}
       <Skeleton className="h-5 w-3/4 mb-1.5" />
-      <Skeleton className="h-4 w-1/2" variant="shimmer" />
+      <Skeleton className="h-4 w-1/2" />
 
       {/* Template path + version */}
       <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary mb-4">
-        <Skeleton className="h-3 w-24" variant="shimmer" />
-        <Skeleton className="h-3 w-16" variant="shimmer" />
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-3 w-16" />
       </div>
 
       {/* Action buttons */}
       <div className="flex items-center justify-between pt-3 border-t border-border">
-        <Skeleton className="h-10 w-24 rounded-md" variant="shimmer" />
+        <Skeleton className="h-10 w-24 rounded-md" />
         <div className="flex gap-2">
-          <Skeleton className="h-10 w-20 rounded-md" variant="shimmer" />
-          <Skeleton className="h-10 w-20 rounded-md" variant="shimmer" />
+          <Skeleton className="h-10 w-20 rounded-md" />
+          <Skeleton className="h-10 w-20 rounded-md" />
         </div>
       </div>
     </div>
@@ -232,34 +231,34 @@ export function CoverLetterCardSkeleton({ className }: { className?: string }) {
     >
       {/* Header: logo + job title + company */}
       <div className="flex items-start gap-3 mb-3">
-        <Skeleton className="h-12 w-12 rounded-lg shrink-0" variant="shimmer" />
+        <Skeleton className="h-12 w-12 rounded-lg shrink-0" />
         <div className="flex-1 min-w-0">
           <Skeleton className="h-5 w-3/4 mb-1.5" />
-          <Skeleton className="h-4 w-1/2" variant="shimmer" />
-          <Skeleton className="h-3 w-3/4 mt-1" variant="shimmer" />
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-3 w-3/4 mt-1" />
         </div>
       </div>
 
       {/* Meta: generated date, word count, model */}
       <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary mb-3">
-        <Skeleton className="h-3 w-24" variant="shimmer" />
-        <Skeleton className="h-3 w-20" variant="shimmer" />
-        <Skeleton className="h-3 w-28" variant="shimmer" />
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-3 w-28" />
       </div>
 
       {/* Preview lines */}
       <div className="space-y-2 mb-4">
-        <Skeleton className="h-3 w-full" variant="shimmer" />
-        <Skeleton className="h-3 w-5/6" variant="shimmer" />
-        <Skeleton className="h-3 w-2/3" variant="shimmer" />
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-3 w-5/6" />
+        <Skeleton className="h-3 w-2/3" />
       </div>
 
       {/* Action buttons */}
       <div className="flex items-center justify-between pt-3 border-t border-border">
-        <Skeleton className="h-10 w-24 rounded-md" variant="shimmer" />
+        <Skeleton className="h-10 w-24 rounded-md" />
         <div className="flex gap-2">
-          <Skeleton className="h-10 w-20 rounded-md" variant="shimmer" />
-          <Skeleton className="h-10 w-20 rounded-md" variant="shimmer" />
+          <Skeleton className="h-10 w-20 rounded-md" />
+          <Skeleton className="h-10 w-20 rounded-md" />
         </div>
       </div>
     </div>
@@ -280,34 +279,34 @@ export function ApprovalCardSkeleton({ className }: { className?: string }) {
     >
       {/* Header: logo + job title + company */}
       <div className="flex items-start gap-3 mb-3">
-        <Skeleton className="h-12 w-12 rounded-lg shrink-0" variant="shimmer" />
+        <Skeleton className="h-12 w-12 rounded-lg shrink-0" />
         <div className="flex-1 min-w-0">
           <Skeleton className="h-5 w-3/4 mb-1.5" />
-          <Skeleton className="h-4 w-1/2" variant="shimmer" />
-          <Skeleton className="h-3 w-3/4 mt-1" variant="shimmer" />
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-3 w-3/4 mt-1" />
         </div>
       </div>
 
       {/* Job snapshot preview */}
       <div className="rounded-lg border border-border bg-bg-secondary p-3 mb-4">
         <Skeleton className="h-4 w-3/4 mb-1.5" />
-        <Skeleton className="h-3 w-1/2" variant="shimmer" />
-        <Skeleton className="h-3 w-2/3 mt-1" variant="shimmer" />
+        <Skeleton className="h-3 w-1/2" />
+        <Skeleton className="h-3 w-2/3 mt-1" />
       </div>
 
       {/* Preview tabs: resume / cover letter */}
       <div className="flex gap-2 mb-4">
-        <Skeleton className="h-8 w-24 rounded-md" variant="shimmer" />
-        <Skeleton className="h-8 w-28 rounded-md" variant="shimmer" />
+        <Skeleton className="h-8 w-24 rounded-md" />
+        <Skeleton className="h-8 w-28 rounded-md" />
       </div>
 
       {/* Action buttons: approve / reject */}
       <div className="flex items-center justify-between pt-3 border-t border-border">
         <div className="flex gap-2">
-          <Skeleton className="h-10 w-24 rounded-md" variant="shimmer" />
-          <Skeleton className="h-10 w-24 rounded-md" variant="shimmer" />
+          <Skeleton className="h-10 w-24 rounded-md" />
+          <Skeleton className="h-10 w-24 rounded-md" />
         </div>
-        <Skeleton className="h-10 w-20 rounded-md" variant="shimmer" />
+        <Skeleton className="h-10 w-20 rounded-md" />
       </div>
     </div>
   );
@@ -327,17 +326,17 @@ export function EmailCardSkeleton({ className }: { className?: string }) {
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex-1 min-w-0">
           <Skeleton className="h-5 w-3/4 mb-1" />
-          <Skeleton className="h-3 w-1/2" variant="shimmer" />
+          <Skeleton className="h-3 w-1/2" />
         </div>
-        <Skeleton className="h-6 w-20 rounded-full shrink-0" variant="shimmer" />
+        <Skeleton className="h-6 w-20 rounded-full shrink-0" />
       </div>
-      <Skeleton className="h-3 w-full mb-1" variant="shimmer" />
-      <Skeleton className="h-3 w-3/4" variant="shimmer" />
+      <Skeleton className="h-3 w-full mb-1" />
+      <Skeleton className="h-3 w-3/4" />
       <div className="flex items-center justify-between pt-3 mt-3 border-t border-border">
-        <Skeleton className="h-8 w-20 rounded-md" variant="shimmer" />
+        <Skeleton className="h-8 w-20 rounded-md" />
         <div className="flex gap-2">
-          <Skeleton className="h-8 w-16 rounded-md" variant="shimmer" />
-          <Skeleton className="h-8 w-16 rounded-md" variant="shimmer" />
+          <Skeleton className="h-8 w-16 rounded-md" />
+          <Skeleton className="h-8 w-16 rounded-md" />
         </div>
       </div>
     </div>
@@ -356,25 +355,25 @@ export function InterviewCardSkeleton({ className }: { className?: string }) {
       )}
     >
       <div className="flex items-start gap-3 mb-3">
-        <Skeleton className="h-12 w-12 rounded-lg shrink-0" variant="shimmer" />
+        <Skeleton className="h-12 w-12 rounded-lg shrink-0" />
         <div className="flex-1 min-w-0">
           <Skeleton className="h-5 w-3/4 mb-1.5" />
-          <Skeleton className="h-4 w-1/2" variant="shimmer" />
-          <Skeleton className="h-3 w-3/4 mt-1" variant="shimmer" />
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-3 w-3/4 mt-1" />
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary mb-3">
-        <Skeleton className="h-3 w-24" variant="shimmer" />
-        <Skeleton className="h-3 w-20" variant="shimmer" />
-        <Skeleton className="h-3 w-28" variant="shimmer" />
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-3 w-28" />
       </div>
 
       <div className="flex items-center justify-between pt-3 border-t border-border">
-        <Skeleton className="h-10 w-24 rounded-md" variant="shimmer" />
+        <Skeleton className="h-10 w-24 rounded-md" />
         <div className="flex gap-2">
-          <Skeleton className="h-10 w-20 rounded-md" variant="shimmer" />
-          <Skeleton className="h-10 w-20 rounded-md" variant="shimmer" />
+          <Skeleton className="h-10 w-20 rounded-md" />
+          <Skeleton className="h-10 w-20 rounded-md" />
         </div>
       </div>
     </div>
@@ -396,21 +395,21 @@ export function TaskCardSkeleton({ className }: { className?: string }) {
       {/* Header: status icon + type badge, status badge */}
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-2 min-w-0">
-          <Skeleton className="h-4 w-4 shrink-0 rounded" variant="shimmer" />
-          <Skeleton className="h-5 w-24 rounded-full shrink-0" variant="shimmer" />
+          <Skeleton className="h-4 w-4 shrink-0 rounded" />
+          <Skeleton className="h-5 w-24 rounded-full shrink-0" />
         </div>
-        <Skeleton className="h-5 w-20 rounded-full shrink-0" variant="shimmer" />
+        <Skeleton className="h-5 w-20 rounded-full shrink-0" />
       </div>
 
       {/* Metadata: attempts/priority, duration/time */}
       <div className="flex items-center justify-between text-xs text-text-tertiary mb-3">
         <div className="flex items-center gap-3">
-          <Skeleton className="h-3 w-24" variant="shimmer" />
-          <Skeleton className="h-3 w-16" variant="shimmer" />
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-3 w-16" />
         </div>
         <div className="flex items-center gap-3">
-          <Skeleton className="h-3 w-16" variant="shimmer" />
-          <Skeleton className="h-3 w-24" variant="shimmer" />
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-3 w-24" />
         </div>
       </div>
 
@@ -523,21 +522,3 @@ export function SkeletonWrapper({
     </>
   );
 }
-
-/**
- * Directional shimmer animation keyframes (CSS-in-JS style via Tailwind).
- * Add to your global CSS or use via `animate-shimmer` class:
- *
- * @keyframes shimmer {
- *   0% { background-position: -200% 0; }
- *   100% { background-position: 200% 0; }
- * }
- * .animate-shimmer {
- *   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
- *   background-size: 200% 100%;
- *   animation: shimmer 1.5s infinite;
- * }
- * @media (prefers-reduced-motion: reduce) {
- *   .animate-shimmer { animation: none; background: #e0e0e0; }
- * }
- */

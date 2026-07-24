@@ -15,6 +15,7 @@
  *   </Card>
  *   <Card padding={false}>Custom padding</Card>
  *   <Card interactive onClick={handleClick} aria-label="View details">Clickable</Card>
+ *   <Card ambient>Gradient background with top accent</Card>
  */
 
 import {
@@ -31,18 +32,22 @@ interface CardProps extends Omit<ComponentPropsWithRef<"div">, "role"> {
   padding?: boolean;
   /** Interactive state — adds hover effect, cursor, focus ring, and button behavior. Default: false. */
   interactive?: boolean;
+  /** Subtle gradient background with top border accent for ambient depth. Default: false. */
+  ambient?: boolean;
 }
 
 /**
  * Card container — white surface with border, rounded corners, and subtle shadow.
  * Use `padding={false}` when you need full control over internal spacing.
  * Use `interactive` for clickable cards (hover, cursor, focus ring, Enter/Space activation).
+ * Use `ambient` for a subtle gradient background with a top border accent.
  */
 export function Card({
   children,
   className,
   padding = true,
   interactive = false,
+  ambient = false,
   onClick,
   onKeyDown,
   ref,
@@ -62,6 +67,8 @@ export function Card({
       className={cn(
         "rounded-xl border border-border bg-surface shadow-sm",
         padding && "p-6",
+        ambient &&
+          "bg-gradient-to-b from-surface to-bg-secondary border-t border-t-primary/20",
         interactive &&
           "cursor-pointer transition-colors duration-150 hover:border-border-strong hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
         className,
