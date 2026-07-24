@@ -74,6 +74,15 @@ const eventVariants: Record<ActivityEventType, "default" | "success" | "warning"
   profile_updated: "info",
 };
 
+/** Left-border accent color per variant — uses design token CSS custom properties for dark-mode consistency. */
+const variantAccent: Record<string, string> = {
+  success: "var(--color-success)",
+  warning: "var(--color-warning)",
+  danger: "var(--color-danger)",
+  info: "var(--color-info)",
+  default: "var(--color-text-tertiary)",
+};
+
 /** Format activity details for display (no raw JSON). */
 function formatActivityDetails(eventType: ActivityEventType, details: Record<string, unknown>): string {
   switch (eventType) {
@@ -107,10 +116,18 @@ function formatActivityDetails(eventType: ActivityEventType, details: Record<str
 export function ActivityFeed({ activities }: ActivityFeedProps) {
   if (activities.length === 0) {
     return (
-      <Card>
-        <div className="flex flex-col items-center justify-center py-8 text-center">
-          <ClipboardList className="h-12 w-12 text-text-tertiary mb-2" aria-hidden="true" />
-          <p className="text-text-secondary">No recent activity</p>
+      <Card
+        className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-900 dark:to-slate-800"
+      >
+        <div className="flex flex-col items-center justify-center py-10 text-center">
+          <div className="relative mb-4">
+            <ClipboardList className="h-16 w-16 text-text-tertiary" aria-hidden="true" />
+            <span className="absolute -top-1 -right-1 block h-3 w-3 rounded-full bg-info opacity-70" />
+          </div>
+          <p className="text-text-primary font-medium mb-1">No recent activity</p>
+          <p className="text-sm text-text-secondary max-w-xs">
+            Activity will appear here as you search for jobs, receive emails, and complete tasks.
+          </p>
         </div>
       </Card>
     );
@@ -125,22 +142,40 @@ export function ActivityFeed({ activities }: ActivityFeedProps) {
         </p>
       </div>
 
-      <div className="space-y-3" role="list" aria-label="Recent activity">
-        {activities.map((activity) => {
+      <div
+        className="space-y-3 border-l-2 border-border/40 pl-4"
+        role="list"
+        aria-label="Recent activity"
+      >
+        {activities.map((activity, index) => {
           const icon = eventIcons[activity.event_type] ?? <Settings className="h-5 w-5" aria-hidden="true" />;
           const label = eventLabels[activity.event_type] ?? activity.event_type;
           const variant = eventVariants[activity.event_type] ?? "default";
+          const accentColor = variantAccent[variant] ?? variantAccent.default;
           const formattedDetails = formatActivityDetails(activity.event_type, activity.details ?? {});
 
           return (
             <div
               key={activity.id}
               role="listitem"
-              className="flex items-start gap-3 p-3 rounded-lg bg-bg-secondary hover:bg-bg-tertiary transition-colors"
+              className="animate-activity-fade-in flex items-start gap-2.5 p-3 rounded-lg bg-bg-secondary hover:bg-bg-tertiary hover:shadow-sm transition-all duration-200 border-l-[3px]"
+              style={{
+                animationDelay: `${index * 60}ms`,
+                borderLeftColor: accentColor,
+              }}
             >
-              <span className="flex-shrink-0 text-text-tertiary" aria-hidden="true">
+              <span className="flex-shrink-0 text-text-tertiary mt-0.5" aria-hidden="true">
                 {icon}
               </span>
+              <span
+                className="animate-pulse-dot flex-shrink-0 mt-1.5 rounded-full"
+                style={{
+                  backgroundColor: accentColor,
+                  width: "6px",
+                  height: "6px",
+                }}
+                aria-hidden="true"
+              />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-medium text-text-primary">{label}</span>
