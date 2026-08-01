@@ -37,14 +37,16 @@ function getBackendUrl(): string {
     return process.env.NEXT_PUBLIC_API_URL;
   }
 
-  // For remote hosts or reverse-proxied deployments, use the app origin.
-  // For local development on localhost, preserve the existing backend default.
-  const origin = window.location.origin;
   const hostname = window.location.hostname;
   const isLocalhost =
     hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
 
-  return isLocalhost ? "http://localhost:8080" : origin;
+  // When the app is accessed from a network interface like 192.168.x.x,
+  // frontend requests must target the backend on the same host, not the
+  // browser's localhost. Use the same host with port 8080 as the default.
+  return isLocalhost
+    ? "http://localhost:8080"
+    : `${window.location.protocol}//${hostname}:8080`;
 }
 
 const BACKEND_URL = getBackendUrl();
