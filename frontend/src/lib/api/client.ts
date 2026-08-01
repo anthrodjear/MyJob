@@ -27,12 +27,24 @@ import { getAuthToken as getStoredAuthToken, getRefreshToken, setAuthTokens, cle
  * - Client-side (browser): use NEXT_PUBLIC_API_URL (host machine)
  */
 function getBackendUrl(): string {
-  // Server-side: window is undefined, use internal Docker network URL
+  // Server-side: window is undefined, use internal Docker network URL.
   if (typeof window === "undefined") {
     return process.env.INTERNAL_API_URL || "http://api:8080";
   }
-  // Client-side: use public URL (localhost from browser perspective)
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+  // Client-side: prefer an explicit override when provided.
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+
+  // For remote hosts or reverse-proxied deployments, use the app origin.
+  // For local development on localhost, preserve the existing backend default.
+  const origin = window.location.origin;
+  const hostname = window.location.hostname;
+  const isLocalhost =
+    hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+
+  return isLocalhost ? "http://localhost:8080" : origin;
 }
 
 const BACKEND_URL = getBackendUrl();
