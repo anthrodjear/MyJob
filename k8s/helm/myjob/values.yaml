@@ -125,7 +125,7 @@ frontend:
     targetMemoryUtilizationPercentage: 80
   env:
     NODE_ENV: production
-    NEXT_PUBLIC_API_URL: "/api"  # Routes through NGINX ingress
+    NEXT_PUBLIC_API_URL: "/api"  # Same-origin frontend API path. Backend ingress should route /api/v1 to the API service.
 
 # -- PostgreSQL
 postgres:
@@ -189,7 +189,7 @@ ingress:
           pathType: Prefix
           service: frontend
           port: 3000
-        - path: /api
+        - path: /api/v1
           pathType: Prefix
           service: api
           port: 8080
