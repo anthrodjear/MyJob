@@ -707,6 +707,8 @@ export interface VoiceSessionConfig {
   token: string;
   /** Application ID (for fetching context from backend) */
   applicationId: string;
+  /** Interview ID (for posting events to the Go backend) */
+  interviewId?: string;
   /** Provider configuration — typed to prevent typos */
   providers: {
     /** STT provider (used when mode is separate STT+TTS) */
