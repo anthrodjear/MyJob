@@ -61,6 +61,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -197,15 +198,16 @@ func main() {
 
 	tasksHandler := tasks.NewHandler(tasksService, logger)
 
-	// Initialize jobs domain
-	jobsRepo := jobs.NewRepository(postgres.DB)
-	jobsService := jobs.NewService(jobsRepo, dispatcher, cfg.Scoring)
-	jobsHandler := jobs.NewHandler(jobsService, logger)
-
-	// Initialize applications domain
+	// Initialize applications domain (declared first so the jobs handler can
+	// dispatch application tasks and list applications for a job).
 	appsRepo := applications.NewRepository(postgres.DB)
 	appsService := applications.NewService(appsRepo, logger)
-	appsHandler := applications.NewHandler(appsService, logger)
+	// Voice-context routes need JobsAPI/ResumesAPI adapters that satisfy
+	// the applications package's interfaces. Defined as small closures
+	// in main.go because jobs/resumes don't import applications.
+	jobsAdapter := jobsAPIBridge{svc: nil}
+	resumesAdapter := resumesAPIBridge{svc: nil}
+	appsHandler := applications.NewHandler(appsService, jobsAdapter, resumesAdapter, logger)
 
 	// Initialize resumes domain
 	resumesRepo := resumes.NewRepository(postgres.DB)
@@ -221,9 +223,22 @@ func main() {
 	scoringService := scoring.NewService(scoringRepo, scoringLLM, logger, cfg.Scoring)
 	scoringHandler := scoring.NewHandler(scoringService, dispatcher, logger)
 
+	// Initialize jobs domain — depends on appsService + scoringService.
+	jobsRepo := jobs.NewRepository(postgres.DB)
+	jobsService := jobs.NewService(jobsRepo, dispatcher, cfg.Scoring)
+	jobsHandler := jobs.NewHandler(jobsService, appsService, scoringService, dispatcher, logger)
+
+	// Now that jobsService and resumesService exist, wire them into the
+	// adapter bridges so the voice-context routes work.
+	jobsAdapter.svc = jobsService
+	resumesAdapter.svc = resumesService
+
 	// Initialize interviews domain
 	interviewsRepo := interviews.NewRepository(postgres.DB)
-	interviewsService := interviews.NewService(interviewsRepo, dispatcher, logger)
+	interviewsService := interviews.NewService(interviewsRepo, dispatcher, interviews.VoiceConfig{
+		Provider: cfg.Voice.Provider,
+		Model:    cfg.Voice.Model,
+	}, logger)
 	interviewsHandler := interviews.NewHandler(interviewsService, logger)
 
 	// Initialize profile domain
@@ -271,26 +286,28 @@ func main() {
 
 	// Setup router with all routes
 	router := api.SetupRouter(api.RouterConfig{
-		AuthHandler:           authHandler,
-		AuthService:           authService,
-		IsSetupRequired:       isSetupRequired,
-		IsOnboardingCompleted: isOnboardingCompleted,
-		CORSOrigins:           cfg.Server.CORSOrigins,
-		RateLimitConfig:       cfg.RateLimit,
-		AuthRateLimitConfig:   cfg.AuthRateLimit,
-		JobsHandler:           jobsHandler,
-		ApplicationsHandler:   appsHandler,
-		ResumesHandler:        resumesHandler,
-		ScoringHandler:        scoringHandler,
-		InterviewsHandler:     interviewsHandler,
-		ProfileHandler:        profileHandler,
-		ApprovalsHandler:      approvalsHandler,
-		RAGHandler:            ragHandler,
-		EmailsHandler:         emailsHandler,
-		ActivityHandler:       activityHandler,
-		TasksHandler:          tasksHandler,
-		SystemConfigHandler:   systemConfigHandler,
-		Logger:                logger,
+		AuthHandler:               authHandler,
+		AuthService:               authService,
+		IsSetupRequired:           isSetupRequired,
+		IsOnboardingCompleted:     isOnboardingCompleted,
+		CORSOrigins:               cfg.Server.CORSOrigins,
+		RateLimitConfig:           cfg.RateLimit,
+		AuthRateLimitConfig:       cfg.AuthRateLimit,
+		OnboardingRateLimitConfig: cfg.OnboardingRateLimit,
+		ServerConfig:              cfg.Server,
+		JobsHandler:               jobsHandler,
+		ApplicationsHandler:       appsHandler,
+		ResumesHandler:            resumesHandler,
+		ScoringHandler:            scoringHandler,
+		InterviewsHandler:         interviewsHandler,
+		ProfileHandler:            profileHandler,
+		ApprovalsHandler:          approvalsHandler,
+		RAGHandler:                ragHandler,
+		EmailsHandler:             emailsHandler,
+		ActivityHandler:           activityHandler,
+		TasksHandler:              tasksHandler,
+		SystemConfigHandler:       systemConfigHandler,
+		Logger:                    logger,
 	})
 
 	// Swagger UI - only enabled in non-production environments
@@ -349,4 +366,55 @@ func (a approvalsDispatcherAdapter) DispatchApplicationSubmit(ctx context.Contex
 		CorrelationID: correlationID,
 	})
 	return err
+}
+
+// jobsAPIBridge adapts *jobs.Service to applications.JobsAPI by converting
+// *jobs.Job into the lighter applications.JobView. Defined here because
+// applications imports jobs for the error sentinel but jobs cannot
+// import applications for the JobView type.
+type jobsAPIBridge struct {
+	svc *jobs.Service
+}
+
+func (j jobsAPIBridge) GetByID(ctx context.Context, id uuid.UUID) (applications.JobView, error) {
+	job, err := j.svc.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, jobs.ErrNotFound) {
+			return applications.JobView{}, applications.ErrJobNotFound
+		}
+		return applications.JobView{}, err
+	}
+	return applications.JobView{
+		ID:          job.ID,
+		Title:       job.Title,
+		Company:     job.Company,
+		Description: job.Description,
+		Location:    job.Location,
+		URL:         job.URL,
+		Source:      job.Source,
+		Status:      job.Status,
+		CompanyURL:  job.CompanyURL,
+	}, nil
+}
+
+// resumesAPIBridge adapts *resumes.Service to applications.ResumesAPI by
+// projecting *resumes.Resume down to applications.ResumeView.
+type resumesAPIBridge struct {
+	svc *resumes.Service
+}
+
+func (r resumesAPIBridge) GetByID(ctx context.Context, id uuid.UUID) (applications.ResumeView, error) {
+	resume, err := r.svc.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, resumes.ErrNotFound) {
+			return applications.ResumeView{}, applications.ErrResumeNotFound
+		}
+		return applications.ResumeView{}, err
+	}
+	return applications.ResumeView{
+		ID:             resume.ID,
+		Name:           resume.Name,
+		Specialization: resume.Specialization,
+		Version:        resume.Version,
+	}, nil
 }

@@ -26,6 +26,7 @@ interface SetupStepPreferencesProps {
   onNext: (prefs: PreferencesState) => void;
   onBack: () => void;
   onSkip: () => void;
+  isSubmitting?: boolean;
 }
 
 /** Available job source options. */
@@ -104,6 +105,7 @@ export function SetupStepPreferences({
   onNext,
   onBack,
   onSkip,
+  isSubmitting,
 }: SetupStepPreferencesProps) {
   const [prefs, setPrefs] = useState<PreferencesState>({
     autoThreshold: 95,
@@ -214,7 +216,7 @@ export function SetupStepPreferences({
           <Button type="button" variant="ghost" onClick={onSkip}>
             Use defaults
           </Button>
-          <Button type="submit" variant="primary" size="lg">
+          <Button type="submit" variant="primary" size="lg" loading={isSubmitting}>
             Continue
           </Button>
         </div>

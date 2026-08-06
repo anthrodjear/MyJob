@@ -32,6 +32,7 @@ interface TestStatus {
 interface SetupStepLLMKeysProps {
   onNext: (keys: LLMKeyState) => void;
   onBack: () => void;
+  isSubmitting?: boolean;
 }
 
 /** Status color mapping for test results. */
@@ -142,7 +143,7 @@ function LLMProviderCard({
  *     onBack={() => goBack()}
  *   />
  */
-export function SetupStepLLMKeys({ onNext, onBack }: SetupStepLLMKeysProps) {
+export function SetupStepLLMKeys({ onNext, onBack, isSubmitting }: SetupStepLLMKeysProps) {
   const [keys, setKeys] = useState<LLMKeyState>({ openai: "", anthropic: "" });
   const [testStatus, setTestStatus] = useState<TestStatus>({
     openai: "idle",
@@ -203,7 +204,7 @@ export function SetupStepLLMKeys({ onNext, onBack }: SetupStepLLMKeysProps) {
         <Button type="button" variant="ghost" onClick={onBack}>
           Back
         </Button>
-        <Button type="submit" variant="primary" size="lg">
+        <Button type="submit" variant="primary" size="lg" loading={isSubmitting}>
           Continue
         </Button>
       </div>

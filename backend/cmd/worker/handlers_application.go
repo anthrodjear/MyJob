@@ -14,6 +14,7 @@ import (
 
 	"backend/internal/applications"
 	"backend/internal/config"
+	"backend/internal/emails"
 	"backend/internal/embeddings"
 	"backend/internal/jobs"
 	"backend/internal/pgvector"
@@ -352,13 +353,21 @@ func newHandleSyncEmails(
 			)
 
 			var statusErr error
-			switch email.Classification {
+			// Normalise browser-agent classification aliases (e.g. "interview"
+			// → "interview_invite") before routing the status update.
+			switch emails.NormalizeClassification(email.Classification) {
 			case "rejection":
 				statusErr = applicationsSvc.UpdateStatus(ctx, payload.ApplicationID, applications.StatusRejected, "Rejected: "+email.Subject)
-			case "interview":
+			case "interview_invite":
 				statusErr = applicationsSvc.UpdateStatus(ctx, payload.ApplicationID, applications.StatusPhoneScreen, "Interview: "+email.Subject)
 			case "offer":
 				statusErr = applicationsSvc.UpdateStatus(ctx, payload.ApplicationID, applications.StatusOffer, "Offer: "+email.Subject)
+			default:
+				// Unclassified / spam / other — skip status update silently.
+				log.Debug("unclassified email, skipping status update",
+					zap.String("application_id", payload.ApplicationID.String()),
+					zap.String("classification", email.Classification),
+				)
 			}
 			if statusErr != nil {
 				log.Error("update application status",
@@ -566,7 +575,7 @@ func newHandleCreateEmbeddings(
 			ON CONFLICT (source_type, source_id) DO UPDATE
 				SET content   = EXCLUDED.content,
 					embedding = EXCLUDED.embedding,
-					created_at = NOW()
+					created_at = embeddings.created_at
 		`
 		if _, err := db.ExecContext(ctx, query,
 			payload.SourceType,

@@ -78,19 +78,21 @@ type StoreEmailParams struct {
 // Returns the email ID and the classification used.
 // If an email with the same message_id exists, updates it (upsert semantics).
 func (s *Service) Store(ctx context.Context, params StoreEmailParams) (uuid.UUID, string, error) {
-	// Use provided classification or classify via LLM
+	// Use provided classification or classify via LLM.
+	// Normalise legacy aliases (e.g. browser-agent "interview" → canonical
+	// "interview_invite") before validating.
 	var class string
 	if params.Classification != nil && *params.Classification != "" {
-		if !IsValidClassification(*params.Classification) {
+		class = NormalizeClassification(*params.Classification)
+		if !IsValidClassification(class) {
 			return uuid.Nil, "", ErrInvalidClassification
 		}
-		class = *params.Classification
 	} else if s.classifier != nil {
 		result, err := s.classifier.Classify(ctx, params.FromAddress, ptrOrEmpty(params.Subject), ptrOrEmpty(params.Body))
 		if err != nil {
 			return uuid.Nil, "", fmt.Errorf("classify email: %w", err)
 		}
-		class = result.Category
+		class = NormalizeClassification(result.Category)
 	} else {
 		class = ClassificationOther
 	}

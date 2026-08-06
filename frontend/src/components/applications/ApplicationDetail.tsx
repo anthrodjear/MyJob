@@ -192,6 +192,7 @@ export function ApplicationDetail({
               <Button
                 variant="primary"
                 size="sm"
+                disabled={isUpdating}
                 onClick={() => onNotesSave(application.id, notes)}
               >
                 Save Notes

@@ -35,8 +35,8 @@ type VoiceSessionRequest struct {
 	ApplicationID   string `json:"application_id"`
 	Mode            string `json:"mode"`
 	ExternalSession string `json:"external_session"`
-	Provider        string `json:"provider"`
-	Model           string `json:"model"`
+	Provider        string `json:"provider,omitempty"`
+	Model           string `json:"model,omitempty"`
 }
 
 // VoiceSessionResponse is the response from the browser agent after the voice interview completes.
@@ -48,7 +48,7 @@ type VoiceSessionResponse struct {
 // ScrapeJobsRequest is the payload sent to the browser agent for job scraping.
 type ScrapeJobsRequest struct {
 	SourceID string   `json:"source_id"`
-	BaseURL  string   `json:"base_url"`
+	BaseURL  string   `json:"base_url,omitempty"`
 	Keywords []string `json:"keywords"`
 	Location string   `json:"location"`
 	Config   any      `json:"config,omitempty"`

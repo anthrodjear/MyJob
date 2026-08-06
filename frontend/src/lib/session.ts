@@ -20,11 +20,22 @@ import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 function getSecretKey(): string {
   const secretKey = process.env.SESSION_SECRET;
   if (!secretKey) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("SESSION_SECRET env var is required in production (≥32 chars)");
-    }
-    console.warn("[session] Using fallback SESSION_SECRET — set SESSION_SECRET in production");
-    return "dev-fallback-secret-change-in-production-min-32-chars";
+    // Fail closed — never sign cookies with a hard-coded fallback that could
+    // be extracted from the bundle. SESSION_SECRET must be provided via env
+    // in every environment.
+    throw new Error(
+      "SESSION_SECRET env var is required (≥32 chars). Set it in .env or your deployment environment.",
+    );
+  }
+  // Warn (do not fail) when running outside production with a known dev value
+  // so devs notice if they forgot to rotate the secret.
+  if (
+    process.env.NODE_ENV !== "production" &&
+    secretKey === "dev-only-session-secret-change-in-production-32ch"
+  ) {
+    console.warn(
+      "[session] SESSION_SECRET is set to the default dev value — change it before deploying",
+    );
   }
   return secretKey;
 }

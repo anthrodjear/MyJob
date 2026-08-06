@@ -17,6 +17,10 @@ var (
 	ErrNotFound       = errors.New("application not found")
 	ErrNoRowsAffected = errors.New("no rows affected")
 	ErrInvalidStatus  = errors.New("invalid status transition")
+	// ErrStatusConflict is returned by UpdateStatus when the WHERE-status
+	// guard mismatches — i.e. another writer changed status between the
+	// service-layer transition check and the actual UPDATE.
+	ErrStatusConflict = errors.New("application status conflict")
 )
 
 // Repository handles database operations for applications.
@@ -129,6 +133,11 @@ func (r *Repository) Create(ctx context.Context, app *Application) error {
 
 // UpdateStatus updates application status, notes, and timestamps.
 // It also logs an audit event in application_events.
+//
+// The UPDATE is guarded by `WHERE id = $X AND status = $old` so a
+// concurrent writer that already advanced the status prevents the
+// second write from silently overwriting it. If 0 rows are affected
+// and the row exists, ErrStatusConflict is returned.
 func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status string, notes string) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
@@ -161,6 +170,7 @@ func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status stri
 		timestampCol = ""
 	}
 
+	// CAS guard: only update when status hasn't changed since we read it.
 	query := `UPDATE applications SET status = $1, updated_at = $2`
 	args := []interface{}{status, now}
 	argIdx := 3
@@ -176,8 +186,9 @@ func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status stri
 		argIdx++
 	}
 
-	query += fmt.Sprintf(" WHERE id = $%d", argIdx)
-	args = append(args, id)
+	// Add the WHERE-status guard using the value we just read.
+	query += fmt.Sprintf(" WHERE id = $%d AND status = $%d", argIdx, argIdx+1)
+	args = append(args, id, oldStatus)
 
 	result, err := tx.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -185,7 +196,8 @@ func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status stri
 	}
 	rows, _ := result.RowsAffected()
 	if rows == 0 {
-		return ErrNotFound
+		// Row exists (we just SELECTed it) but status moved — CAS lost.
+		return ErrStatusConflict
 	}
 
 	// Log audit event

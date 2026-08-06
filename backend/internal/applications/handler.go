@@ -1,6 +1,7 @@
 package applications
 
 import (
+	"context"
 	"errors"
 
 	"github.com/gin-gonic/gin"
@@ -10,17 +11,67 @@ import (
 	"backend/internal/httpresp"
 )
 
+// JobView is the subset of jobs.Job that the applications handler
+// returns in its voice-context responses. We don't import jobs.Job
+// directly because that would create an import cycle (jobs imports
+// applications for /jobs/:id/apply).
+type JobView struct {
+	ID          uuid.UUID `json:"id"`
+	Title       string    `json:"title"`
+	Company     string    `json:"company"`
+	Description string    `json:"description"`
+	Location    string    `json:"location"`
+	URL         string    `json:"url"`
+	Source      string    `json:"source"`
+	Status      string    `json:"status"`
+	CompanyURL  string    `json:"company_url,omitempty"`
+}
+
+// JobsAPI is the subset of jobs.Service that the applications handler
+// depends on. Defined here to avoid an import cycle (jobs imports
+// applications for its /jobs/:id/apply route).
+type JobsAPI interface {
+	GetByID(ctx context.Context, id uuid.UUID) (JobView, error)
+}
+
+// ErrJobNotFound is the sentinel returned by JobsAPI.GetByID when the
+// bound job no longer exists. Mapped to HTTP 404 by the handler.
+var ErrJobNotFound = errors.New("job not found")
+
+// ResumeView is the subset of resumes.Resume that the applications
+// handler returns in its voice-context responses.
+type ResumeView struct {
+	ID            uuid.UUID `json:"id"`
+	Name          string    `json:"name"`
+	Specialization string   `json:"specialization"`
+	Version       int32     `json:"version"`
+}
+
+// ResumesAPI is the subset of resumes.Service that the applications
+// handler depends on.
+type ResumesAPI interface {
+	GetByID(ctx context.Context, id uuid.UUID) (ResumeView, error)
+}
+
+// ErrResumeNotFound is the sentinel returned by ResumesAPI.GetByID when
+// the resume no longer exists. Mapped to HTTP 404 by the handler.
+var ErrResumeNotFound = errors.New("resume not found")
+
 // Handler holds the applications HTTP handlers.
 type Handler struct {
-	svc    *Service
-	logger *zap.Logger
+	svc        *Service
+	jobsAPI    JobsAPI
+	resumesAPI ResumesAPI
+	logger     *zap.Logger
 }
 
 // NewHandler creates a new applications handler.
-func NewHandler(svc *Service, logger *zap.Logger) *Handler {
+func NewHandler(svc *Service, jobsAPI JobsAPI, resumesAPI ResumesAPI, logger *zap.Logger) *Handler {
 	return &Handler{
-		svc:    svc,
-		logger: logger.Named("applications"),
+		svc:        svc,
+		jobsAPI:    jobsAPI,
+		resumesAPI: resumesAPI,
+		logger:     logger.Named("applications"),
 	}
 }
 
@@ -35,6 +86,9 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 		apps.PUT("/:id/status", h.UpdateStatus)
 		apps.PATCH("/:id/notes", h.UpdateNotes)
 		apps.GET("/:id/events", h.GetTimeline)
+		apps.GET("/:id/resume", h.GetApplicationResume)
+		apps.GET("/:id/job", h.GetApplicationJob)
+		apps.GET("/:id/company", h.GetApplicationCompany)
 	}
 }
 
@@ -226,6 +280,10 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 			httpresp.BadRequest(c, "INVALID_STATUS", err.Error())
 			return
 		}
+		if errors.Is(err, ErrStatusConflict) {
+			httpresp.Conflict(c, "STATUS_CONFLICT", err.Error())
+			return
+		}
 		h.logger.Error("update status", zap.String("id", id.String()), zap.Error(err))
 		httpresp.InternalError(c)
 		return
@@ -338,4 +396,183 @@ func (h *Handler) GetStats(c *gin.Context) {
 	}
 
 	httpresp.OK(c, stats)
+}
+
+// GetApplicationResume handles GET /applications/:id/resume.
+// Returns the resume currently attached to the application (or 404 if
+// the application has no resume_id or the resume has been deleted).
+// @Summary Get the resume attached to an application
+// @Tags Applications
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Application UUID" format(uuid)
+// @Success 200 {object} map[string]interface{} "Resume details"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid application id"
+// @Failure 404 {object} httpresp.ErrorResponse "Resume not attached or not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /applications/{id}/resume [get]
+func (h *Handler) GetApplicationResume(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httpresp.BadRequest(c, "INVALID_ID", "invalid application id")
+		return
+	}
+
+	app, err := h.svc.GetByID(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			httpresp.NotFound(c, "APPLICATION_NOT_FOUND", err.Error())
+			return
+		}
+		h.logger.Error("get application for resume", zap.String("id", id.String()), zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	if app.ResumeID == nil {
+		httpresp.NotFound(c, "RESUME_NOT_ATTACHED", "application has no resume attached")
+		return
+	}
+	if h.resumesAPI == nil {
+		httpresp.NotFound(c, "RESUME_NOT_ATTACHED", "resume service not configured")
+		return
+	}
+
+	resume, err := h.resumesAPI.GetByID(c.Request.Context(), *app.ResumeID)
+	if err != nil {
+		if errors.Is(err, ErrResumeNotFound) {
+			httpresp.NotFound(c, "RESUME_NOT_FOUND", err.Error())
+			return
+		}
+		h.logger.Error("get application resume",
+			zap.String("application_id", id.String()),
+			zap.String("resume_id", app.ResumeID.String()),
+			zap.Error(err),
+		)
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, resume)
+}
+
+// GetApplicationJob handles GET /applications/:id/job.
+// Returns the job (title, company, description) bound to this application.
+// @Summary Get the job bound to an application
+// @Tags Applications
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Application UUID" format(uuid)
+// @Success 200 {object} map[string]interface{} "Job details"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid application id"
+// @Failure 404 {object} httpresp.ErrorResponse "Application or job not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /applications/{id}/job [get]
+func (h *Handler) GetApplicationJob(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httpresp.BadRequest(c, "INVALID_ID", "invalid application id")
+		return
+	}
+
+	app, err := h.svc.GetByID(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			httpresp.NotFound(c, "APPLICATION_NOT_FOUND", err.Error())
+			return
+		}
+		h.logger.Error("get application for job", zap.String("id", id.String()), zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	if h.jobsAPI == nil {
+		httpresp.InternalError(c)
+		return
+	}
+
+	job, err := h.jobsAPI.GetByID(c.Request.Context(), app.JobID)
+	if err != nil {
+		if errors.Is(err, ErrJobNotFound) {
+			httpresp.NotFound(c, "JOB_NOT_FOUND", err.Error())
+			return
+		}
+		h.logger.Error("get job for application",
+			zap.String("application_id", id.String()),
+			zap.String("job_id", app.JobID.String()),
+			zap.Error(err),
+		)
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, gin.H{
+		"id":          job.ID,
+		"title":       job.Title,
+		"company":     job.Company,
+		"description": job.Description,
+		"location":    job.Location,
+		"url":         job.URL,
+		"source":      job.Source,
+		"status":      job.Status,
+	})
+}
+
+// GetApplicationCompany handles GET /applications/:id/company.
+// Returns company name + url from the bound job's CompanyURL/Company fields.
+// @Summary Get the company for an application
+// @Tags Applications
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Application UUID" format(uuid)
+// @Success 200 {object} map[string]interface{} "Company info"
+// @Failure 400 {object} httpresp.ErrorResponse "Invalid application id"
+// @Failure 404 {object} httpresp.ErrorResponse "Application or job not found"
+// @Failure 500 {object} httpresp.ErrorResponse "Internal server error"
+// @Router /applications/{id}/company [get]
+func (h *Handler) GetApplicationCompany(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httpresp.BadRequest(c, "INVALID_ID", "invalid application id")
+		return
+	}
+
+	app, err := h.svc.GetByID(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			httpresp.NotFound(c, "APPLICATION_NOT_FOUND", err.Error())
+			return
+		}
+		h.logger.Error("get application for company", zap.String("id", id.String()), zap.Error(err))
+		httpresp.InternalError(c)
+		return
+	}
+
+	if h.jobsAPI == nil {
+		httpresp.InternalError(c)
+		return
+	}
+
+	job, err := h.jobsAPI.GetByID(c.Request.Context(), app.JobID)
+	if err != nil {
+		if errors.Is(err, ErrJobNotFound) {
+			httpresp.NotFound(c, "JOB_NOT_FOUND", err.Error())
+			return
+		}
+		h.logger.Error("get company for application",
+			zap.String("application_id", id.String()),
+			zap.String("job_id", app.JobID.String()),
+			zap.Error(err),
+		)
+		httpresp.InternalError(c)
+		return
+	}
+
+	httpresp.OK(c, gin.H{
+		"name": job.Company,
+		"url":  job.CompanyURL,
+	})
 }

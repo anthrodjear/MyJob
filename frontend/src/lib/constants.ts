@@ -50,6 +50,7 @@ export const MATCH_THRESHOLDS = {
 export const POLL_INTERVAL = {
   tasks: 5000,
   emails: 30000,
+  interviews: 30000,
   dashboard: 60000,
 } as const;
 

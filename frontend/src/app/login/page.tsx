@@ -141,6 +141,35 @@ export default function LoginPage() {
   );
 }
 
+/**
+ * Sanitize a post-login redirect target.
+ *
+ * Only allow same-origin relative paths. Reject anything that:
+ *   - does not start with "/" (could be an absolute URL or a scheme)
+ *   - starts with "//" or "/\\" (protocol-relative — would be treated as
+ *     an absolute URL by the browser and used for open-redirect attacks)
+ *   - contains CR/LF (header-splitting guard)
+ *   - is otherwise malformed
+ *
+ * Falls back to "/dashboard" when the value is not safe.
+ */
+function sanitizeRedirect(value: string | null | undefined): string {
+  const fallback = "/dashboard";
+  if (!value) return fallback;
+  // Only accept simple relative paths starting with a single "/".
+  // Reject protocol-relative ("//evil.com"), scheme-bearing values, and
+  // anything containing control characters.
+  if (
+    !value.startsWith("/") ||
+    value.startsWith("//") ||
+    value.startsWith("/\\") ||
+    /[\r\n]/.test(value)
+  ) {
+    return fallback;
+  }
+  return value;
+}
+
 function LoginInner() {
   const router = useRouter();
   const loginMutation = useLogin();
@@ -150,9 +179,9 @@ function LoginInner() {
   const [checkingSetup, setCheckingSetup] = useState(true);
   const [touched, setTouched] = useState(false);
 
-  // Get redirect URL from query params
+  // Get redirect URL from query params — sanitize to prevent open redirect.
   const searchParams = useSearchParams();
-  const redirectUrl = searchParams.get("redirect") || "/dashboard";
+  const redirectUrl = sanitizeRedirect(searchParams.get("redirect"));
 
   // Password strength (show after user has touched the field)
   const strength = calculatePasswordStrength(password);
@@ -335,6 +364,7 @@ function LoginInner() {
 
           {/* Desktop heading */}
           <div className="hidden text-center lg:block">
+            <h1 className="sr-only">Sign in to MyJob</h1>
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-light">
               <Lock className="h-6 w-6 text-primary" aria-hidden="true" />
             </div>

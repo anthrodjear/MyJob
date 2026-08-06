@@ -23,17 +23,48 @@ import (
 )
 
 var (
-	ErrInvalidCredentials   = errors.New("auth: invalid credentials")
-	ErrTokenInvalid         = errors.New("auth: token invalid")
-	ErrTokenExpired         = errors.New("auth: token expired")
-	ErrUserNotFound         = errors.New("auth: user not found")
-	ErrSessionInvalidated   = errors.New("auth: session invalidated")
-	ErrPasswordSame         = errors.New("auth: new password must differ from current password")
-	ErrSetupAlreadyComplete = errors.New("auth: setup already complete — users exist")
-	ErrRefreshTokenInvalid  = errors.New("auth: refresh token invalid")
-	ErrRefreshTokenExpired  = errors.New("auth: refresh token expired")
-	ErrRefreshTokenRevoked  = errors.New("auth: refresh token revoked")
+	ErrInvalidCredentials     = errors.New("auth: invalid credentials")
+	ErrTokenInvalid           = errors.New("auth: token invalid")
+	ErrTokenExpired           = errors.New("auth: token expired")
+	ErrUserNotFound           = errors.New("auth: user not found")
+	ErrSessionInvalidated     = errors.New("auth: session invalidated")
+	ErrPasswordSame           = errors.New("auth: new password must differ from current password")
+	ErrSetupAlreadyComplete   = errors.New("auth: setup already complete — users exist")
+	ErrRefreshTokenInvalid    = errors.New("auth: refresh token invalid")
+	ErrRefreshTokenExpired    = errors.New("auth: refresh token expired")
+	ErrRefreshTokenRevoked    = errors.New("auth: refresh token revoked")
+	ErrWeakDefaultCredentials = errors.New("auth: username/password matches a known weak default — pick a stronger password")
 )
+
+// weakDefaultPasswords is the deny-list applied at setup time.
+// These are the passwords attackers try first against any newly-deployed
+// admin endpoint. Refuse them up front rather than relying on the user
+// to notice later.
+var weakDefaultPasswords = map[string]struct{}{
+	"admin":    {},
+	"password": {},
+	"123456":   {},
+	"12345678": {},
+	"qwerty":   {},
+	"letmein":  {},
+	"changeme": {},
+}
+
+// isWeakDefaultCredentials reports whether the username/password pair matches
+// a known weak default that should be rejected during initial setup.
+func isWeakDefaultCredentials(username, password string) bool {
+	if _, ok := weakDefaultPasswords[strings.ToLower(password)]; ok {
+		return true
+	}
+	// Default username "admin" with any weak password is also rejected —
+	// attackers target the obvious (admin, admin) combo specifically.
+	if strings.EqualFold(username, "admin") {
+		if _, ok := weakDefaultPasswords[strings.ToLower(password)]; ok {
+			return true
+		}
+	}
+	return false
+}
 
 // Service handles authentication business logic.
 type Service struct {
@@ -372,6 +403,9 @@ func (s *Service) GetSetupStatus(ctx context.Context) (*SetupStatusResponse, err
 // CompleteSetup creates the first admin user.
 // Validates input, hashes password, and inserts the user.
 // Returns ErrSetupAlreadyComplete if users already exist.
+// Returns ErrWeakDefaultCredentials if the chosen username/password matches
+// a known weak default (admin/admin, admin/password, etc.) — these are the
+// first passwords any attacker will try against a newly-deployed instance.
 func (s *Service) CompleteSetup(ctx context.Context, username, email, password string) error {
 	// Check if setup is still needed
 	required, err := s.repo.IsSetupRequired(ctx)
@@ -380,6 +414,14 @@ func (s *Service) CompleteSetup(ctx context.Context, username, email, password s
 	}
 	if !required {
 		return ErrSetupAlreadyComplete
+	}
+
+	// Reject trivially-weak credentials at setup time. Login still trusts
+	// whatever the stored bcrypt hash compares to, so once an admin exists
+	// the password is whatever they chose — this check is the only gate
+	// that prevents shipping the (admin, admin) default.
+	if isWeakDefaultCredentials(username, password) {
+		return ErrWeakDefaultCredentials
 	}
 
 	// Hash the password

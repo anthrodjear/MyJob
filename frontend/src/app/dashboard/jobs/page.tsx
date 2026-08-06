@@ -138,6 +138,9 @@ export default function JobsPage() {
         onScore={(jobId) => scoreMutation.mutate({ jobId })}
         onSave={(jobId, saved) => saveMutation.mutate({ jobId, save: saved })}
         onArchive={(jobId) => statusMutation.mutate({ jobId, status: "archived" })}
+        isApplyPending={applyMutation.isPending}
+        isSavePending={saveMutation.isPending}
+        isStatusPending={statusMutation.isPending}
       />
 
       {/* Pagination */}

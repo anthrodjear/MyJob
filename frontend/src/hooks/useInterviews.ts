@@ -31,6 +31,13 @@ export function useInterviews(params?: InterviewFilterInput) {
     queryKey: ["interviews", params],
     queryFn: ({ signal }) => fetchInterviews(params, signal),
     placeholderData: emptyInterviews,
+    refetchInterval: (query) => {
+      if (!query.state.data) return 10000;
+      const hasActive = query.state.data.interviews.some(
+        (i) => i.status === "starting" || i.status === "active",
+      );
+      return hasActive ? 5000 : false;
+    },
   });
 }
 
@@ -44,6 +51,10 @@ export function useInterview(id: string) {
     queryKey: ["interviews", id],
     queryFn: ({ signal }) => fetchInterview(id, signal),
     enabled: !!id,
+    refetchInterval: (query) => {
+      if (!query.state.data) return 10000;
+      return (query.state.data.status === "starting" || query.state.data.status === "active") ? 5000 : false;
+    },
   });
 }
 

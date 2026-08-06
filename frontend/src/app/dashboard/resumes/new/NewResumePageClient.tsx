@@ -85,7 +85,7 @@ export function NewResumePageClient() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+          <div role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">
             {error}
           </div>
         )}
@@ -132,11 +132,12 @@ export function NewResumePageClient() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
+          <label htmlFor="focus-skills" className="block text-sm font-medium text-foreground mb-1">
             Focus Skills
           </label>
           <div className="flex gap-2">
             <input
+              id="focus-skills"
               type="text"
               value={skillInput}
               onChange={(e) => setSkillInput(e.target.value)}
@@ -168,6 +169,7 @@ export function NewResumePageClient() {
                   <button
                     type="button"
                     onClick={() => removeSkill(skill)}
+                    aria-label={`Remove ${skill}`}
                     className="ml-1 hover:text-blue-600"
                   >
                     &times;
