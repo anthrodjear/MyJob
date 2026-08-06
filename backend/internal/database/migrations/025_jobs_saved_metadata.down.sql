@@ -1,0 +1,9 @@
+BEGIN;
+
+DROP INDEX IF EXISTS idx_jobs_saved;
+
+ALTER TABLE jobs
+    DROP COLUMN IF EXISTS metadata,
+    DROP COLUMN IF EXISTS saved;
+
+COMMIT;

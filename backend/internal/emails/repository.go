@@ -123,10 +123,10 @@ func (r *Repository) List(ctx context.Context, filter ListFilter) ([]Email, int6
 		return nil, 0, fmt.Errorf("count emails: %w", err)
 	}
 
-	// Fetch page
+	// Fetch page using the light subset (no body column).
 	// LIMIT/OFFSET use fmt.Sprintf with parameter index because sqlx doesn't support
 	// parameterized LIMIT/OFFSET clauses. The argIdx tracks the next parameter position.
-	query := `SELECT ` + emailColumns + ` FROM emails` + where + " ORDER BY received_at DESC"
+	query := `SELECT ` + emailListColumns + ` FROM emails` + where + " ORDER BY received_at DESC"
 	if filter.Limit > 0 {
 		args = append(args, filter.Limit)
 		query += fmt.Sprintf(" LIMIT $%d", argIdx)

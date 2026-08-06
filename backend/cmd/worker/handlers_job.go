@@ -59,10 +59,10 @@ func newHandleScrapeSource(
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 		defer cancel()
 
-		// Resolve source UUID to source name for browser-agent.
-		// The browser-agent matches against YAML config name/type fields
-		// (e.g. "greenhouse"), not database UUIDs.
-		sourceName, err := jobsSvc.GetSourceNameByID(ctx, payload.SourceID)
+// Resolve source UUID to source name for browser-agent.
+// The browser-agent matches against YAML config name/type fields
+// (e.g. "greenhouse"), not database UUIDs.
+sourceName, err := jobsSvc.GetSourceNameByID(ctx, payload.SourceID)
 		if err != nil {
 			log.Error("resolve source name",
 				zap.String("source_id", payload.SourceID.String()),
@@ -76,6 +76,37 @@ func newHandleScrapeSource(
 			return fmt.Errorf("discovery: resolve source %s: %w", payload.SourceID, err)
 		}
 
+		// Resolve base_url for the browser-agent. The browser-agent zod schema
+		// now treats base_url as optional and resolves it server-side; we still
+		// resolve it here so we send a non-empty value and fail fast if the
+		// source configuration is incomplete.
+		baseURL, err := jobsSvc.GetSourceBaseURLByID(ctx, payload.SourceID)
+		if err != nil {
+			log.Error("resolve source base_url",
+				zap.String("source_id", payload.SourceID.String()),
+				zap.Error(err),
+			)
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), fmt.Sprintf("resolve base_url %s: %v", payload.SourceID, err)); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
+			return fmt.Errorf("discovery: resolve base_url %s: %w", payload.SourceID, err)
+		}
+		if baseURL == "" {
+			errMsg := fmt.Sprintf("no base_url for source: %s", payload.SourceID)
+			log.Error("discovery: missing base_url",
+				zap.String("source_id", payload.SourceID.String()),
+				zap.String("source_name", sourceName),
+			)
+			if taskID != "" {
+				if _, failErr := taskSvc.Fail(ctx, parseUUID(taskID), errMsg); failErr != nil {
+					log.Warn("failed to mark task as failed", zap.Error(failErr))
+				}
+			}
+			return fmt.Errorf("discovery: %s", errMsg)
+		}
+
 		log.Info("scraping source",
 			zap.String("source_id", payload.SourceID.String()),
 			zap.String("source_name", sourceName),
@@ -85,6 +116,7 @@ func newHandleScrapeSource(
 
 		resp, err := browserClient.ScrapeJobs(ctx, ScrapeJobsRequest{
 			SourceID: sourceName,
+			BaseURL:  baseURL,
 			Location: payload.Location,
 			Keywords: payload.Keywords,
 		})

@@ -20,6 +20,7 @@ package approvals
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -104,8 +105,12 @@ func (s *Service) Create(ctx context.Context, a *ApprovalRequest) error {
 // Returns the updated ApprovalRequest so the caller can access ApplicationID
 // for downstream task dispatch.
 // Returns ErrInvalidStatus if the current status is not "pending".
+// Returns ErrStatusConflict on CAS races.
 func (s *Service) Approve(ctx context.Context, id uuid.UUID) (*ApprovalRequest, error) {
 	if err := s.repo.UpdateStatus(ctx, id, ApprovalStatusApproved, nil); err != nil {
+		if errors.Is(err, ErrStatusConflict) {
+			return nil, ErrStatusConflict
+		}
 		return nil, fmt.Errorf("approve: %w", err)
 	}
 	// Re-fetch to return the updated entity (caller needs ApplicationID)
@@ -122,11 +127,15 @@ func (s *Service) Approve(ctx context.Context, id uuid.UUID) (*ApprovalRequest, 
 // Reject changes the approval status from "pending" to "rejected".
 // A reason is required for audit trail.
 // Returns ErrInvalidStatus if the current status is not "pending".
+// Returns ErrStatusConflict on CAS races.
 func (s *Service) Reject(ctx context.Context, id uuid.UUID, reason string) error {
 	if reason == "" {
 		return fmt.Errorf("reject: %w", ErrReasonRequired)
 	}
 	if err := s.repo.UpdateStatus(ctx, id, ApprovalStatusRejected, &reason); err != nil {
+		if errors.Is(err, ErrStatusConflict) {
+			return ErrStatusConflict
+		}
 		return fmt.Errorf("reject: %w", err)
 	}
 	s.logger.Info("approval request rejected",

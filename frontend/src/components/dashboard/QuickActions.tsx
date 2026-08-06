@@ -44,7 +44,7 @@ const actions: QuickAction[] = [
     label: "Check Email",
     description: "Review classified recruiter emails",
     icon: <Mail className="h-5 w-5" />,
-    href: "/dashboard/email",
+    href: "/dashboard/emails",
     variant: "ghost",
   },
   {

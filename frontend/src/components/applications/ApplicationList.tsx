@@ -39,6 +39,8 @@ interface ApplicationListProps {
   onLoadMore?: () => void;
   /** Whether loading more pages. */
   loadingMore?: boolean;
+  /** Whether a status update is in progress. */
+  isUpdating?: boolean;
   /** Additional CSS classes. */
   className?: string;
 }
@@ -74,6 +76,7 @@ export function ApplicationList({
   hasMore,
   onLoadMore,
   loadingMore,
+  isUpdating,
   className,
 }: ApplicationListProps) {
   // Empty state
@@ -104,6 +107,7 @@ export function ApplicationList({
                 application={app}
                 onStatusChange={onStatusChange}
                 onClick={onSelect}
+                isUpdating={isUpdating}
               />
             </li>
           ))}

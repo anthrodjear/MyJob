@@ -41,6 +41,10 @@ var (
 
 	// ErrInvalidStatus indicates the requested status transition is not allowed.
 	ErrInvalidStatus = errors.New("invalid status transition")
+
+	// ErrStatusConflict is returned by UpdateStatus/StartSession when the
+	// CAS guard detects that the row's status changed between read and write.
+	ErrStatusConflict = errors.New("interview status conflict")
 )
 
 // ---------------------------------------------------------------------------
@@ -215,6 +219,10 @@ func (r *Repository) Create(ctx context.Context, session *InterviewSession) erro
 // It validates the transition using CanTransition before executing.
 // Sets started_at when transitioning to "active".
 // Sets ended_at when transitioning to a terminal state.
+//
+// Uses a WHERE-status CAS guard so a concurrent writer cannot silently
+// overwrite the row. If 0 rows are affected and the row exists,
+// ErrStatusConflict is returned.
 func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
@@ -257,8 +265,9 @@ func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status stri
 		argIdx++
 	}
 
-	query += fmt.Sprintf(" WHERE id = $%d", argIdx)
-	args = append(args, id)
+	// CAS guard: only update when status hasn't changed since we read it.
+	query += fmt.Sprintf(" WHERE id = $%d AND status = $%d", argIdx, argIdx+1)
+	args = append(args, id, currentStatus)
 
 	result, err := tx.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -266,7 +275,8 @@ func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status stri
 	}
 	rows, _ := result.RowsAffected()
 	if rows == 0 {
-		return ErrNotFound
+		// Row exists (we just SELECTed it) but status moved — CAS lost.
+		return ErrStatusConflict
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -379,6 +389,10 @@ func (r *Repository) UpdateFeedback(ctx context.Context, id uuid.UUID, feedback 
 // StartSession performs a transactional status transition from "pending"
 // to "starting", setting external_session_id, provider, and model in a
 // single atomic write. Prevents inconsistent state on partial failure.
+//
+// Uses a WHERE-status CAS guard so a concurrent writer cannot silently
+// overwrite the row. If 0 rows are affected and the row exists,
+// ErrStatusConflict is returned.
 func (r *Repository) StartSession(ctx context.Context, id uuid.UUID, externalID, provider, model string) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
@@ -403,13 +417,21 @@ func (r *Repository) StartSession(ctx context.Context, id uuid.UUID, externalID,
 	}
 
 	now := time.Now()
-	_, err = tx.ExecContext(ctx,
+	result, err := tx.ExecContext(ctx,
 		`UPDATE interview_sessions
 		 SET status = $1, external_session_id = $2, provider = $3, model = $4, updated_at = $5
-		 WHERE id = $6`,
-		StatusStarting, externalID, provider, model, now, id)
+		 WHERE id = $6 AND status = $7`,
+		StatusStarting, externalID, provider, model, now, id, currentStatus)
 	if err != nil {
 		return fmt.Errorf("start session: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("start session rows: %w", err)
+	}
+	if rows == 0 {
+		// Row exists (we just SELECTed it) but status moved — CAS lost.
+		return ErrStatusConflict
 	}
 
 	return tx.Commit()

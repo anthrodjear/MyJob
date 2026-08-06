@@ -143,6 +143,10 @@ func (r *Repository) Create(ctx context.Context, a *ApprovalRequest) error {
 // UpdateStatus updates the approval status and optional rejection reason.
 // Validates the transition is allowed before updating.
 // Only pending → approved/rejected transitions are permitted.
+//
+// Uses a WHERE-status CAS guard so a concurrent writer cannot silently
+// overwrite the row. If 0 rows are affected and the row exists,
+// ErrStatusConflict is returned.
 func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status string, rejectionReason *string) error {
 	// Fetch current to validate transition
 	current, err := r.GetByID(ctx, id)
@@ -157,14 +161,15 @@ func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status stri
 	result, err := r.db.ExecContext(ctx,
 		`UPDATE approval_requests
 		 SET status = $1, rejection_reason = $2, reviewed_at = $3
-		 WHERE id = $4`,
-		status, rejectionReason, now, id)
+		 WHERE id = $4 AND status = $5`,
+		status, rejectionReason, now, id, current.Status)
 	if err != nil {
 		return fmt.Errorf("update approval status: %w", err)
 	}
 	rows, _ := result.RowsAffected()
 	if rows == 0 {
-		return ErrNotFound
+		// Row exists (we just SELECTed it) but status moved — CAS lost.
+		return ErrStatusConflict
 	}
 	return nil
 }

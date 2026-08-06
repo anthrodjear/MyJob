@@ -106,7 +106,7 @@ services:
       DATABASE_URL: postgres://myjob:${POSTGRES_PASSWORD:-myjob_dev}@postgres:5432/myjob?sslmode=disable
       REDIS_URL: redis://redis:6379
       AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH:-}
-      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-dev-only-jwt-secret-change-in-production-32ch}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:?AUTH_JWT_SECRET must be set}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OLLAMA_BASE_URL: http://host.docker.internal:11434
@@ -152,7 +152,7 @@ services:
       DATABASE_URL: postgres://myjob:${POSTGRES_PASSWORD:-myjob_dev}@postgres:5432/myjob?sslmode=disable
       REDIS_URL: redis://redis:6379
       AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH:-}
-      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-dev-only-jwt-secret-change-in-production-32ch}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:?AUTH_JWT_SECRET must be set}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OLLAMA_BASE_URL: http://host.docker.internal:11434
@@ -220,7 +220,7 @@ services:
       NEXT_PUBLIC_API_URL: http://localhost:8080
       INTERNAL_API_URL: http://api:8080
       BACKEND_URL: http://api:8080
-      SESSION_SECRET: ${SESSION_SECRET:-dev-only-session-secret-change-in-production-32ch}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set}
       NODE_ENV: production
     depends_on:
       api:

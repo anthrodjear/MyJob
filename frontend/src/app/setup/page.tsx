@@ -434,6 +434,7 @@ export default function SetupPage() {
                 className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
                 placeholder="Choose a username"
                 aria-describedby={error ? "setup-error" : undefined}
+                aria-invalid={error != null}
               />
             </div>
 
@@ -457,6 +458,7 @@ export default function SetupPage() {
                 className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
                 placeholder="your@email.com"
                 aria-describedby={error ? "setup-error" : undefined}
+                aria-invalid={error != null}
               />
             </div>
 
@@ -481,6 +483,7 @@ export default function SetupPage() {
                 className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
                 placeholder="Min. 8 characters"
                 aria-describedby={error ? "setup-error" : undefined}
+                aria-invalid={error != null}
               />
             </div>
 
@@ -508,6 +511,7 @@ export default function SetupPage() {
                 className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
                 placeholder="Repeat your password"
                 aria-describedby={error ? "setup-error" : undefined}
+                aria-invalid={error != null}
               />
             </div>
 
@@ -557,7 +561,7 @@ export default function SetupPage() {
                 {error}
               </div>
             )}
-            <SetupStepLLMKeys onNext={handleLLMComplete} onBack={handleBack} />
+            <SetupStepLLMKeys onNext={handleLLMComplete} onBack={handleBack} isSubmitting={isSubmitting} />
           </div>
         );
 
@@ -576,6 +580,7 @@ export default function SetupPage() {
               onNext={handleVoiceEmailComplete}
               onBack={handleBack}
               onSkip={handleSkip}
+              isSubmitting={isSubmitting}
             />
           </div>
         );
@@ -595,6 +600,7 @@ export default function SetupPage() {
               onNext={handlePreferencesComplete}
               onBack={handleBack}
               onSkip={handleSkip}
+              isSubmitting={isSubmitting}
             />
           </div>
         );

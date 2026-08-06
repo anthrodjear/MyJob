@@ -1,5 +1,6 @@
 import { Page } from 'playwright';
 import { access } from 'node:fs/promises';
+import path from 'node:path';
 import { FormField } from './detector.js';
 import { FieldMapping } from './fields.js';
 import { logger } from '../utils/logger.js';
@@ -11,6 +12,46 @@ const log = logger.child({ component: 'FormSubmitter' });
 const FIELD_WAIT_TIMEOUT_MS = 5_000;
 const SUBMIT_VISIBILITY_TIMEOUT_MS = 5_000;
 const SUBMIT_NAV_TIMEOUT_MS = 15_000;
+
+// ── Path-containment guard ────────────────────────────────────────
+
+/**
+ * Allowed root for any user-supplied file path (resume, cover letter,
+ * portfolio). Anything outside this root is rejected — defends against
+ * a malicious caller slipping an absolute path like /etc/passwd or
+ * ../../some-secret through a /api/v1/forms/fill request.
+ *
+ * STORAGE_DIR is the canonical location where uploaded files live
+ * (resolved at runtime by form-filler/index.ts). In dev, fall back to
+ * <cwd>/storage so the guard still works when STORAGE_DIR isn't set.
+ */
+function allowedStorageRoot(): string {
+  return path.resolve(process.env.STORAGE_DIR ?? path.resolve(process.cwd(), 'storage'));
+}
+
+/**
+ * Verify that a user-supplied file path resolves inside the allowed
+ * storage root. Symlinks are resolved first so they can't be used to
+ * escape the sandbox. Returns the resolved absolute path on success,
+ * throws on any escape attempt.
+ */
+function assertPathInsideStorage(inputPath: string, kind: string): string {
+  if (!inputPath) {
+    throw new Error(`${kind} path is empty`);
+  }
+  const root = allowedStorageRoot();
+  const resolved = path.resolve(inputPath);
+  // Trailing separator on the root ensures a path of exactly the root
+  // is still considered "inside" it (it should never reach setInputFiles,
+  // but be safe).
+  const rootWithSep = root.endsWith(path.sep) ? root : root + path.sep;
+  if (resolved !== root && !resolved.startsWith(rootWithSep)) {
+    throw new Error(
+      `${kind} path escapes the allowed storage directory: ${inputPath} (resolved: ${resolved}, root: ${root})`,
+    );
+  }
+  return resolved;
+}
 
 // ── CSS selector escaping (Node.js has no CSS.escape) ─────────────
 
@@ -304,11 +345,20 @@ function identifyFileType(field: FormField): string {
  * @param fileUploads - File upload paths for resume, cover letter, portfolio.
  */
 async function uploadFiles(page: Page, fields: FormField[], fileUploads: FileUploadOptions): Promise<void> {
-  // Verify files exist before attempting upload
+  // Verify files exist before attempting upload. The path-containment
+  // check is run FIRST (before fs.access / setInputFiles) so we never
+  // touch a path that escapes the configured STORAGE_DIR, even just to
+  // stat it.
   const filesToVerify: Array<{ path: string; type: string }> = [];
-  if (fileUploads.resumePath) filesToVerify.push({ path: fileUploads.resumePath, type: 'resume' });
-  if (fileUploads.coverLetterPath) filesToVerify.push({ path: fileUploads.coverLetterPath, type: 'cover letter' });
-  if (fileUploads.portfolioPath) filesToVerify.push({ path: fileUploads.portfolioPath, type: 'portfolio' });
+  if (fileUploads.resumePath) {
+    filesToVerify.push({ path: assertPathInsideStorage(fileUploads.resumePath, 'resume'), type: 'resume' });
+  }
+  if (fileUploads.coverLetterPath) {
+    filesToVerify.push({ path: assertPathInsideStorage(fileUploads.coverLetterPath, 'cover letter'), type: 'cover letter' });
+  }
+  if (fileUploads.portfolioPath) {
+    filesToVerify.push({ path: assertPathInsideStorage(fileUploads.portfolioPath, 'portfolio'), type: 'portfolio' });
+  }
 
   for (const file of filesToVerify) {
     try {
@@ -359,9 +409,15 @@ async function uploadFiles(page: Page, fields: FormField[], fileUploads: FileUpl
     }
 
     if (filePath) {
-      await page.locator(selector).first().setInputFiles(filePath);
+      // Defense-in-depth: the verify loop above already ran
+      // assertPathInsideStorage on every path that came from the
+      // caller, but a malformed mapping could still reassign filePath
+      // to something untrusted. Re-check before handing it to the
+      // browser.
+      const safePath = assertPathInsideStorage(filePath, identifyFileType(field));
+      await page.locator(selector).first().setInputFiles(safePath);
       uploadedTypes.add(fieldType);
-      log.debug({ fieldLabel: field.label, fieldType, filePath }, 'Uploaded file to field');
+      log.debug({ fieldLabel: field.label, fieldType, filePath: safePath }, 'Uploaded file to field');
     }
   }
 }

@@ -115,6 +115,7 @@ export function ApprovalCard({
               e.stopPropagation();
               onApprove(approval.id);
             }}
+            onKeyDown={(e) => e.stopPropagation()}
             aria-label={`Approve ${snapshot.title}`}
           >
             Approve
@@ -127,6 +128,7 @@ export function ApprovalCard({
               e.stopPropagation();
               onReject(approval.id);
             }}
+            onKeyDown={(e) => e.stopPropagation()}
             aria-label={`Reject ${snapshot.title}`}
           >
             Reject

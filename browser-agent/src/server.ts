@@ -1,6 +1,8 @@
 import express, { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
 import { AccessToken } from 'livekit-server-sdk';
+import crypto from 'node:crypto';
+import net from 'node:net';
 import { fillApplicationForm } from './form-filler/index.js';
 import { logger } from './utils/logger.js';
 import { initializeScrapers, closeScrapers, selectScraperBySourceId, getAllowedDomains } from './scrapers/registry.js';
@@ -13,6 +15,69 @@ app.use(express.json({ limit: '10mb' }));
 const DEFAULT_PORT = 3000;
 const PORT = Number(process.env.PORT) || DEFAULT_PORT;
 const SCRAPE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes â€” matches Go worker's job_discovery timeout
+
+// ----- Internal-secret auth -----
+//
+// When API_INTERNAL_SECRET is set, every /api/v1/* request must carry the
+// matching X-Internal-Secret header. This is the only auth on browser-agent
+// (the service is intended to run on a trusted network, but the secret
+// stops accidental open exposure if the port is forwarded / discovered).
+// When unset, requests pass through but a startup warning is logged so
+// misconfigured deployments are visible.
+const API_INTERNAL_SECRET = process.env.API_INTERNAL_SECRET;
+if (!API_INTERNAL_SECRET) {
+  logger.warn(
+    { envVar: 'API_INTERNAL_SECRET' },
+    'API_INTERNAL_SECRET is not set — /api/v1/* requests will NOT be authenticated. Set this in any non-local deployment.',
+  );
+} else if (API_INTERNAL_SECRET.length < 32) {
+  logger.warn(
+    { length: API_INTERNAL_SECRET.length },
+    'API_INTERNAL_SECRET is shorter than 32 chars — use a high-entropy random value.',
+  );
+}
+
+const API_INTERNAL_SECRET_HEADER = 'x-internal-secret';
+
+function internalSecretAuth(req: Request, res: Response, next: NextFunction): void {
+  // Skip the auth check entirely when the secret isn't configured. The
+  // startup warning already fires once at boot.
+  if (!API_INTERNAL_SECRET) {
+    return next();
+  }
+  // Health checks are unauthenticated so external probes (k8s, load
+  // balancers) can hit them without holding the secret.
+  if (req.method === 'GET' && req.path === '/health') {
+    return next();
+  }
+  // Only enforce on the public API surface.
+  if (!req.path.startsWith('/api/v1/')) {
+    return next();
+  }
+  const provided = req.header(API_INTERNAL_SECRET_HEADER);
+  if (!provided) {
+    logger.warn({ ip: req.ip, path: req.path }, 'Rejected request: missing X-Internal-Secret');
+    res.status(401).json(errorResponse('UNAUTHORIZED', 'X-Internal-Secret header is required'));
+    return;
+  }
+  // timingSafeEqual requires equal-length buffers. Mismatched lengths
+  // always fail, so we still compare against a padded expected to keep
+  // the timing of the comparison constant. We don't want a length-based
+  // side channel that reveals the secret's length.
+  const expected = Buffer.from(API_INTERNAL_SECRET);
+  const got = Buffer.from(provided);
+  if (got.length !== expected.length || !crypto.timingSafeEqual(expected, got)) {
+    logger.warn({ ip: req.ip, path: req.path }, 'Rejected request: invalid X-Internal-Secret');
+    res.status(401).json(errorResponse('UNAUTHORIZED', 'X-Internal-Secret header is invalid'));
+    return;
+  }
+  return next();
+}
+
+// Install the secret-check middleware before any /api/v1/* handlers run.
+// express.json must already be mounted (it is, above) so the handler can
+// read the body for zod validation if needed.
+app.use(internalSecretAuth);
 
 // ----- Request/Response Schemas (Zod = single source of truth) -----
 
@@ -68,21 +133,37 @@ function notImplementedResponse(feature: string) {
 /**
  * Validate that a URL's hostname is in the allowed domains list.
  * Prevents SSRF attacks via user-supplied URLs.
+ *
+ * Also rejects raw IP literals (IPv4 and IPv6) and "decimal" / octal /
+ * hex IPv4 forms — without this, an attacker can submit `http://2130706433`
+ * or `http://0177.0.0.1` (which the WHATWG URL parser will normalize to
+ * 127.0.0.1) and the suffix match against e.g. ".example.com" might
+ * accidentally let them through if a clever payload is used. Refuse all
+ * IP-shaped hosts up front.
  */
 function validateAllowedUrl(url: string, allowedDomains: string[], context: string): void {
+  let parsed: URL;
   try {
-    const hostname = new URL(url).hostname;
-    const isAllowed = allowedDomains.some(domain => hostname === domain || hostname.endsWith(`.${domain}`));
-    if (!isAllowed) {
-      logger.warn({ url, hostname, allowedDomains, context }, 'Blocked SSRF attempt');
-      throw new Error(`URL not in allowed domains: ${hostname}`);
-    }
+    parsed = new URL(url);
   } catch (err) {
-    if (err instanceof Error && err.message.includes('not in allowed domains')) {
-      throw err;
-    }
     logger.warn({ url, err, context }, 'Failed to parse URL for SSRF validation');
     throw new Error(`Invalid URL for ${context}`);
+  }
+
+  const hostname = parsed.hostname;
+
+  // Reject IP literals before any suffix match. net.isIP handles both
+  // IPv4 dotted-quad and bracketed IPv6 (and also recognises the
+  // unbracketed `[::1]` form that some parsers accept via URL.hostname).
+  if (net.isIP(hostname) !== 0) {
+    logger.warn({ url, hostname, context }, 'Blocked SSRF attempt (IP literal)');
+    throw new Error(`URL not in allowed domains: ${hostname}`);
+  }
+
+  const isAllowed = allowedDomains.some(domain => hostname === domain || hostname.endsWith(`.${domain}`));
+  if (!isAllowed) {
+    logger.warn({ url, hostname, allowedDomains, context }, 'Blocked SSRF attempt');
+    throw new Error(`URL not in allowed domains: ${hostname}`);
   }
 }
 

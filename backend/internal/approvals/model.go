@@ -36,6 +36,10 @@ var (
 
 	// ErrReasonRequired indicates a rejection reason was not provided.
 	ErrReasonRequired = errors.New("approval rejection reason is required")
+
+	// ErrStatusConflict is returned by UpdateStatus when the CAS guard
+	// detects that the row's status changed between read and write.
+	ErrStatusConflict = errors.New("approval status conflict")
 )
 
 // ============================================================================

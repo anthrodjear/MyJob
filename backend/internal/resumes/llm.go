@@ -99,14 +99,29 @@ func (o *OllamaResumeGenerator) callOllama(ctx context.Context, prompt string) (
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
+	start := time.Now()
 	resp, err := o.client.Do(httpReq)
 	if err != nil {
+		o.logger.Info("ollama call",
+			zap.Int("status", 0),
+			zap.Duration("latency", time.Since(start)),
+			zap.String("model", o.model),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("call ollama: %w", err)
 	}
 	defer resp.Body.Close()
+	status := resp.StatusCode
+	latency := time.Since(start)
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 	if err != nil {
+		o.logger.Info("ollama call",
+			zap.Int("status", status),
+			zap.Duration("latency", latency),
+			zap.String("model", o.model),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("read response: %w", err)
 	}
 
@@ -115,13 +130,31 @@ func (o *OllamaResumeGenerator) callOllama(ctx context.Context, prompt string) (
 		if len(msg) > 500 {
 			msg = msg[:500] + "... (truncated)"
 		}
+		o.logger.Info("ollama call",
+			zap.Int("status", status),
+			zap.Duration("latency", latency),
+			zap.String("model", o.model),
+			zap.String("error_body", msg),
+		)
 		return nil, fmt.Errorf("ollama returned %d: %s", resp.StatusCode, msg)
 	}
 
 	var ollamaResp ollamaResponse
 	if err := json.Unmarshal(body, &ollamaResp); err != nil {
+		o.logger.Info("ollama call",
+			zap.Int("status", status),
+			zap.Duration("latency", latency),
+			zap.String("model", o.model),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("unmarshal ollama response: %w", err)
 	}
+
+	o.logger.Info("ollama call",
+		zap.Int("status", status),
+		zap.Duration("latency", latency),
+		zap.String("model", o.model),
+	)
 
 	return []byte(ollamaResp.Response), nil
 }
@@ -309,14 +342,29 @@ func (o *OllamaCoverLetterGenerator) callOllama(ctx context.Context, prompt stri
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
+	start := time.Now()
 	resp, err := o.client.Do(httpReq)
 	if err != nil {
+		o.logger.Info("ollama call",
+			zap.Int("status", 0),
+			zap.Duration("latency", time.Since(start)),
+			zap.String("model", o.model),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("call ollama: %w", err)
 	}
 	defer resp.Body.Close()
+	status := resp.StatusCode
+	latency := time.Since(start)
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 	if err != nil {
+		o.logger.Info("ollama call",
+			zap.Int("status", status),
+			zap.Duration("latency", latency),
+			zap.String("model", o.model),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("read response: %w", err)
 	}
 
@@ -325,13 +373,31 @@ func (o *OllamaCoverLetterGenerator) callOllama(ctx context.Context, prompt stri
 		if len(msg) > 500 {
 			msg = msg[:500] + "... (truncated)"
 		}
+		o.logger.Info("ollama call",
+			zap.Int("status", status),
+			zap.Duration("latency", latency),
+			zap.String("model", o.model),
+			zap.String("error_body", msg),
+		)
 		return nil, fmt.Errorf("ollama returned %d: %s", resp.StatusCode, msg)
 	}
 
 	var ollamaResp ollamaResponse
 	if err := json.Unmarshal(body, &ollamaResp); err != nil {
+		o.logger.Info("ollama call",
+			zap.Int("status", status),
+			zap.Duration("latency", latency),
+			zap.String("model", o.model),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("unmarshal ollama response: %w", err)
 	}
+
+	o.logger.Info("ollama call",
+		zap.Int("status", status),
+		zap.Duration("latency", latency),
+		zap.String("model", o.model),
+	)
 
 	return []byte(ollamaResp.Response), nil
 }
@@ -509,14 +575,29 @@ func (o *OllamaResumeTailor) callOllama(ctx context.Context, prompt string) ([]b
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
+	start := time.Now()
 	resp, err := o.client.Do(httpReq)
 	if err != nil {
+		o.logger.Info("ollama call",
+			zap.Int("status", 0),
+			zap.Duration("latency", time.Since(start)),
+			zap.String("model", o.model),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("call ollama: %w", err)
 	}
 	defer resp.Body.Close()
+	status := resp.StatusCode
+	latency := time.Since(start)
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 	if err != nil {
+		o.logger.Info("ollama call",
+			zap.Int("status", status),
+			zap.Duration("latency", latency),
+			zap.String("model", o.model),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("read response: %w", err)
 	}
 
@@ -525,13 +606,31 @@ func (o *OllamaResumeTailor) callOllama(ctx context.Context, prompt string) ([]b
 		if len(msg) > 500 {
 			msg = msg[:500] + "... (truncated)"
 		}
+		o.logger.Info("ollama call",
+			zap.Int("status", status),
+			zap.Duration("latency", latency),
+			zap.String("model", o.model),
+			zap.String("error_body", msg),
+		)
 		return nil, fmt.Errorf("ollama returned %d: %s", resp.StatusCode, msg)
 	}
 
 	var ollamaResp ollamaResponse
 	if err := json.Unmarshal(body, &ollamaResp); err != nil {
+		o.logger.Info("ollama call",
+			zap.Int("status", status),
+			zap.Duration("latency", latency),
+			zap.String("model", o.model),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("unmarshal ollama response: %w", err)
 	}
+
+	o.logger.Info("ollama call",
+		zap.Int("status", status),
+		zap.Duration("latency", latency),
+		zap.String("model", o.model),
+	)
 
 	return []byte(ollamaResp.Response), nil
 }

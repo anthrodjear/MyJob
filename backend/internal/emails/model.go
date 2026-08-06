@@ -21,6 +21,7 @@ package emails
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -45,6 +46,34 @@ const (
 	ClassificationPhishing        = "phishing"
 	ClassificationOther           = "other"
 )
+
+// ClassificationMappings is a transition-window alias map used to normalise
+// classifications emitted by external sources (browser-agent, IMAP, etc.)
+// into the canonical vocabulary above. Aliases are case-folded before the
+// lookup. To remove an alias after the migration window closes, simply
+// delete the entry.
+var ClassificationMappings = map[string]string{
+	// browser-agent currently emits "interview"; canonical is "interview_invite"
+	"interview":      ClassificationInterviewInvite,
+	"INTERVIEW":      ClassificationInterviewInvite,
+	"Interview":      ClassificationInterviewInvite,
+	"interview_invite": ClassificationInterviewInvite,
+	// any future aliases go here
+}
+
+// NormalizeClassification folds case and applies alias mappings so that
+// both legacy ("interview") and canonical ("interview_invite") inputs
+// resolve to the canonical classification value.
+func NormalizeClassification(c string) string {
+	lower := strings.ToLower(strings.TrimSpace(c))
+	if mapped, ok := ClassificationMappings[lower]; ok {
+		return mapped
+	}
+	if mapped, ok := ClassificationMappings[c]; ok {
+		return mapped
+	}
+	return lower
+}
 
 // validClassifications is the set of known classification values.
 var validClassifications = map[string]bool{
@@ -88,4 +117,11 @@ type Email struct {
 const emailColumns = `
 	id, application_id, message_id, from_address, to_address,
 	subject, body, received_at, classification, is_read, reply_draft, created_at
+`
+
+// emailListColumns is the lighter subset used by the List query — excludes
+// the heavy body column. Keep emailColumns for GetByID.
+const emailListColumns = `
+	id, application_id, message_id, from_address, to_address,
+	subject, received_at, classification, is_read, reply_draft, created_at
 `

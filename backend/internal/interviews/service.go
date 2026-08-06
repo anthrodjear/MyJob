@@ -43,19 +43,28 @@ type TaskDispatcher interface {
 	DispatchVoiceSession(ctx context.Context, payload tasks.VoiceSessionPayload) (string, error)
 }
 
+// VoiceConfig carries the default voice provider/model resolved from app config.
+// It's used to fill in empty req.Provider/req.Model values when starting a session.
+type VoiceConfig struct {
+	Provider string
+	Model    string
+}
+
 // Service handles interview session business logic.
 type Service struct {
 	repo       *Repository
 	dispatcher TaskDispatcher
 	logger     *zap.Logger
+	voiceCfg   VoiceConfig
 }
 
 // NewService creates a new interviews service.
-func NewService(repo *Repository, dispatcher TaskDispatcher, logger *zap.Logger) *Service {
+func NewService(repo *Repository, dispatcher TaskDispatcher, voiceCfg VoiceConfig, logger *zap.Logger) *Service {
 	return &Service{
 		repo:       repo,
 		dispatcher: dispatcher,
 		logger:     logger.Named("interviews"),
+		voiceCfg:   voiceCfg,
 	}
 }
 
@@ -135,13 +144,26 @@ func (s *Service) Start(ctx context.Context, id uuid.UUID, req StartInterviewReq
 		return nil, fmt.Errorf("start session: %w", err)
 	}
 
+	// Resolve provider/model from config when caller left them blank.
+	provider := req.Provider
+	if provider == "" {
+		provider = s.voiceCfg.Provider
+	}
+	model := req.Model
+	if model == "" {
+		model = s.voiceCfg.Model
+	}
+
 	// Generate external session ID for LiveKit room correlation
 	externalID := fmt.Sprintf("interview-%s", session.ID.String())
 
 	// Transactional update: status + external_session_id + provider/model
-	if err := s.repo.StartSession(ctx, id, externalID, req.Provider, req.Model); err != nil {
+	if err := s.repo.StartSession(ctx, id, externalID, provider, model); err != nil {
 		if errors.Is(err, ErrInvalidStatus) {
 			return nil, ErrInvalidStatus
+		}
+		if errors.Is(err, ErrStatusConflict) {
+			return nil, ErrStatusConflict
 		}
 		return nil, fmt.Errorf("start session: %w", err)
 	}
@@ -152,8 +174,8 @@ func (s *Service) Start(ctx context.Context, id uuid.UUID, req StartInterviewReq
 		ApplicationID:   session.ApplicationID,
 		Mode:            session.Mode,
 		ExternalSession: externalID,
-		Provider:        req.Provider,
-		Model:           req.Model,
+		Provider:        provider,
+		Model:           model,
 	}
 
 	taskID, err := s.dispatcher.DispatchVoiceSession(ctx, payload)
@@ -276,6 +298,9 @@ func (s *Service) handleStatusEvent(ctx context.Context, session *InterviewSessi
 	}
 
 	if err := s.repo.UpdateStatus(ctx, session.ID, req.Status); err != nil {
+		if errors.Is(err, ErrStatusConflict) {
+			return ErrStatusConflict
+		}
 		return fmt.Errorf("handle status update: %w", err)
 	}
 

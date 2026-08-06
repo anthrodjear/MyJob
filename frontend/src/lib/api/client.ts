@@ -4,7 +4,7 @@
  * Provides:
  * - JSON serialization/deserialization
  * - Error parsing with structured ApiError
- * - Configurable auth token injection (via setAuthToken)
+ * - Cookie-based auth via credentials: 'include'
  * - Request helpers: apiGet, apiPost, apiPatch, apiDelete
  *
  * Does NOT:
@@ -19,7 +19,6 @@
  */
 
 import { API_PREFIX } from "@/lib/constants";
-import { getAuthToken as getStoredAuthToken, getRefreshToken, setAuthTokens, clearAuthTokens } from "@/lib/auth";
 
 /**
  * Get the backend URL based on execution context.
@@ -80,169 +79,19 @@ export class RefreshFailedError extends ApiError {
 }
 
 /**
- * Auth token provider — decoupled from localStorage.
- *
- * Default: reads from localStorage (client-side only).
- * Override via setAuthToken() for testing, HTTP-only cookies, or
- * other auth mechanisms without rewriting the client.
+ * Cookie-based auth: credentials: 'include' sends session cookies automatically.
+ * No token injection needed — the server reads the session cookie.
  */
-let authTokenProvider: (() => string | null) | null = null;
 
 /**
- * Configure how the API client retrieves the auth token.
- * Call this at app startup (e.g., in a provider or test setup).
- *
- * @param provider - Function that returns the current auth token, or null
- *
- * @example
- *   // Test setup — bypass localStorage
- *   setAuthToken(() => "test-token-123");
- *
- *   // HTTP-only cookies — no token needed, browser sends cookies automatically
- *   setAuthToken(() => null);
- *
- *   // Reset to default (localStorage)
- *   setAuthToken(null);
- */
-export function setAuthToken(provider: (() => string | null) | null): void {
-  authTokenProvider = provider;
-}
-
-/**
- * Get the current auth token using the configured provider.
- * Falls back to localStorage if no custom provider is set.
- * Returns null on the server (no localStorage available).
- */
-function getAuthToken(): string | null {
-  if (authTokenProvider != null) {
-    return authTokenProvider();
-  }
-  // Default: localStorage (client-side only)
-  return getStoredAuthToken();
-}
-
-/**
- * Shared refresh promise — all concurrent 401 waiters share the same Promise.
- * Prevents multiple simultaneous refresh attempts.
- */
-let refreshPromise: Promise<RefreshResult> | null = null;
-
-/**
- * Result of a token refresh attempt.
- */
-interface RefreshResult {
-  /** New access token, or null if refresh failed. */
-  token: string | null;
-  /** Whether the failure was permanent (token definitively invalid). */
-  permanent: boolean;
-}
-
-/**
- * Refresh the access token using the stored refresh token.
- * Returns the new access token, or null if refresh fails.
- * Concurrent callers share the same refresh attempt.
- */
-async function refreshToken(): Promise<RefreshResult> {
-  // If a refresh is already in-flight, wait for it
-  if (refreshPromise != null) {
-    return refreshPromise;
-  }
-
-  refreshPromise = (async () => {
-    try {
-      const storedRefreshToken = getRefreshToken();
-      if (storedRefreshToken == null) {
-        return { token: null, permanent: true };
-      }
-
-      const res = await fetch(
-        new URL(`${API_PREFIX}/auth/refresh`, BACKEND_URL).toString(),
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refresh_token: storedRefreshToken }),
-          cache: "no-store",
-        }
-      );
-
-      if (!res.ok) {
-        // 401/403 = token definitively invalid (permanent)
-        // 5xx = server error (transient, don't clear tokens)
-        const permanent = res.status < 500;
-        return { token: null, permanent };
-      }
-
-      const data = (await res.json()) as {
-        access_token: string;
-        refresh_token: string;
-        expires_at: number;
-      };
-
-      // Store new tokens
-      setAuthTokens({
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token,
-        expiresAt: data.expires_at,
-      });
-
-      return { token: data.access_token, permanent: false };
-    } catch {
-      // Network error = transient
-      return { token: null, permanent: false };
-    }
-  })();
-
-  try {
-    return await refreshPromise;
-  } finally {
-    refreshPromise = null;
-  }
-}
-
-/**
- * Wrapper around apiFetch that automatically refreshes tokens on 401.
- * Use this for all API calls that require authentication.
- *
- * On 401: attempts token refresh, retries original request once.
- * On permanent refresh failure (401/403): clears tokens and throws RefreshFailedError.
- * On transient refresh failure (5xx): throws RefreshFailedError without clearing tokens.
+ * Wrapper around apiFetch that preserves the original API surface.
+ * Cookie auth means no token refresh is needed at the client level.
  */
 export async function apiFetchWithRefresh<T>(
   path: string,
   options?: RequestInit,
 ): Promise<T | undefined> {
-  const token = getAuthToken();
-
-  try {
-    return await apiFetch<T>(path, {
-      ...options,
-      headers: {
-        ...options?.headers,
-        ...(token != null ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    });
-  } catch (error) {
-    // Only retry on 401 Unauthorized
-    if (error instanceof ApiError && error.status === 401) {
-      const result = await refreshToken();
-      if (result.token != null) {
-        // Retry the original request with the new token
-        return apiFetch<T>(path, {
-          ...options,
-          headers: {
-            ...options?.headers,
-            Authorization: `Bearer ${result.token}`,
-          },
-        });
-      }
-      // Refresh failed — only clear tokens on permanent failure (token invalid)
-      if (result.permanent) {
-        clearAuthTokens();
-      }
-      throw new RefreshFailedError();
-    }
-    throw error;
-  }
+  return apiFetch<T>(path, options);
 }
 
 /**
@@ -264,7 +113,7 @@ async function safeJsonParse(res: Response): Promise<unknown> {
  * Handles:
  * - URL construction (new URL prevents double slashes)
  * - JSON Content-Type header (preserves existing if already set)
- * - Auth token injection via configurable provider (skippable for public endpoints)
+ * - Cookie-based auth via credentials: 'include'
  * - Error response parsing with text fallback for non-JSON errors
  * - 204 No Content and non-JSON responses (returns undefined)
  * - 30s timeout via AbortController (skipped if caller provides signal)
@@ -288,13 +137,8 @@ export async function apiFetch<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  // Inject auth token via configurable provider (skip if skipAuth is true)
-  if (options?.skipAuth !== true) {
-    const token = getAuthToken();
-    if (token != null) {
-      headers.set("Authorization", `Bearer ${token}`);
-    }
-  }
+  // Cookie-based auth: credentials: 'include' sends session cookies automatically.
+  // No Authorization header injection needed.
 
   // Only create timeout if caller didn't provide their own signal.
   // If options.signal is provided, the caller owns timeout/cancellation.
@@ -308,6 +152,7 @@ export async function apiFetch<T>(
     const res = await fetch(url, {
       ...options,
       headers,
+      credentials: "include",
       cache: "no-store",
       signal: options?.signal ?? controller.signal,
     });
@@ -555,12 +400,7 @@ export async function authFetch(
     headers.set("Content-Type", "application/json");
   }
 
-  const token = getAuthToken();
-  if (token != null) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
-
-  const res = await fetch(url, { ...init, headers, cache: "no-store" });
+  const res = await fetch(url, { ...init, headers, credentials: "include", cache: "no-store" });
 
   if (!res.ok) {
     const rawBody = await res.text().catch(() => "");
