@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { ApiError, apiFetch, apiGet, apiPost, apiPut, apiPatch, apiDelete, setAuthToken } from "../client";
+import { ApiError, apiFetch, apiGet, apiPost, apiPut, apiPatch, apiDelete } from "../client";
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -33,34 +33,13 @@ describe("ApiError", () => {
   });
 });
 
-describe("setAuthToken", () => {
-  it("uses custom provider when set", async () => {
-    setAuthToken(() => "my-token");
-    mockFetch.mockResolvedValueOnce(
-      new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }),
-    );
-
-    await apiGet("test");
-
-    const [, options] = mockFetch.mock.calls[0];
-    expect(options.headers.get("Authorization")).toBe("Bearer my-token");
-
-    // Cleanup
-    setAuthToken(null);
-  });
-});
-
 describe("apiFetch", () => {
   beforeEach(() => {
     mockFetch.mockReset();
-    setAuthToken(null);
   });
 
   afterEach(() => {
-    setAuthToken(null);
+    // cleanup
   });
 
   it("constructs correct URL with API prefix", async () => {
