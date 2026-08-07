@@ -50,6 +50,15 @@ var emailColNames = []string{
 // it by constructing the actual query the same way the repo does.
 var selectPrefix = "SELECT \n\tid, application_id, message_id, from_address, to_address,\n\tsubject, body, received_at, classification, is_read, reply_draft, created_at\n FROM emails"
 
+// selectListPrefix is the lighter SELECT prefix used by List (excludes body).
+var selectListPrefix = "SELECT \n\tid, application_id, message_id, from_address, to_address,\n\tsubject, received_at, classification, is_read, reply_draft, created_at\n FROM emails"
+
+// emailListColNames is the column list for List queries (no body).
+var emailListColNames = []string{
+	"id", "application_id", "message_id", "from_address", "to_address",
+	"subject", "received_at", "classification", "is_read", "reply_draft", "created_at",
+}
+
 // newTestEmail returns a fully populated Email for use in test expectations.
 func newTestEmail(id uuid.UUID) *Email {
 	appID := uuid.New()
@@ -81,6 +90,14 @@ func addEmailRow(rows *sqlmock.Rows, e *Email) {
 	rows.AddRow(
 		e.ID, e.ApplicationID, e.MessageID, e.FromAddress, e.ToAddress,
 		e.Subject, e.Body, e.ReceivedAt, e.Classification, e.IsRead, e.ReplyDraft, e.CreatedAt,
+	)
+}
+
+// addEmailListRow adds a single row for List queries (excludes body column).
+func addEmailListRow(rows *sqlmock.Rows, e *Email) {
+	rows.AddRow(
+		e.ID, e.ApplicationID, e.MessageID, e.FromAddress, e.ToAddress,
+		e.Subject, e.ReceivedAt, e.Classification, e.IsRead, e.ReplyDraft, e.CreatedAt,
 	)
 }
 
@@ -253,10 +270,10 @@ func TestRepository_List_Success(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(2))
 
 	// SELECT with filters
-	filterQuery := selectPrefix + " WHERE application_id = $1 AND classification = $2 ORDER BY received_at DESC"
-	rows := sqlmock.NewRows(emailColNames)
-	addEmailRow(rows, email1)
-	addEmailRow(rows, email2)
+	filterQuery := selectListPrefix + " WHERE application_id = $1 AND classification = $2 ORDER BY received_at DESC"
+	rows := sqlmock.NewRows(emailListColNames)
+	addEmailListRow(rows, email1)
+	addEmailListRow(rows, email2)
 
 	mock.ExpectQuery(regexp.QuoteMeta(filterQuery)).
 		WithArgs(*appID, ClassificationInterviewInvite).
@@ -285,9 +302,9 @@ func TestRepository_List_NoFilters(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 
 	// SELECT (no WHERE, no LIMIT/OFFSET)
-	query := selectPrefix + " ORDER BY received_at DESC"
-	rows := sqlmock.NewRows(emailColNames)
-	addEmailRow(rows, email)
+	query := selectListPrefix + " ORDER BY received_at DESC"
+	rows := sqlmock.NewRows(emailListColNames)
+	addEmailListRow(rows, email)
 
 	mock.ExpectQuery(regexp.QuoteMeta(query)).
 		WillReturnRows(rows)
@@ -311,9 +328,9 @@ func TestRepository_List_WithPagination(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(50))
 
 	// SELECT with LIMIT $1 OFFSET $2
-	query := selectPrefix + " ORDER BY received_at DESC LIMIT $1 OFFSET $2"
-	rows := sqlmock.NewRows(emailColNames)
-	addEmailRow(rows, email)
+	query := selectListPrefix + " ORDER BY received_at DESC LIMIT $1 OFFSET $2"
+	rows := sqlmock.NewRows(emailListColNames)
+	addEmailListRow(rows, email)
 
 	mock.ExpectQuery(regexp.QuoteMeta(query)).
 		WithArgs(10, 20).
@@ -341,8 +358,8 @@ func TestRepository_List_NoResults(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
 
 	// SELECT returns empty
-	query := selectPrefix + " WHERE application_id = $1 ORDER BY received_at DESC"
-	rows := sqlmock.NewRows(emailColNames)
+	query := selectListPrefix + " WHERE application_id = $1 ORDER BY received_at DESC"
+	rows := sqlmock.NewRows(emailListColNames)
 
 	mock.ExpectQuery(regexp.QuoteMeta(query)).
 		WithArgs(appID).
@@ -381,7 +398,7 @@ func TestRepository_List_SelectError(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(5))
 
 	// SELECT fails
-	query := selectPrefix + " ORDER BY received_at DESC"
+	query := selectListPrefix + " ORDER BY received_at DESC"
 	mock.ExpectQuery(regexp.QuoteMeta(query)).
 		WillReturnError(sql.ErrConnDone)
 
@@ -404,9 +421,9 @@ func TestRepository_List_OnlyLimit(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(3))
 
 	// SELECT with LIMIT $1 only
-	query := selectPrefix + " ORDER BY received_at DESC LIMIT $1"
-	rows := sqlmock.NewRows(emailColNames)
-	addEmailRow(rows, email)
+	query := selectListPrefix + " ORDER BY received_at DESC LIMIT $1"
+	rows := sqlmock.NewRows(emailListColNames)
+	addEmailListRow(rows, email)
 
 	mock.ExpectQuery(regexp.QuoteMeta(query)).
 		WithArgs(5).
@@ -432,9 +449,9 @@ func TestRepository_List_OnlyOffset(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(10))
 
 	// SELECT with OFFSET $1 only
-	query := selectPrefix + " ORDER BY received_at DESC OFFSET $1"
-	rows := sqlmock.NewRows(emailColNames)
-	addEmailRow(rows, email)
+	query := selectListPrefix + " ORDER BY received_at DESC OFFSET $1"
+	rows := sqlmock.NewRows(emailListColNames)
+	addEmailListRow(rows, email)
 
 	mock.ExpectQuery(regexp.QuoteMeta(query)).
 		WithArgs(100).

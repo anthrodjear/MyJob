@@ -352,9 +352,9 @@ func TestRepository_UpdateStatus(t *testing.T) {
 				mock.ExpectQuery(`SELECT status FROM applications WHERE id = \$1`).
 					WithArgs(appID.String()).
 					WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow("draft"))
-				// UPDATE status=$1, updated_at=$2, notes=$3, applied_at=$4 WHERE id=$5
-				mock.ExpectExec(`UPDATE applications SET status = \$1, updated_at = \$2, notes = \$3, applied_at = \$4 WHERE id = \$5`).
-					WithArgs("applied", sqlmock.AnyArg(), "submitted via portal", sqlmock.AnyArg(), appID.String()).
+				// UPDATE status=$1, updated_at=$2, notes=$3, applied_at=$4 WHERE id=$5 AND status=$6
+				mock.ExpectExec(`UPDATE applications SET status = \$1, updated_at = \$2, notes = \$3, applied_at = \$4 WHERE id = \$5 AND status = \$6`).
+					WithArgs("applied", sqlmock.AnyArg(), "submitted via portal", sqlmock.AnyArg(), appID.String(), "draft").
 					WillReturnResult(sqlmock.NewResult(0, 1))
 				// INSERT into application_events
 				mock.ExpectExec(`INSERT INTO application_events`).
@@ -373,9 +373,9 @@ func TestRepository_UpdateStatus(t *testing.T) {
 				mock.ExpectQuery(`SELECT status FROM applications WHERE id = \$1`).
 					WithArgs(appID.String()).
 					WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow("queued"))
-				// UPDATE status=$1, updated_at=$2, applied_at=$3 WHERE id=$4
-				mock.ExpectExec(`UPDATE applications SET status = \$1, updated_at = \$2, applied_at = \$3 WHERE id = \$4`).
-					WithArgs("applied", sqlmock.AnyArg(), sqlmock.AnyArg(), appID.String()).
+				// UPDATE status=$1, updated_at=$2, applied_at=$3 WHERE id=$4 AND status=$5
+				mock.ExpectExec(`UPDATE applications SET status = \$1, updated_at = \$2, applied_at = \$3 WHERE id = \$4 AND status = \$5`).
+					WithArgs("applied", sqlmock.AnyArg(), sqlmock.AnyArg(), appID.String(), "queued").
 					WillReturnResult(sqlmock.NewResult(0, 1))
 				mock.ExpectExec(`INSERT INTO application_events`).
 					WithArgs(sqlmock.AnyArg(), appID.String(), "queued", "applied", "", sqlmock.AnyArg()).
@@ -393,9 +393,9 @@ func TestRepository_UpdateStatus(t *testing.T) {
 				mock.ExpectQuery(`SELECT status FROM applications WHERE id = \$1`).
 					WithArgs(appID.String()).
 					WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow("technical"))
-				// UPDATE status=$1, updated_at=$2, response_at=$3 WHERE id=$4
-				mock.ExpectExec(`UPDATE applications SET status = \$1, updated_at = \$2, response_at = \$3 WHERE id = \$4`).
-					WithArgs("rejected", sqlmock.AnyArg(), sqlmock.AnyArg(), appID.String()).
+				// UPDATE status=$1, updated_at=$2, response_at=$3 WHERE id=$4 AND status=$5
+				mock.ExpectExec(`UPDATE applications SET status = \$1, updated_at = \$2, response_at = \$3 WHERE id = \$4 AND status = \$5`).
+					WithArgs("rejected", sqlmock.AnyArg(), sqlmock.AnyArg(), appID.String(), "technical").
 					WillReturnResult(sqlmock.NewResult(0, 1))
 				mock.ExpectExec(`INSERT INTO application_events`).
 					WithArgs(sqlmock.AnyArg(), appID.String(), "technical", "rejected", "", sqlmock.AnyArg()).
@@ -413,9 +413,9 @@ func TestRepository_UpdateStatus(t *testing.T) {
 				mock.ExpectQuery(`SELECT status FROM applications WHERE id = \$1`).
 					WithArgs(appID.String()).
 					WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow("draft"))
-				// UPDATE status=$1, updated_at=$2 WHERE id=$3 (no timestamp column for queued)
-				mock.ExpectExec(`UPDATE applications SET status = \$1, updated_at = \$2 WHERE id = \$3`).
-					WithArgs("queued", sqlmock.AnyArg(), appID.String()).
+				// UPDATE status=$1, updated_at=$2 WHERE id=$3 AND status=$4 (no timestamp column for queued)
+				mock.ExpectExec(`UPDATE applications SET status = \$1, updated_at = \$2 WHERE id = \$3 AND status = \$4`).
+					WithArgs("queued", sqlmock.AnyArg(), appID.String(), "draft").
 					WillReturnResult(sqlmock.NewResult(0, 1))
 				mock.ExpectExec(`INSERT INTO application_events`).
 					WithArgs(sqlmock.AnyArg(), appID.String(), "draft", "queued", "", sqlmock.AnyArg()).
@@ -433,9 +433,9 @@ func TestRepository_UpdateStatus(t *testing.T) {
 				mock.ExpectQuery(`SELECT status FROM applications WHERE id = \$1`).
 					WithArgs(appID.String()).
 					WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow("final"))
-				// UPDATE status=$1, updated_at=$2, notes=$3, response_at=$4 WHERE id=$5
-				mock.ExpectExec(`UPDATE applications SET status = \$1, updated_at = \$2, notes = \$3, response_at = \$4 WHERE id = \$5`).
-					WithArgs("offer", sqlmock.AnyArg(), "congratulations!", sqlmock.AnyArg(), appID.String()).
+				// UPDATE status=$1, updated_at=$2, notes=$3, response_at=$4 WHERE id=$5 AND status=$6
+				mock.ExpectExec(`UPDATE applications SET status = \$1, updated_at = \$2, notes = \$3, response_at = \$4 WHERE id = \$5 AND status = \$6`).
+					WithArgs("offer", sqlmock.AnyArg(), "congratulations!", sqlmock.AnyArg(), appID.String(), "final").
 					WillReturnResult(sqlmock.NewResult(0, 1))
 				mock.ExpectExec(`INSERT INTO application_events`).
 					WithArgs(sqlmock.AnyArg(), appID.String(), "final", "offer", "congratulations!", sqlmock.AnyArg()).
@@ -492,8 +492,8 @@ func TestRepository_UpdateStatus(t *testing.T) {
 				mock.ExpectQuery(`SELECT status FROM applications WHERE id = \$1`).
 					WithArgs(appID.String()).
 					WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow("draft"))
-				mock.ExpectExec(`UPDATE applications SET status = \$1, updated_at = \$2, notes = \$3, applied_at = \$4 WHERE id = \$5`).
-					WithArgs("applied", sqlmock.AnyArg(), "notes", sqlmock.AnyArg(), appID.String()).
+				mock.ExpectExec(`UPDATE applications SET status = \$1, updated_at = \$2, notes = \$3, applied_at = \$4 WHERE id = \$5 AND status = \$6`).
+					WithArgs("applied", sqlmock.AnyArg(), "notes", sqlmock.AnyArg(), appID.String(), "draft").
 					WillReturnError(errors.New("deadlock detected"))
 				mock.ExpectRollback()
 			},
@@ -509,8 +509,8 @@ func TestRepository_UpdateStatus(t *testing.T) {
 				mock.ExpectQuery(`SELECT status FROM applications WHERE id = \$1`).
 					WithArgs(appID.String()).
 					WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow("draft"))
-				mock.ExpectExec(`UPDATE applications SET status = \$1, updated_at = \$2, applied_at = \$3 WHERE id = \$4`).
-					WithArgs("applied", sqlmock.AnyArg(), sqlmock.AnyArg(), appID.String()).
+				mock.ExpectExec(`UPDATE applications SET status = \$1, updated_at = \$2, applied_at = \$3 WHERE id = \$4 AND status = \$5`).
+					WithArgs("applied", sqlmock.AnyArg(), sqlmock.AnyArg(), appID.String(), "draft").
 					WillReturnResult(sqlmock.NewResult(0, 1))
 				mock.ExpectExec(`INSERT INTO application_events`).
 					WithArgs(sqlmock.AnyArg(), appID.String(), "draft", "applied", "", sqlmock.AnyArg()).
@@ -529,8 +529,8 @@ func TestRepository_UpdateStatus(t *testing.T) {
 				mock.ExpectQuery(`SELECT status FROM applications WHERE id = \$1`).
 					WithArgs(appID.String()).
 					WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow("draft"))
-				mock.ExpectExec(`UPDATE applications SET status = \$1, updated_at = \$2 WHERE id = \$3`).
-					WithArgs("queued", sqlmock.AnyArg(), appID.String()).
+				mock.ExpectExec(`UPDATE applications SET status = \$1, updated_at = \$2 WHERE id = \$3 AND status = \$4`).
+					WithArgs("queued", sqlmock.AnyArg(), appID.String(), "draft").
 					WillReturnResult(sqlmock.NewResult(0, 1))
 				mock.ExpectExec(`INSERT INTO application_events`).
 					WithArgs(sqlmock.AnyArg(), appID.String(), "draft", "queued", "", sqlmock.AnyArg()).
