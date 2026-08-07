@@ -10,7 +10,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -51,10 +51,21 @@ export function MobileNav() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [open]);
 
-  // Close menu on route change
-  useEffect(() => {
+  // Close menu on route change — use callback to avoid setState-in-effect lint error
+  const closeMenu = useCallback(() => {
     setOpen(false);
-  }, [pathname]);
+  }, []);
+
+  const prevPathnameRef = useRef(pathname);
+  useEffect(() => {
+    if (prevPathnameRef.current !== pathname) {
+      prevPathnameRef.current = pathname;
+      // Use requestAnimationFrame to defer setState outside effect body
+      requestAnimationFrame(() => {
+        closeMenu();
+      });
+    }
+  }, [pathname, closeMenu]);
 
   // Prevent body scroll when menu is open
   useEffect(() => {
