@@ -213,11 +213,12 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8080
       INTERNAL_API_URL: http://api:8080
       BACKEND_URL: http://api:8080
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set}

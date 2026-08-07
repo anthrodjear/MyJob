@@ -1,6 +1,6 @@
 # AI Job Search Agent
 
-> A local-first AI agent that automates 80–95% of the job application pipeline — from discovery to submission — running entirely on your machine via Docker Compose.
+> A local-first AI agent that automates 80ï¿½95% of the job application pipeline ï¿½ from discovery to submission ï¿½ running entirely on your machine via Docker Compose.
 
 ## Why This Exists
 
@@ -10,14 +10,14 @@ Job searching is repetitive, time-consuming, and error-prone. You copy-paste the
 
 ## Features
 
-- **Job Discovery** — Scrapes configurable sources (Indeed, RemoteOK, Greenhouse, Lever, and more) on a schedule. New postings are scored and ranked automatically.
-- **AI-Powered Scoring** — Each job is evaluated against your profile and preferences. Scores fall into three tiers: AUTO (95+, submit immediately), REVIEW (80–94, human approval), REJECT (<80, skip).
-- **Resume Generation** — Produces ATS-friendly PDF resumes from LaTeX templates, tailored to each job's requirements.
-- **Cover Letter Generation** — Writes personalized cover letters that reference specific role requirements and your experience.
-- **Automatic Form Filling** — Browser automation fills and submits application forms via Playwright, handling dynamic JS-heavy career pages.
-- **Email Monitoring** — Tracks inbound email via Microsoft Graph API (confirmations, interview invitations, recruiter outreach).
-- **Voice Interview Coaching** — Real-time AI conversation practice using LiveKit and OpenAI's realtime voice model.
-- **RAG Knowledge Base** — Store and retrieve information from your career history, past applications, and research using pgvector embeddings.
+- **Job Discovery** ï¿½ Scrapes configurable sources (Indeed, RemoteOK, Greenhouse, Lever, and more) on a schedule. New postings are scored and ranked automatically.
+- **AI-Powered Scoring** ï¿½ Each job is evaluated against your profile and preferences. Scores fall into three tiers: AUTO (95+, submit immediately), REVIEW (80ï¿½94, human approval), REJECT (<80, skip).
+- **Resume Generation** ï¿½ Produces ATS-friendly PDF resumes from LaTeX templates, tailored to each job's requirements.
+- **Cover Letter Generation** ï¿½ Writes personalized cover letters that reference specific role requirements and your experience.
+- **Automatic Form Filling** ï¿½ Browser automation fills and submits application forms via Playwright, handling dynamic JS-heavy career pages.
+- **Email Monitoring** ï¿½ Tracks inbound email via Microsoft Graph API (confirmations, interview invitations, recruiter outreach).
+- **Voice Interview Coaching** ï¿½ Real-time AI conversation practice using LiveKit and OpenAI's realtime voice model.
+- **RAG Knowledge Base** ï¿½ Store and retrieve information from your career history, past applications, and research using pgvector embeddings.
 
 ## Tech Stack
 
@@ -151,39 +151,39 @@ make shell-worker      # Shell into Worker container
 ```
 MyJob/
 +-- backend/                    # Go backend (API + Worker)
-¦   +-- cmd/
-¦   ¦   +-- api/               # API server entrypoint
-¦   ¦   +-- worker/            # Async worker entrypoint
-¦   +-- internal/
-¦   ¦   +-- api/               # HTTP handlers and routes
-¦   ¦   +-- applications/      # Application tracking domain
-¦   ¦   +-- approvals/         # Score-tier approval workflow
-¦   ¦   +-- config/            # YAML config loader
-¦   ¦   +-- coverletters/      # Cover letter generation
-¦   ¦   +-- database/          # Migrations and DB setup
-¦   ¦   +-- emails/            # Microsoft Graph email sync
-¦   ¦   +-- interviews/        # Interview coaching
-¦   ¦   +-- jobs/              # Job discovery and scoring
-¦   ¦   +-- profile/           # User profile management
-¦   ¦   +-- rag/               # RAG knowledge base
-¦   ¦   +-- resumes/           # LaTeX resume generation
-¦   ¦   +-- tasks/             # Asynq task definitions
-¦   +-- Dockerfile.api
-¦   +-- Dockerfile.worker
-¦   +-- go.mod
+ï¿½   +-- cmd/
+ï¿½   ï¿½   +-- api/               # API server entrypoint
+ï¿½   ï¿½   +-- worker/            # Async worker entrypoint
+ï¿½   +-- internal/
+ï¿½   ï¿½   +-- api/               # HTTP handlers and routes
+ï¿½   ï¿½   +-- applications/      # Application tracking domain
+ï¿½   ï¿½   +-- approvals/         # Score-tier approval workflow
+ï¿½   ï¿½   +-- config/            # YAML config loader
+ï¿½   ï¿½   +-- coverletters/      # Cover letter generation
+ï¿½   ï¿½   +-- database/          # Migrations and DB setup
+ï¿½   ï¿½   +-- emails/            # Microsoft Graph email sync
+ï¿½   ï¿½   +-- interviews/        # Interview coaching
+ï¿½   ï¿½   +-- jobs/              # Job discovery and scoring
+ï¿½   ï¿½   +-- profile/           # User profile management
+ï¿½   ï¿½   +-- rag/               # RAG knowledge base
+ï¿½   ï¿½   +-- resumes/           # LaTeX resume generation
+ï¿½   ï¿½   +-- tasks/             # Asynq task definitions
+ï¿½   +-- Dockerfile.api
+ï¿½   +-- Dockerfile.worker
+ï¿½   +-- go.mod
 +-- browser-agent/              # TypeScript browser automation
-¦   +-- src/                   # Playwright-based automation
-¦   +-- Dockerfile
-¦   +-- package.json
+ï¿½   +-- src/                   # Playwright-based automation
+ï¿½   +-- Dockerfile
+ï¿½   +-- package.json
 +-- frontend/                   # Next.js dashboard
-¦   +-- src/                   # App Router pages and components
-¦   +-- package.json
-¦   +-- tsconfig.json
+ï¿½   +-- src/                   # App Router pages and components
+ï¿½   +-- package.json
+ï¿½   +-- tsconfig.json
 +-- config/
-¦   +-- application.yaml       # Scoring tiers, LLM providers, queue config
+ï¿½   +-- application.yaml       # Scoring tiers, LLM providers, queue config
 +-- templates/
-¦   +-- resumes/               # LaTeX resume templates
-¦   +-- cover-letters/         # LaTeX cover letter templates
+ï¿½   +-- resumes/               # LaTeX resume templates
+ï¿½   +-- cover-letters/         # LaTeX cover letter templates
 +-- storage/                   # Generated files (gitignored)
 +-- scripts/                   # Setup and utility scripts
 +-- Makefile                   # Dev workflow commands
@@ -204,15 +204,55 @@ Client ? GET /tasks/abc123 ? { status: "completed", result: {...} }
 
 ### Scoring Tiers
 
-Jobs are scored 0–100 against your profile. Tiers are configured in `config/application.yaml`:
+Jobs are scored 0ï¿½100 against your profile. Tiers are configured in `config/application.yaml`:
 
 | Tier | Score Range | Action |
 |------|-------------|--------|
 | AUTO | 95+ | Auto-submit application |
-| REVIEW | 80–94 | Pause, notify for human approval |
+| REVIEW | 80ï¿½94 | Pause, notify for human approval |
 | REJECT | <80 | Skip, log for reference |
 
-Tiers are **immutable policy** — thresholds live in config, not code. Edit the YAML to tune them without redeployment.
+Tiers are **immutable policy** ï¿½ thresholds live in config, not code. Edit the YAML to tune them without redeployment.
+
+## Kubernetes / NGINX deployment
+
+When deploying behind an external NGINX proxy or Kubernetes ingress, the frontend must use a browser-visible API URL and the proxy must preserve Next.js auth routes.
+
+Recommended configuration:
+
+- Set `frontend.env.NEXT_PUBLIC_API_URL` to `/api` for same-origin browser API calls.
+- Route frontend traffic to the Next.js service at `/`.
+- Route backend API traffic to the Go backend at `/api/v1`.
+- Do not proxy `/api/auth` directly to the backend; those paths must be handled by the frontend, which then proxies auth requests to `/api/v1/auth/*`.
+
+Example NGINX site configuration:
+
+```nginx
+server {
+    listen 80;
+    server_name 192.168.2.103;
+
+    location /api/v1/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Kubernetes ingress configuration should use `/` for the frontend service and `/api/v1` for the API service.
 
 ### Domain Modules
 
@@ -231,30 +271,30 @@ internal/<domain>/
 
 ```
 +---------------------------------------------------------+
-¦                    Docker Compose                        ¦
-¦                                                          ¦
-¦  +----------+  +----------+  +----------------------+  ¦
-¦  ¦ Frontend ¦  ¦   API    ¦  ¦     Worker           ¦  ¦
-¦  ¦ Next.js  ¦  ¦   Go     ¦  ¦  Go (Asynq)          ¦  ¦
-¦  ¦  :3000   ¦  ¦  :8080   ¦  ¦  (async processor)   ¦  ¦
-¦  +----------+  +----------+  +----------------------+  ¦
-¦       ¦              ¦                    ¦              ¦
-¦       +--------------+--------------------+              ¦
-¦                      ¦                                   ¦
-¦              +---------------+                           ¦
-¦              ¦     Redis     ¦                           ¦
-¦              ¦  (queue+cache)¦                           ¦
-¦              +---------------+                           ¦
-¦                      ¦                                   ¦
-¦  +-----------+  +----------+  +------------------+     ¦
-¦  ¦ PostgreSQL ¦  ¦  Ollama  ¦  ¦  Browser Agent   ¦     ¦
-¦  ¦ +pgvector  ¦  ¦ (local   ¦  ¦  Playwright      ¦     ¦
-¦  ¦            ¦  ¦   LLM)   ¦  ¦  :3001           ¦     ¦
-¦  +------------+  +----------+  +------------------+     ¦
-¦                                                          ¦
-¦  +--------------------------------------------------+   ¦
-¦  ¦              LiveKit (voice coaching)             ¦   ¦
-¦  +--------------------------------------------------+   ¦
+ï¿½                    Docker Compose                        ï¿½
+ï¿½                                                          ï¿½
+ï¿½  +----------+  +----------+  +----------------------+  ï¿½
+ï¿½  ï¿½ Frontend ï¿½  ï¿½   API    ï¿½  ï¿½     Worker           ï¿½  ï¿½
+ï¿½  ï¿½ Next.js  ï¿½  ï¿½   Go     ï¿½  ï¿½  Go (Asynq)          ï¿½  ï¿½
+ï¿½  ï¿½  :3000   ï¿½  ï¿½  :8080   ï¿½  ï¿½  (async processor)   ï¿½  ï¿½
+ï¿½  +----------+  +----------+  +----------------------+  ï¿½
+ï¿½       ï¿½              ï¿½                    ï¿½              ï¿½
+ï¿½       +--------------+--------------------+              ï¿½
+ï¿½                      ï¿½                                   ï¿½
+ï¿½              +---------------+                           ï¿½
+ï¿½              ï¿½     Redis     ï¿½                           ï¿½
+ï¿½              ï¿½  (queue+cache)ï¿½                           ï¿½
+ï¿½              +---------------+                           ï¿½
+ï¿½                      ï¿½                                   ï¿½
+ï¿½  +-----------+  +----------+  +------------------+     ï¿½
+ï¿½  ï¿½ PostgreSQL ï¿½  ï¿½  Ollama  ï¿½  ï¿½  Browser Agent   ï¿½     ï¿½
+ï¿½  ï¿½ +pgvector  ï¿½  ï¿½ (local   ï¿½  ï¿½  Playwright      ï¿½     ï¿½
+ï¿½  ï¿½            ï¿½  ï¿½   LLM)   ï¿½  ï¿½  :3001           ï¿½     ï¿½
+ï¿½  +------------+  +----------+  +------------------+     ï¿½
+ï¿½                                                          ï¿½
+ï¿½  +--------------------------------------------------+   ï¿½
+ï¿½  ï¿½              LiveKit (voice coaching)             ï¿½   ï¿½
+ï¿½  +--------------------------------------------------+   ï¿½
 +---------------------------------------------------------+
 ```
 
@@ -370,21 +410,21 @@ storage/
 
 **Go (`backend/`):**
 - Domain modules in `internal/<domain>/` with handler, service, repository, model, dto files
-- Return errors up the stack — never `log.Fatal` in handlers
-- Use `zap.Logger` for structured logging — no `fmt.Println`
-- Raw SQL in repository layer only (sqlx) — no ORM
-- All async work goes through Asynq task queue — no inline processing in handlers
+- Return errors up the stack ï¿½ never `log.Fatal` in handlers
+- Use `zap.Logger` for structured logging ï¿½ no `fmt.Println`
+- Raw SQL in repository layer only (sqlx) ï¿½ no ORM
+- All async work goes through Asynq task queue ï¿½ no inline processing in handlers
 
 **TypeScript (`browser-agent/`):**
-- Strict `tsconfig.json` — no `any`, no `@ts-ignore`
+- Strict `tsconfig.json` ï¿½ no `any`, no `@ts-ignore`
 - One class per file, class name matches filename
 - Playwright for all browser interaction
 - Zod for input validation
 
 **Next.js (`frontend/`):**
-- App Router only — no `pages/` directory
-- Server Components by default — add `"use client"` only when needed
-- Tailwind CSS v4 — no `tailwind.config.js`
+- App Router only ï¿½ no `pages/` directory
+- Server Components by default ï¿½ add `"use client"` only when needed
+- Tailwind CSS v4 ï¿½ no `tailwind.config.js`
 - API calls via `fetch` with `NEXT_PUBLIC_API_URL` env var
 
 ## License
