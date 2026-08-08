@@ -1,6 +1,8 @@
 package api
 
 import (
+	"crypto/subtle"
+	"net/http"
 	"os"
 	"time"
 
@@ -27,33 +29,78 @@ import (
 
 // RouterConfig holds dependencies for router setup.
 type RouterConfig struct {
-	AuthHandler           *auth.Handler
-	AuthService           *auth.Service
-	IsSetupRequired       func() bool // setup check function
-	IsOnboardingCompleted func() bool // onboarding completion check function
-	CORSOrigins           []string
-	RateLimitConfig       config.RateLimitConfig
-	AuthRateLimitConfig   config.AuthRateLimitConfig
-	JobsHandler           *jobs.Handler
-	ApplicationsHandler   *applications.Handler
-	ResumesHandler        *resumes.Handler
-	ScoringHandler        *scoring.Handler
-	InterviewsHandler     *interviews.Handler
-	ProfileHandler        *profile.Handler
-	ApprovalsHandler      *approvals.Handler
-	RAGHandler            *rag.Handler
-	EmailsHandler         *emails.Handler
-	ActivityHandler       *activity.Handler
-	TasksHandler          *tasks.Handler
-	SystemConfigHandler   *systemconfig.Handler
-	Logger                *zap.Logger
+	AuthHandler               *auth.Handler
+	AuthService               *auth.Service
+	IsSetupRequired           func() bool // setup check function
+	IsOnboardingCompleted     func() bool // onboarding completion check function
+	CORSOrigins               []string
+	RateLimitConfig           config.RateLimitConfig
+	AuthRateLimitConfig       config.AuthRateLimitConfig
+	OnboardingRateLimitConfig config.AuthRateLimitConfig
+	ServerConfig              config.ServerConfig
+	JobsHandler               *jobs.Handler
+	ApplicationsHandler       *applications.Handler
+	ResumesHandler            *resumes.Handler
+	ScoringHandler            *scoring.Handler
+	InterviewsHandler         *interviews.Handler
+	ProfileHandler            *profile.Handler
+	ApprovalsHandler          *approvals.Handler
+	RAGHandler                *rag.Handler
+	EmailsHandler             *emails.Handler
+	ActivityHandler           *activity.Handler
+	TasksHandler              *tasks.Handler
+	SystemConfigHandler       *systemconfig.Handler
+	Logger                    *zap.Logger
+}
+
+// internalSecretMiddleware returns a Gin handler that enforces an
+// X-Internal-Secret header matching the configured shared secret. The
+// browser-agent's Express server sends this header on every callback;
+// calls without the correct header are rejected with 401.
+//
+// If expectedSecret is empty the middleware logs a one-time warning and
+// fails open (allows the request) — this matches the dev-only behaviour
+// the parent task spec called for.
+func internalSecretMiddleware(expectedSecret string, logger *zap.Logger) gin.HandlerFunc {
+	if expectedSecret == "" {
+		logger.Warn("INTERNAL_API_SHARED_SECRET not configured; /internal routes are unauthenticated (dev only)")
+		return func(c *gin.Context) {
+			c.Next()
+		}
+	}
+	expected := []byte(expectedSecret)
+	return func(c *gin.Context) {
+		provided := c.GetHeader("X-Internal-Secret")
+		if provided == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": gin.H{"code": "MISSING_INTERNAL_SECRET", "message": "X-Internal-Secret header required"},
+			})
+			return
+		}
+		// Constant-time compare to avoid timing leaks.
+		if subtle.ConstantTimeCompare([]byte(provided), expected) != 1 {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": gin.H{"code": "INVALID_INTERNAL_SECRET", "message": "X-Internal-Secret is invalid"},
+			})
+			return
+		}
+		c.Next()
+	}
 }
 
 // SetupRouter creates and configures the Gin router.
-// Middleware stack: Recovery → CORS → Logging → Rate Limit → Setup Check → Auth (on protected routes).
+// Middleware stack: Recovery → CORS → RequestID → Logging → Rate Limit → Setup Check → Auth (on protected routes).
 func SetupRouter(cfg RouterConfig) *gin.Engine {
 	r := gin.New()
-	r.Use(gin.Recovery())
+	// Disable trusted-proxy parsing so c.ClientIP() returns the TCP peer.
+	// Without this, Gin's default trusts all proxies and will honor a
+	// client-controlled X-Forwarded-For header — trivial spoof for any
+	// request that reaches this server directly (e.g. via a misconfigured
+	// reverse proxy). Set explicit proxies when one is actually in front
+	// of the API.
+	if err := r.SetTrustedProxies(nil); err != nil {
+		cfg.Logger.Warn("failed to set trusted proxies", zap.Error(err))
+	}
 
 	// CORS middleware - must be before other middleware to handle preflight requests
 	corsConfig := cors.Config{
@@ -65,6 +112,12 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		MaxAge:           12 * time.Hour,
 	}
 	r.Use(cors.New(corsConfig))
+
+	// Request ID — assigns a stable id per request, echoes it via the
+	// X-Request-Id response header so downstream log lines and clients can
+	// correlate a request end-to-end. Must run before Logging so the id
+	// is available in every log line.
+	r.Use(middleware.RequestID())
 
 	r.Use(middleware.Logging(cfg.Logger))
 	r.Use(middleware.RateLimit(cfg.RateLimitConfig, cfg.Logger))
@@ -122,6 +175,14 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			// Safe ONLY because this server is designed for localhost access.
 			if cfg.IsOnboardingCompleted != nil {
 				onboarding := authGroup.Group("")
+				// Tighter rate limit for the onboarding sub-group — these
+				// routes accept user-supplied provider credentials and should
+				// not be reachable in tight loops (cheaper than bcrypt at
+				// login, but still abusive in volume).
+				onboarding.Use(middleware.RateLimit(config.RateLimitConfig{
+					RequestsPerMinute: cfg.OnboardingRateLimitConfig.RequestsPerMinute,
+					Burst:             cfg.OnboardingRateLimitConfig.Burst,
+				}, cfg.Logger))
 				onboarding.Use(middleware.OnboardingCompleteMiddleware(cfg.IsOnboardingCompleted, cfg.Logger))
 				{
 					onboarding.POST("/setup/test-llm", cfg.AuthHandler.TestLLMKey)
@@ -153,6 +214,14 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			cfg.TasksHandler.RegisterRoutes(protected)
 			cfg.SystemConfigHandler.RegisterRoutes(protected)
 		}
+
+		// Internal routes (require X-Internal-Secret shared secret).
+		// These are callbacks from the browser-agent and must NOT sit behind
+		// the JWT middleware. The browser-agent is wired to send the secret
+		// header on every internal request; if INTERNAL_API_SHARED_SECRET is
+		// unset the middleware fails open (dev mode) and logs a warning.
+		internalGroup := v1.Group("/internal", internalSecretMiddleware(cfg.ServerConfig.InternalSecret, cfg.Logger))
+		cfg.InterviewsHandler.RegisterInternalRoutes(internalGroup)
 	}
 
 	return r

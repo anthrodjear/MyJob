@@ -12,6 +12,24 @@ ENV_EXAMPLE="$PROJECT_ROOT/.env.example"
 
 DEFAULT_PASSWORD="${1:-admin}"
 
+# --- Weak-default password guard ---
+# Refuse (but don't block) the trivially-weak defaults that are the first
+# thing an attacker tries against any newly-deployed admin endpoint.
+# The setup endpoint also rejects these server-side (ErrWeakDefaultCredentials),
+# so without a stronger password here the user would hit a 400 in the wizard.
+case "$DEFAULT_PASSWORD" in
+  admin|password|123456|12345678|qwerty|letmein|changeme|"")
+    warn "Default password '$DEFAULT_PASSWORD' is in the weak-credentials deny-list."
+    warn "The /setup endpoint will reject it (WEAK_CREDENTIALS)."
+    warn "Re-run with a stronger password, e.g.:"
+    warn "  bash scripts/setup-env.sh 'YourStrongP@ssw0rd!'"
+    if [[ -z "$DEFAULT_PASSWORD" ]]; then
+      error "Refusing to generate a hash for an empty password."
+      exit 1
+    fi
+    ;;
+esac
+
 # --- colours (safe for piped output) ---
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 

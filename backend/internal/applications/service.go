@@ -97,6 +97,14 @@ func (s *Service) UpdateStatus(ctx context.Context, id uuid.UUID, status string,
 	}
 
 	if err := s.repo.UpdateStatus(ctx, id, status, notes); err != nil {
+		if errors.Is(err, ErrStatusConflict) {
+			s.logger.Warn("status conflict during update",
+				zap.String("id", id.String()),
+				zap.String("expected_from", app.Status),
+				zap.String("to", status),
+			)
+			return ErrStatusConflict
+		}
 		return fmt.Errorf("update status: %w", err)
 	}
 

@@ -14,26 +14,28 @@ import (
 )
 
 type Config struct {
-	Server        ServerConfig
-	Database      DatabaseConfig
-	Redis         RedisConfig
-	Auth          AuthConfig
-	LLM           LLMConfig
-	Voice         VoiceConfig
-	Email         EmailConfig
-	Queue         QueueConfig
-	Scoring       ScoringConfig
-	Prompts       PromptsConfig
-	RateLimit     RateLimitConfig
-	AuthRateLimit AuthRateLimitConfig
-	Environment   string
+	Server              ServerConfig
+	Database            DatabaseConfig
+	Redis               RedisConfig
+	Auth                AuthConfig
+	LLM                 LLMConfig
+	Voice               VoiceConfig
+	Email               EmailConfig
+	Queue               QueueConfig
+	Scoring             ScoringConfig
+	Prompts             PromptsConfig
+	RateLimit           RateLimitConfig
+	AuthRateLimit       AuthRateLimitConfig
+	OnboardingRateLimit AuthRateLimitConfig
+	Environment         string
 }
 
 type ServerConfig struct {
-	Port         int
-	ReadTimeout  time.Duration
-	WriteTimeout time.Duration
-	CORSOrigins  []string
+	Port           int
+	ReadTimeout    time.Duration
+	WriteTimeout   time.Duration
+	CORSOrigins    []string
+	InternalSecret string
 }
 
 type DatabaseConfig struct {
@@ -219,10 +221,11 @@ func Load() *Config {
 
 	cfg := &Config{
 		Server: ServerConfig{
-			Port:         getEnvInt("SERVER_PORT", 8080),
-			ReadTimeout:  getEnvDuration("SERVER_READ_TIMEOUT", 30*time.Second),
-			WriteTimeout: getEnvDuration("SERVER_WRITE_TIMEOUT", 30*time.Second),
-			CORSOrigins:  parseCommaList(getEnv("CORS_ORIGINS", "http://localhost:3000")),
+			Port:           getEnvInt("SERVER_PORT", 8080),
+			ReadTimeout:    getEnvDuration("SERVER_READ_TIMEOUT", 30*time.Second),
+			WriteTimeout:   getEnvDuration("SERVER_WRITE_TIMEOUT", 30*time.Second),
+			CORSOrigins:    parseCommaList(getEnv("CORS_ORIGINS", "http://localhost:3000")),
+			InternalSecret: getEnv("INTERNAL_API_SHARED_SECRET", ""),
 		},
 		Database: DatabaseConfig{
 			URL:             getEnv("DATABASE_URL", ""),
@@ -307,6 +310,10 @@ func Load() *Config {
 		AuthRateLimit: AuthRateLimitConfig{
 			RequestsPerMinute: getEnvInt("AUTH_RATE_LIMIT_RPM", 60),
 			Burst:             getEnvInt("AUTH_RATE_LIMIT_BURST", 10),
+		},
+		OnboardingRateLimit: AuthRateLimitConfig{
+			RequestsPerMinute: getEnvInt("ONBOARDING_RATE_LIMIT_RPM", 10),
+			Burst:             getEnvInt("ONBOARDING_RATE_LIMIT_BURST", 3),
 		},
 		Prompts:     LoadPromptsFromYAML(yamlData),
 		Environment: getEnv("APP_ENV", "development"),

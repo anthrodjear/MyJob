@@ -233,6 +233,10 @@ func (h *Handler) ApproveApproval(c *gin.Context) {
 			httpresp.BadRequest(c, "INVALID_STATUS", "invalid status transition")
 			return
 		}
+		if errors.Is(err, ErrStatusConflict) {
+			httpresp.Conflict(c, "STATUS_CONFLICT", err.Error())
+			return
+		}
 		h.logger.Error("approve approval", zap.Error(err))
 		httpresp.InternalError(c)
 		return
@@ -280,6 +284,10 @@ func (h *Handler) RejectApproval(c *gin.Context) {
 		}
 		if errors.Is(err, ErrReasonRequired) {
 			httpresp.BadRequest(c, "REASON_REQUIRED", err.Error())
+			return
+		}
+		if errors.Is(err, ErrStatusConflict) {
+			httpresp.Conflict(c, "STATUS_CONFLICT", err.Error())
 			return
 		}
 		h.logger.Error("reject approval", zap.Error(err))

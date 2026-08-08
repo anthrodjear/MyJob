@@ -82,14 +82,29 @@ func (o *OllamaEmbeddingClient) Embed(ctx context.Context, text string) ([]float
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
+	start := time.Now()
 	resp, err := o.client.Do(httpReq)
 	if err != nil {
+		o.logger.Info("ollama call",
+			zap.Int("status", 0),
+			zap.Duration("latency", time.Since(start)),
+			zap.String("model", o.model),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("call ollama embeddings: %w", err)
 	}
 	defer resp.Body.Close()
+	status := resp.StatusCode
+	latency := time.Since(start)
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // 1MB limit for embeddings response
 	if err != nil {
+		o.logger.Info("ollama call",
+			zap.Int("status", status),
+			zap.Duration("latency", latency),
+			zap.String("model", o.model),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("read response: %w", err)
 	}
 
@@ -98,17 +113,41 @@ func (o *OllamaEmbeddingClient) Embed(ctx context.Context, text string) ([]float
 		if len(msg) > 500 {
 			msg = msg[:500] + "... (truncated)"
 		}
+		o.logger.Info("ollama call",
+			zap.Int("status", status),
+			zap.Duration("latency", latency),
+			zap.String("model", o.model),
+			zap.String("error_body", msg),
+		)
 		return nil, fmt.Errorf("ollama embeddings returned %d: %s", resp.StatusCode, msg)
 	}
 
 	var ollamaResp ollamaEmbedResponse
 	if err := json.Unmarshal(body, &ollamaResp); err != nil {
+		o.logger.Info("ollama call",
+			zap.Int("status", status),
+			zap.Duration("latency", latency),
+			zap.String("model", o.model),
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("unmarshal ollama embeddings response: %w", err)
 	}
 
 	if len(ollamaResp.Embedding) == 0 {
+		o.logger.Info("ollama call",
+			zap.Int("status", status),
+			zap.Duration("latency", latency),
+			zap.String("model", o.model),
+			zap.Error(fmt.Errorf("empty embedding")),
+		)
 		return nil, fmt.Errorf("ollama returned empty embedding")
 	}
+
+	o.logger.Info("ollama call",
+		zap.Int("status", status),
+		zap.Duration("latency", latency),
+		zap.String("model", o.model),
+	)
 
 	return ollamaResp.Embedding, nil
 }
@@ -121,6 +160,7 @@ func (o *OllamaEmbeddingClient) EmbedBatch(ctx context.Context, texts []string) 
 		return nil, nil
 	}
 
+	batchStart := time.Now()
 	results := make([][]float32, len(texts))
 	errs := make([]error, len(texts))
 	sem := make(chan struct{}, maxConcurrentEmbeds)
@@ -147,6 +187,12 @@ func (o *OllamaEmbeddingClient) EmbedBatch(ctx context.Context, texts []string) 
 			return nil, fmt.Errorf("embed batch: text[%d]: %w", i, err)
 		}
 	}
+
+	o.logger.Info("ollama batch",
+		zap.Int("count", len(texts)),
+		zap.Duration("latency", time.Since(batchStart)),
+		zap.String("model", o.model),
+	)
 
 	return results, nil
 }

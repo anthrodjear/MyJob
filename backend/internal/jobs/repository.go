@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -33,6 +34,7 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Job, error) {
 			j.description, j.requirements, j.url, j.application_url, j.company_url, j.source,
 			j.posted_at, j.scraped_at, j.match_score, j.match_details,
 			j.score_tier, j.scored_at, j.scoring_reasoning, j.scoring_model, j.scoring_source,
+			j.saved, j.metadata,
 			j.status, j.created_at, j.updated_at,
 			s.name as source_name
 		FROM jobs j
@@ -66,6 +68,7 @@ func (r *Repository) List(ctx context.Context, filter ListFilter) ([]Job, int, e
 			j.description, j.requirements, j.url, j.application_url, j.company_url, j.source,
 			j.posted_at, j.scraped_at, j.match_score, j.match_details,
 			j.score_tier, j.scored_at, j.scoring_reasoning, j.scoring_model, j.scoring_source,
+			j.saved, j.metadata,
 			j.status, j.created_at, j.updated_at,
 			s.name as source_name
 		FROM jobs j
@@ -183,6 +186,16 @@ func (r *Repository) GetSourceNameByID(ctx context.Context, id uuid.UUID) (strin
 	return name, nil
 }
 
+// GetSourceBaseURLByID returns the base_url for a given job_sources UUID.
+func (r *Repository) GetSourceBaseURLByID(ctx context.Context, id uuid.UUID) (string, error) {
+	var baseURL string
+	err := r.db.GetContext(ctx, &baseURL, `SELECT base_url FROM job_sources WHERE id = $1`, id)
+	if err != nil {
+		return "", fmt.Errorf("jobs: get source base_url: %w", err)
+	}
+	return baseURL, nil
+}
+
 // UpdateStatus updates a job's status.
 func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
 	result, err := r.db.ExecContext(ctx, `
@@ -225,6 +238,130 @@ func (r *Repository) UpdateMatchScore(ctx context.Context, id uuid.UUID, score f
 	}
 
 	return nil
+}
+
+// SetSaved toggles the saved flag on a job. Returns ErrNoRowsAffected
+// when the job does not exist so the caller can return 404.
+func (r *Repository) SetSaved(ctx context.Context, id uuid.UUID, saved bool) error {
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE jobs
+		SET saved = $1, updated_at = NOW()
+		WHERE id = $2
+	`, saved, id)
+	if err != nil {
+		return fmt.Errorf("jobs: set saved: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("jobs: set saved rows: %w", err)
+	}
+	if rows == 0 {
+		return ErrNoRowsAffected
+	}
+	return nil
+}
+
+// Delete removes a job by ID. Returns ErrNoRowsAffected if the job
+// doesn't exist (so the handler can decide to return 404 or treat the
+// call as idempotent).
+func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
+	result, err := r.db.ExecContext(ctx, `DELETE FROM jobs WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("jobs: delete: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("jobs: delete rows: %w", err)
+	}
+	if rows == 0 {
+		return ErrNoRowsAffected
+	}
+	return nil
+}
+
+// FindSimilar returns up to `limit` jobs whose title shares keywords with
+// the source job's title. Uses simple ILIKE matching on individual title
+// tokens — adequate for the basic "similar jobs" affordance the frontend
+// needs; a vector similarity search via the embeddings table would be a
+// stronger replacement later.
+func (r *Repository) FindSimilar(ctx context.Context, id uuid.UUID, limit int) ([]Job, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 50 {
+		limit = 50
+	}
+
+	source, err := r.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Extract keywords (length >= 3) from the source title. We ILIKE-match
+	// each keyword against other titles with an OR group, capped at limit.
+	keywords := extractTitleKeywords(source.Title)
+	if len(keywords) == 0 {
+		return []Job{}, nil
+	}
+
+	conditions := make([]string, 0, len(keywords))
+	args := make([]interface{}, 0, len(keywords)+2)
+	for _, kw := range keywords {
+		conditions = append(conditions, fmt.Sprintf("j.title ILIKE $%d", len(args)+1))
+		args = append(args, "%"+kw+"%")
+	}
+	args = append(args, id, limit)
+
+	where := "WHERE j.id <> $" + fmt.Sprintf("%d", len(args)-1) +
+		" AND (" + strings.Join(conditions, " OR ") + ")"
+
+	query := `
+		SELECT
+			j.id, j.source_id, j.external_id, j.title, j.company, j.location,
+			j.remote_type, j.salary_min, j.salary_max, j.salary_currency,
+			j.description, j.requirements, j.url, j.application_url, j.company_url, j.source,
+			j.posted_at, j.scraped_at, j.match_score, j.match_details,
+			j.score_tier, j.scored_at, j.scoring_reasoning, j.scoring_model, j.scoring_source,
+			j.saved, j.metadata,
+			j.status, j.created_at, j.updated_at,
+			s.name as source_name
+		FROM jobs j
+		LEFT JOIN job_sources s ON j.source_id = s.id
+	` + where + `
+		ORDER BY j.scraped_at DESC
+		LIMIT $` + fmt.Sprintf("%d", len(args))
+
+	var similar []Job
+	if err := r.db.SelectContext(ctx, &similar, query, args...); err != nil {
+		return nil, fmt.Errorf("jobs: find similar: %w", err)
+	}
+	return similar, nil
+}
+
+// extractTitleKeywords pulls out alpha-numeric tokens of length >= 3 from
+// a job title. Used by FindSimilar to build a coarse ILIKE predicate.
+func extractTitleKeywords(title string) []string {
+	parts := strings.FieldsFunc(title, func(r rune) bool {
+		switch r {
+		case ' ', '\t', '\n', '\r', ',', '.', '/', '\\', '-', '(', ')', '[', ']', ':', ';', '|', '+', '&':
+			return true
+		}
+		return false
+	})
+	seen := make(map[string]struct{}, len(parts))
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if len(p) < 3 {
+			continue
+		}
+		lower := strings.ToLower(p)
+		if _, ok := seen[lower]; ok {
+			continue
+		}
+		seen[lower] = struct{}{}
+		out = append(out, lower)
+	}
+	return out
 }
 
 // ListFilter holds the filter criteria for listing jobs.

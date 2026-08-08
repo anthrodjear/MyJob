@@ -44,6 +44,10 @@ func NewHandler(svc *Service, logger *zap.Logger) *Handler {
 }
 
 // RegisterRoutes registers interview routes on the router group.
+// Only the JWT-protected routes belong here. The browser-agent's voice
+// service callback (POST /internal/interviews/:id/events) is registered
+// separately via RegisterInternalRoutes on a router group that is guarded
+// by shared-secret auth — NOT JWT.
 func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 	interviews := rg.Group("/interviews")
 	{
@@ -53,8 +57,14 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 		interviews.POST("/:id/start", h.StartInterview)
 		interviews.POST("/:id/stop", h.StopInterview)
 	}
+}
 
-	// Internal endpoint for voice service callbacks (no auth — internal network only)
+// RegisterInternalRoutes registers the internal voice-service callback route
+// on the provided router group. The router is responsible for applying the
+// shared-secret middleware (X-Internal-Secret) before this is called. The
+// browser-agent's Express server is wired to send this header; this is the
+// counterpart to that security boundary.
+func (h *Handler) RegisterInternalRoutes(rg *gin.RouterGroup) {
 	internal := rg.Group("/internal/interviews")
 	{
 		internal.POST("/:id/events", h.HandleEvent)
@@ -136,6 +146,10 @@ func (h *Handler) StartInterview(c *gin.Context) {
 		}
 		if errors.Is(err, ErrInvalidStatus) {
 			httpresp.BadRequest(c, "INVALID_STATUS", err.Error())
+			return
+		}
+		if errors.Is(err, ErrStatusConflict) {
+			httpresp.Conflict(c, "STATUS_CONFLICT", err.Error())
 			return
 		}
 		h.logger.Error("start interview", zap.String("id", id.String()), zap.Error(err))
@@ -226,6 +240,10 @@ func (h *Handler) HandleEvent(c *gin.Context) {
 		}
 		if errors.Is(err, ErrInvalidStatus) {
 			httpresp.BadRequest(c, "INVALID_STATUS", err.Error())
+			return
+		}
+		if errors.Is(err, ErrStatusConflict) {
+			httpresp.Conflict(c, "STATUS_CONFLICT", err.Error())
 			return
 		}
 		h.logger.Error("handle interview event",

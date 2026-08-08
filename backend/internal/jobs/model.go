@@ -35,6 +35,8 @@ type Job struct {
 	ScoringReasoning *string         `db:"scoring_reasoning" json:"scoring_reasoning,omitempty"`
 	ScoringModel     *string         `db:"scoring_model" json:"scoring_model,omitempty"`
 	ScoringSource    *string         `db:"scoring_source" json:"scoring_source,omitempty"`
+	Saved            bool            `db:"saved" json:"saved"`
+	Metadata         json.RawMessage `db:"metadata" json:"metadata,omitempty"`
 	CreatedAt        time.Time       `db:"created_at" json:"created_at"`
 	UpdatedAt        time.Time       `db:"updated_at" json:"updated_at"`
 

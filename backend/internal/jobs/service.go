@@ -197,6 +197,46 @@ func (s *Service) GetSourceNameByID(ctx context.Context, id uuid.UUID) (string, 
 	return s.repo.GetSourceNameByID(ctx, id)
 }
 
+// GetSourceBaseURLByID returns the base_url for a given job_sources UUID.
+func (s *Service) GetSourceBaseURLByID(ctx context.Context, id uuid.UUID) (string, error) {
+	return s.repo.GetSourceBaseURLByID(ctx, id)
+}
+
+// SetSaved toggles the saved flag on a job.
+func (s *Service) SetSaved(ctx context.Context, id uuid.UUID, saved bool) error {
+	if err := s.repo.SetSaved(ctx, id, saved); err != nil {
+		if errors.Is(err, ErrNoRowsAffected) {
+			return ErrNotFound
+		}
+		return fmt.Errorf("jobs: set saved: %w", err)
+	}
+	return nil
+}
+
+// Delete deletes a job by ID. Treats not-found as success (idempotent),
+// matching the DELETE /jobs/:id semantics the frontend expects.
+func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
+	if err := s.repo.Delete(ctx, id); err != nil {
+		if errors.Is(err, ErrNoRowsAffected) {
+			return nil
+		}
+		return fmt.Errorf("jobs: delete: %w", err)
+	}
+	return nil
+}
+
+// FindSimilar returns up to limit jobs with similar titles to the source.
+func (s *Service) FindSimilar(ctx context.Context, id uuid.UUID, limit int) ([]Job, error) {
+	jobs, err := s.repo.FindSimilar(ctx, id, limit)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("jobs: find similar: %w", err)
+	}
+	return jobs, nil
+}
+
 // ApplyMatchScore applies a scoring result to a job.
 // Preserves user-owned statuses (applied, archived) — only transitions
 // discovered/matched statuses based on config thresholds.

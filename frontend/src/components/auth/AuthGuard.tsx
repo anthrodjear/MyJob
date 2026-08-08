@@ -1,12 +1,11 @@
 /**
  * AuthGuard — client-side route protection for /dashboard routes.
  *
- * Checks localStorage for JWT on mount. Redirects to /login if absent or expired.
- * Uses React state + useEffect (not middleware) because tokens are in localStorage.
+ * Checks session cookie via /api/auth/session on mount. Redirects to /login
+ * if not authenticated.
  *
  * Does NOT:
  * - Validate JWT signature (backend validates on every API call)
- * - Refresh tokens (backend issues long-lived JWTs)
  * - Handle server-side auth (this is client-only protection)
  *
  * Accessibility:
@@ -22,52 +21,49 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { getAuthToken, isTokenExpired } from "@/lib/auth";
 
 interface AuthGuardProps {
   children: ReactNode;
 }
 
-// Synchronous token check for initial render — runs before first paint
-function getInitialAuthState(): { token: string | null; shouldRedirect: boolean } {
-  if (typeof window === "undefined") {
-    return { token: null, shouldRedirect: false };
-  }
-  const token = getAuthToken();
-  const expired = isTokenExpired();
-  return { token, shouldRedirect: token === null || expired };
-}
-
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(() => getInitialAuthState().token);
-  const [checked, setChecked] = useState(false);
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
 
-  // Check token on mount and periodically
   useEffect(() => {
-    const checkAuth = () => {
-      const currentToken = getAuthToken();
-      const expired = isTokenExpired();
+    let cancelled = false;
 
-      if (currentToken === null || expired) {
-        setToken(currentToken);
-        router.replace(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
-      } else {
-        setToken(currentToken);
+    async function checkSession() {
+      try {
+        const res = await fetch("/api/auth/session", { credentials: "include" });
+        if (cancelled) return;
+        const data = (await res.json()) as { authenticated: boolean };
+        if (data.authenticated) {
+          setAuthenticated(true);
+        } else {
+          setAuthenticated(false);
+          router.replace(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+        }
+      } catch {
+        if (!cancelled) {
+          setAuthenticated(false);
+          router.replace(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+        }
       }
-      setChecked(true);
+    }
+
+    void checkSession();
+
+    // Re-check every 30 seconds in case session expires while page is open
+    const interval = setInterval(checkSession, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
     };
-
-    // Initial check (may be redundant with initial state, but handles SSR edge cases)
-    checkAuth();
-
-    // Re-check every 30 seconds in case token expires while page is open
-    const interval = setInterval(checkAuth, 30_000);
-    return () => clearInterval(interval);
   }, [router]);
 
   // Show loading state until initial check completes
-  if (!checked) {
+  if (authenticated === null) {
     return (
       <div
         className="flex min-h-screen items-center justify-center bg-bg-secondary"
@@ -79,8 +75,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
     );
   }
 
-  // If token is null after check, redirect already happened — render nothing
-  if (token === null) {
+  // If not authenticated, redirect already happened — render nothing
+  if (!authenticated) {
     return null;
   }
 

@@ -160,6 +160,11 @@ func (h *Handler) CompleteSetup(c *gin.Context) {
 			httpresp.Conflict(c, "SETUP_COMPLETE", "setup already completed")
 			return
 		}
+		if errors.Is(err, ErrWeakDefaultCredentials) {
+			httpresp.BadRequest(c, "WEAK_CREDENTIALS",
+				"chosen username/password matches a known weak default (e.g. admin/admin) — pick a stronger password")
+			return
+		}
 		h.logger.Error("complete setup error", zap.Error(err))
 		httpresp.InternalError(c)
 		return

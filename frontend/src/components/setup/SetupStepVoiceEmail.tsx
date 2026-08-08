@@ -38,6 +38,7 @@ interface SetupStepVoiceEmailProps {
   onNext: (config: VoiceEmailState) => void;
   onBack: () => void;
   onSkip: () => void;
+  isSubmitting?: boolean;
 }
 
 /** Status label mapping for test results. */
@@ -85,6 +86,7 @@ export function SetupStepVoiceEmail({
   onNext,
   onBack,
   onSkip,
+  isSubmitting,
 }: SetupStepVoiceEmailProps) {
   const [config, setConfig] = useState<VoiceEmailState>({
     livekitUrl: "",
@@ -384,7 +386,7 @@ export function SetupStepVoiceEmail({
           <Button type="button" variant="ghost" onClick={onSkip}>
             Skip for now
           </Button>
-          <Button type="submit" variant="primary" size="lg">
+          <Button type="submit" variant="primary" size="lg" loading={isSubmitting}>
             Continue
           </Button>
         </div>

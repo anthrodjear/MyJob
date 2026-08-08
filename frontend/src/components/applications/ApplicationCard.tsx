@@ -33,6 +33,8 @@ interface ApplicationCardProps {
   onStatusChange?: (id: string, status: Application["status"]) => void;
   /** Callback when the card is clicked (navigate to detail). */
   onClick?: (id: string) => void;
+  /** Whether a status update is in progress. */
+  isUpdating?: boolean;
   /** Additional CSS classes. */
   className?: string;
 }
@@ -51,6 +53,7 @@ export function ApplicationCard({
   company,
   onStatusChange,
   onClick,
+  isUpdating,
   className,
 }: ApplicationCardProps) {
   const actions = QUICK_ACTIONS[application.status] ?? [];
@@ -116,10 +119,12 @@ export function ApplicationCard({
               key={action.target}
               variant="primary"
               size="sm"
+              disabled={isUpdating}
               onClick={(e) => {
                 e.stopPropagation();
                 onStatusChange(application.id, action.target);
               }}
+              onKeyDown={(e) => e.stopPropagation()}
               aria-label={`${action.label} for ${jobTitle ?? "application"}`}
             >
               {action.label}

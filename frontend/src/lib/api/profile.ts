@@ -11,7 +11,7 @@
  * @see backend/internal/profile/handler.go
  */
 
-import { authFetch, ApiError } from "@/lib/api/client";
+import { authFetch } from "@/lib/api/client";
 import type { Profile, PatchProfileRequest, UpdateProfileRequest } from "@/lib/types/profile";
 
 /**

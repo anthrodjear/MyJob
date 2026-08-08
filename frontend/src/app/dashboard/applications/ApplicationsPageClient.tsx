@@ -134,6 +134,7 @@ export function ApplicationsPageClient() {
         hasMore={hasMore}
         onLoadMore={handleLoadMore}
         loadingMore={isAppending}
+        isUpdating={updateStatusMutation.isPending}
       />
     </div>
   );

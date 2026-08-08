@@ -492,8 +492,8 @@ func TestRepository_UpdateStatus(t *testing.T) {
 		mock.ExpectExec(regexp.QuoteMeta(
 			`UPDATE approval_requests
 			 SET status = $1, rejection_reason = $2, reviewed_at = $3
-			 WHERE id = $4`)).
-			WithArgs(ApprovalStatusApproved, (*string)(nil), sqlmock.AnyArg(), id).
+			 WHERE id = $4 AND status = $5`)).
+			WithArgs(ApprovalStatusApproved, (*string)(nil), sqlmock.AnyArg(), id, ApprovalStatusPending).
 			WillReturnResult(sqlmock.NewResult(0, 1))
 
 		err := repo.UpdateStatus(context.Background(), id, ApprovalStatusApproved, nil)
@@ -525,8 +525,8 @@ func TestRepository_UpdateStatus(t *testing.T) {
 		mock.ExpectExec(regexp.QuoteMeta(
 			`UPDATE approval_requests
 			 SET status = $1, rejection_reason = $2, reviewed_at = $3
-			 WHERE id = $4`)).
-			WithArgs(ApprovalStatusRejected, &reason, sqlmock.AnyArg(), id).
+			 WHERE id = $4 AND status = $5`)).
+			WithArgs(ApprovalStatusRejected, &reason, sqlmock.AnyArg(), id, ApprovalStatusPending).
 			WillReturnResult(sqlmock.NewResult(0, 1))
 
 		err := repo.UpdateStatus(context.Background(), id, ApprovalStatusRejected, &reason)
@@ -602,8 +602,8 @@ func TestRepository_UpdateStatus(t *testing.T) {
 		mock.ExpectExec(regexp.QuoteMeta(
 			`UPDATE approval_requests
 			 SET status = $1, rejection_reason = $2, reviewed_at = $3
-			 WHERE id = $4`)).
-			WithArgs(ApprovalStatusApproved, (*string)(nil), sqlmock.AnyArg(), id).
+			 WHERE id = $4 AND status = $5`)).
+			WithArgs(ApprovalStatusApproved, (*string)(nil), sqlmock.AnyArg(), id, ApprovalStatusPending).
 			WillReturnError(sql.ErrConnDone)
 
 		err := repo.UpdateStatus(context.Background(), id, ApprovalStatusApproved, nil)
@@ -631,16 +631,16 @@ func TestRepository_UpdateStatus(t *testing.T) {
 			WithArgs(id).
 			WillReturnRows(rows)
 
-		// Update matches 0 rows
+		// Update matches 0 rows (CAS guard lost)
 		mock.ExpectExec(regexp.QuoteMeta(
 			`UPDATE approval_requests
 			 SET status = $1, rejection_reason = $2, reviewed_at = $3
-			 WHERE id = $4`)).
-			WithArgs(ApprovalStatusApproved, (*string)(nil), sqlmock.AnyArg(), id).
+			 WHERE id = $4 AND status = $5`)).
+			WithArgs(ApprovalStatusApproved, (*string)(nil), sqlmock.AnyArg(), id, ApprovalStatusPending).
 			WillReturnResult(sqlmock.NewResult(0, 0))
 
 		err := repo.UpdateStatus(context.Background(), id, ApprovalStatusApproved, nil)
-		assert.ErrorIs(t, err, ErrNotFound)
+		assert.ErrorIs(t, err, ErrStatusConflict)
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 }

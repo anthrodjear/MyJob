@@ -80,6 +80,12 @@ interface JobCardProps {
   onSave?: (jobId: string, saved: boolean) => void;
   /** Callback when Archive button is clicked. */
   onArchive?: (jobId: string) => void;
+  /** Whether the apply mutation is pending. */
+  isApplyPending?: boolean;
+  /** Whether the save mutation is pending. */
+  isSavePending?: boolean;
+  /** Whether the status mutation is pending. */
+  isStatusPending?: boolean;
   /** Additional CSS classes. */
   className?: string;
 }
@@ -99,6 +105,9 @@ export function JobCard({
   onScore,
   onSave,
   onArchive,
+  isApplyPending,
+  isSavePending,
+  isStatusPending,
   className,
 }: JobCardProps) {
   const level = scoreLevel(job.match_score);
@@ -160,6 +169,7 @@ export function JobCard({
           <Button
             variant="primary"
             size="sm"
+            disabled={isApplyPending}
             onClick={() => onApply(job.id)}
             aria-label={`Apply to ${job.title} at ${job.company}`}
           >
@@ -180,6 +190,7 @@ export function JobCard({
           <Button
             variant="secondary"
             size="sm"
+            disabled={isSavePending}
             onClick={() => onSave(job.id, !job.match_details?.saved)}
             aria-label={job.match_details?.saved ? `Unsave ${job.title}` : `Save ${job.title}`}
           >
@@ -190,6 +201,7 @@ export function JobCard({
           <Button
             variant="secondary"
             size="sm"
+            disabled={isStatusPending}
             onClick={() => onArchive(job.id)}
             aria-label={`Archive ${job.title}`}
           >

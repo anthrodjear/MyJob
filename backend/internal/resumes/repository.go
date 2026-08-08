@@ -15,6 +15,11 @@ import (
 const resumeColumns = `id, name, specialization, template_path, focus_skills, highlight_experience,
                        content, pdf_key, version, created_at, updated_at`
 
+// resumeListColumns lists the lighter subset used by List — excludes
+// content/pdf_key which can be large. Keep resumeColumns for GetByID.
+const resumeListColumns = `id, name, specialization, template_path, focus_skills, highlight_experience,
+                            pdf_key, version, created_at, updated_at`
+
 // coverLetterColumns lists all cover letter columns for SELECT queries.
 const coverLetterColumns = `id, job_id, resume_id, job_title, content, model, prompt_version,
                             resume_version, pdf_key, strengths, gaps, word_count, version,
@@ -80,8 +85,7 @@ func (r *PostgresRepository) List(ctx context.Context, limit, offset int) ([]*Re
 
 	var resumes []*Resume
 	err := r.db.SelectContext(ctx, &resumes,
-		`SELECT id, name, specialization, template_path, focus_skills, highlight_experience,
-		        content, pdf_key, version, created_at, updated_at
+		`SELECT `+resumeListColumns+`
 		 FROM resumes ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list resumes: %w", err)

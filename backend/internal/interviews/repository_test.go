@@ -612,8 +612,8 @@ func TestRepository_UpdateStatus_PendingToStarting(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT status FROM interview_sessions WHERE id = $1`)).
 		WithArgs(id).
 		WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow(StatusPending))
-	mock.ExpectExec(regexp.QuoteMeta(`UPDATE interview_sessions SET status = $1, updated_at = $2 WHERE id = $3`)).
-		WithArgs(StatusStarting, sqlmock.AnyArg(), id).
+	mock.ExpectExec(regexp.QuoteMeta(`UPDATE interview_sessions SET status = $1, updated_at = $2 WHERE id = $3 AND status = $4`)).
+		WithArgs(StatusStarting, sqlmock.AnyArg(), id, StatusPending).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
@@ -631,8 +631,8 @@ func TestRepository_UpdateStatus_StartingToActive(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT status FROM interview_sessions WHERE id = $1`)).
 		WithArgs(id).
 		WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow(StatusStarting))
-	mock.ExpectExec(regexp.QuoteMeta(`UPDATE interview_sessions SET status = $1, updated_at = $2, started_at = $3 WHERE id = $4`)).
-		WithArgs(StatusActive, sqlmock.AnyArg(), sqlmock.AnyArg(), id).
+	mock.ExpectExec(regexp.QuoteMeta(`UPDATE interview_sessions SET status = $1, updated_at = $2, started_at = $3 WHERE id = $4 AND status = $5`)).
+		WithArgs(StatusActive, sqlmock.AnyArg(), sqlmock.AnyArg(), id, StatusStarting).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
@@ -650,8 +650,8 @@ func TestRepository_UpdateStatus_ActiveToCompleted(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT status FROM interview_sessions WHERE id = $1`)).
 		WithArgs(id).
 		WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow(StatusActive))
-	mock.ExpectExec(regexp.QuoteMeta(`UPDATE interview_sessions SET status = $1, updated_at = $2, ended_at = $3 WHERE id = $4`)).
-		WithArgs(StatusCompleted, sqlmock.AnyArg(), sqlmock.AnyArg(), id).
+	mock.ExpectExec(regexp.QuoteMeta(`UPDATE interview_sessions SET status = $1, updated_at = $2, ended_at = $3 WHERE id = $4 AND status = $5`)).
+		WithArgs(StatusCompleted, sqlmock.AnyArg(), sqlmock.AnyArg(), id, StatusActive).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
@@ -669,8 +669,8 @@ func TestRepository_UpdateStatus_ActiveToFailed(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT status FROM interview_sessions WHERE id = $1`)).
 		WithArgs(id).
 		WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow(StatusActive))
-	mock.ExpectExec(regexp.QuoteMeta(`UPDATE interview_sessions SET status = $1, updated_at = $2, ended_at = $3 WHERE id = $4`)).
-		WithArgs(StatusFailed, sqlmock.AnyArg(), sqlmock.AnyArg(), id).
+	mock.ExpectExec(regexp.QuoteMeta(`UPDATE interview_sessions SET status = $1, updated_at = $2, ended_at = $3 WHERE id = $4 AND status = $5`)).
+		WithArgs(StatusFailed, sqlmock.AnyArg(), sqlmock.AnyArg(), id, StatusActive).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
@@ -688,8 +688,8 @@ func TestRepository_UpdateStatus_ActiveToCancelled(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT status FROM interview_sessions WHERE id = $1`)).
 		WithArgs(id).
 		WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow(StatusActive))
-	mock.ExpectExec(regexp.QuoteMeta(`UPDATE interview_sessions SET status = $1, updated_at = $2, ended_at = $3 WHERE id = $4`)).
-		WithArgs(StatusCancelled, sqlmock.AnyArg(), sqlmock.AnyArg(), id).
+	mock.ExpectExec(regexp.QuoteMeta(`UPDATE interview_sessions SET status = $1, updated_at = $2, ended_at = $3 WHERE id = $4 AND status = $5`)).
+		WithArgs(StatusCancelled, sqlmock.AnyArg(), sqlmock.AnyArg(), id, StatusActive).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
@@ -756,13 +756,13 @@ func TestRepository_UpdateStatus_UpdateReturnsZeroRows(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT status FROM interview_sessions WHERE id = $1`)).
 		WithArgs(id).
 		WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow(StatusPending))
-	mock.ExpectExec(regexp.QuoteMeta(`UPDATE interview_sessions SET status = $1, updated_at = $2 WHERE id = $3`)).
-		WithArgs(StatusStarting, sqlmock.AnyArg(), id).
+	mock.ExpectExec(regexp.QuoteMeta(`UPDATE interview_sessions SET status = $1, updated_at = $2 WHERE id = $3 AND status = $4`)).
+		WithArgs(StatusStarting, sqlmock.AnyArg(), id, StatusPending).
 		WillReturnResult(sqlmock.NewResult(1, 0))
 	mock.ExpectRollback()
 
 	err := repo.UpdateStatus(ctx, id, StatusStarting)
-	assert.ErrorIs(t, err, ErrNotFound)
+	assert.ErrorIs(t, err, ErrStatusConflict)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -1074,8 +1074,8 @@ func TestRepository_StartSession_Success(t *testing.T) {
 	mock.ExpectExec(regexp.QuoteMeta(
 		`UPDATE interview_sessions
 		 SET status = $1, external_session_id = $2, provider = $3, model = $4, updated_at = $5
-		 WHERE id = $6`)).
-		WithArgs(StatusStarting, "RMxyz", "openai_realtime", "gpt-4o-realtime-preview", sqlmock.AnyArg(), id).
+		 WHERE id = $6 AND status = $7`)).
+		WithArgs(StatusStarting, "RMxyz", "openai_realtime", "gpt-4o-realtime-preview", sqlmock.AnyArg(), id, StatusPending).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
@@ -1146,8 +1146,8 @@ func TestRepository_StartSession_UpdateError(t *testing.T) {
 	mock.ExpectExec(regexp.QuoteMeta(
 		`UPDATE interview_sessions
 		 SET status = $1, external_session_id = $2, provider = $3, model = $4, updated_at = $5
-		 WHERE id = $6`)).
-		WithArgs(StatusStarting, "RMfail", "p", "m", sqlmock.AnyArg(), id).
+		 WHERE id = $6 AND status = $7`)).
+		WithArgs(StatusStarting, "RMfail", "p", "m", sqlmock.AnyArg(), id, StatusPending).
 		WillReturnError(sql.ErrConnDone)
 	mock.ExpectRollback()
 

@@ -34,6 +34,12 @@ interface JobListProps {
   onArchive?: (jobId: string) => void;
   /** Callback when the "Start Search" empty state action is clicked. */
   onSearch?: () => void;
+  /** Whether the apply mutation is pending. */
+  isApplyPending?: boolean;
+  /** Whether the save mutation is pending. */
+  isSavePending?: boolean;
+  /** Whether the status mutation is pending. */
+  isStatusPending?: boolean;
   /** Additional CSS classes for the grid container. */
   className?: string;
 }
@@ -68,6 +74,9 @@ export function JobList({
   onSave,
   onArchive,
   onSearch,
+  isApplyPending,
+  isSavePending,
+  isStatusPending,
   className,
 }: JobListProps) {
   // Empty state
@@ -107,6 +116,9 @@ export function JobList({
               onScore={onScore}
               onSave={onSave}
               onArchive={onArchive}
+              isApplyPending={isApplyPending}
+              isSavePending={isSavePending}
+              isStatusPending={isStatusPending}
             />
           </div>
         ))}
