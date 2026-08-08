@@ -98,7 +98,9 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 	// request that reaches this server directly (e.g. via a misconfigured
 	// reverse proxy). Set explicit proxies when one is actually in front
 	// of the API.
-	_ = r.SetTrustedProxies(nil)
+	if err := r.SetTrustedProxies(nil); err != nil {
+		cfg.Logger.Warn("failed to set trusted proxies", zap.Error(err))
+	}
 
 	// CORS middleware - must be before other middleware to handle preflight requests
 	corsConfig := cors.Config{

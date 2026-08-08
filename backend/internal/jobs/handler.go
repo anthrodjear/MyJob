@@ -26,11 +26,11 @@ type ApplicationsAPI interface {
 
 // Handler holds the jobs HTTP handlers.
 type Handler struct {
-	svc        *Service
-	appsAPI    ApplicationsAPI
-	scoringSvc *scoring.Service
+	svc            *Service
+	appsAPI        ApplicationsAPI
+	scoringSvc     *scoring.Service
 	taskDispatcher *tasks.Dispatcher
-	logger     *zap.Logger
+	logger         *zap.Logger
 }
 
 // NewHandler creates a new jobs handler.
