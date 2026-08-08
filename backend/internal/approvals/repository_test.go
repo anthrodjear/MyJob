@@ -631,7 +631,7 @@ func TestRepository_UpdateStatus(t *testing.T) {
 			WithArgs(id).
 			WillReturnRows(rows)
 
-		// Update matches 0 rows (CAS conflict)
+		// Update matches 0 rows (CAS guard lost)
 		mock.ExpectExec(regexp.QuoteMeta(
 			`UPDATE approval_requests
 			 SET status = $1, rejection_reason = $2, reviewed_at = $3

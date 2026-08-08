@@ -41,10 +41,10 @@ var ErrJobNotFound = errors.New("job not found")
 // ResumeView is the subset of resumes.Resume that the applications
 // handler returns in its voice-context responses.
 type ResumeView struct {
-	ID            uuid.UUID `json:"id"`
-	Name          string    `json:"name"`
-	Specialization string   `json:"specialization"`
-	Version       int32     `json:"version"`
+	ID             uuid.UUID `json:"id"`
+	Name           string    `json:"name"`
+	Specialization string    `json:"specialization"`
+	Version        int32     `json:"version"`
 }
 
 // ResumesAPI is the subset of resumes.Service that the applications
