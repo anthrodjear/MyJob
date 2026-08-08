@@ -15,6 +15,7 @@ services:
       REDIS_URL: redis://redis:6379
       AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH:-$$2a$$10$$dummy_hash_for_ci_testing_only}
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-ci-test-secret-do-not-use-in-production}
+      SESSION_SECRET: ${SESSION_SECRET:-ci-test-secret-do-not-use-in-production}
       OLLAMA_BASE_URL: ""
       LLM_PRIMARY_PROVIDER: none
       LLM_FALLBACK_PROVIDER: none

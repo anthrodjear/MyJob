@@ -144,6 +144,7 @@ func TestRepository_GetByID_Success(t *testing.T) {
 			j.description, j.requirements, j.url, j.application_url, j.company_url, j.source,
 			j.posted_at, j.scraped_at, j.match_score, j.match_details,
 			j.score_tier, j.scored_at, j.scoring_reasoning, j.scoring_model, j.scoring_source,
+			j.saved, j.metadata,
 			j.status, j.created_at, j.updated_at,
 			s.name as source_name
 		FROM jobs j
@@ -188,6 +189,7 @@ func TestRepository_GetByID_NotFound(t *testing.T) {
 			j.description, j.requirements, j.url, j.application_url, j.company_url, j.source,
 			j.posted_at, j.scraped_at, j.match_score, j.match_details,
 			j.score_tier, j.scored_at, j.scoring_reasoning, j.scoring_model, j.scoring_source,
+			j.saved, j.metadata,
 			j.status, j.created_at, j.updated_at,
 			s.name as source_name
 		FROM jobs j
@@ -219,6 +221,7 @@ func TestRepository_GetByID_DBError(t *testing.T) {
 			j.description, j.requirements, j.url, j.application_url, j.company_url, j.source,
 			j.posted_at, j.scraped_at, j.match_score, j.match_details,
 			j.score_tier, j.scored_at, j.scoring_reasoning, j.scoring_model, j.scoring_source,
+			j.saved, j.metadata,
 			j.status, j.created_at, j.updated_at,
 			s.name as source_name
 		FROM jobs j
@@ -262,6 +265,7 @@ func TestRepository_List_NoFilters(t *testing.T) {
 			j.description, j.requirements, j.url, j.application_url, j.company_url, j.source,
 			j.posted_at, j.scraped_at, j.match_score, j.match_details,
 			j.score_tier, j.scored_at, j.scoring_reasoning, j.scoring_model, j.scoring_source,
+			j.saved, j.metadata,
 			j.status, j.created_at, j.updated_at,
 			s.name as source_name
 		FROM jobs j
@@ -311,6 +315,7 @@ func TestRepository_List_StatusFilter(t *testing.T) {
 			j.description, j.requirements, j.url, j.application_url, j.company_url, j.source,
 			j.posted_at, j.scraped_at, j.match_score, j.match_details,
 			j.score_tier, j.scored_at, j.scoring_reasoning, j.scoring_model, j.scoring_source,
+			j.saved, j.metadata,
 			j.status, j.created_at, j.updated_at,
 			s.name as source_name
 		FROM jobs j
@@ -360,6 +365,7 @@ func TestRepository_List_AllFilters(t *testing.T) {
 			j.description, j.requirements, j.url, j.application_url, j.company_url, j.source,
 			j.posted_at, j.scraped_at, j.match_score, j.match_details,
 			j.score_tier, j.scored_at, j.scoring_reasoning, j.scoring_model, j.scoring_source,
+			j.saved, j.metadata,
 			j.status, j.created_at, j.updated_at,
 			s.name as source_name
 		FROM jobs j
@@ -415,6 +421,7 @@ func TestRepository_List_QueryError(t *testing.T) {
 			j.description, j.requirements, j.url, j.application_url, j.company_url, j.source,
 			j.posted_at, j.scraped_at, j.match_score, j.match_details,
 			j.score_tier, j.scored_at, j.scoring_reasoning, j.scoring_model, j.scoring_source,
+			j.saved, j.metadata,
 			j.status, j.created_at, j.updated_at,
 			s.name as source_name
 		FROM jobs j
