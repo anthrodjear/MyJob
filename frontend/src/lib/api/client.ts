@@ -23,7 +23,13 @@ import { API_PREFIX } from "@/lib/constants";
 /**
  * Get the backend URL based on execution context.
  * - Server-side (Server Components, SSR): use INTERNAL_API_URL (Docker network)
- * - Client-side (browser): use NEXT_PUBLIC_API_URL (host machine)
+ * - Client-side (browser): use NEXT_PUBLIC_API_URL or route through Next.js proxy
+ *
+ * By default, client-side requests use a relative URL (/api) that routes through
+ * the Next.js API proxy (app/api/[...proxy]/route.ts). This eliminates CORS issues
+ * and direct port access from the browser.
+ *
+ * Set NEXT_PUBLIC_API_URL to override (e.g., "http://localhost:8080" for direct access).
  */
 function getBackendUrl(): string {
   // Server-side: window is undefined, use internal Docker network URL.
@@ -36,16 +42,10 @@ function getBackendUrl(): string {
     return process.env.NEXT_PUBLIC_API_URL;
   }
 
-  const hostname = window.location.hostname;
-  const isLocalhost =
-    hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
-
-  // When the app is accessed from a network interface like 192.168.x.x,
-  // frontend requests must target the backend on the same host, not the
-  // browser's localhost. Use the same host with port 8080 as the default.
-  return isLocalhost
-    ? "http://localhost:8080"
-    : `${window.location.protocol}//${hostname}:8080`;
+  // Default: route through Next.js API proxy (same-origin).
+  // The proxy forwards /api/v1/* to the Go backend server-side.
+  // This avoids CORS issues and direct port access from the browser.
+  return "/api";
 }
 
 const BACKEND_URL = getBackendUrl();
