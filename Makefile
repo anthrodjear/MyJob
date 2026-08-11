@@ -1,4 +1,4 @@
-.PHONY: help setup migrate seed start stop clean build _export-env dev-api dev-worker dev-frontend dev-browser build-api build-worker build-frontend build-browser hash-password logs logs-api logs-worker logs-browser logs-frontend shell-api shell-worker shell-browser shell-frontend shell-postgres shell-redis test test-api test-frontend lint lint-go lint-frontend lint-browser-agent verify-swagger ci-local docker-ci docker-ci-down health-check helm-lint helm-template helm-staging helm-production helm-rollback kubectl-hpa kubectl-pods kubectl-logs kustomize-build
+.PHONY: help setup migrate seed start stop clean build _export-env dev-api dev-worker dev-frontend dev-browser build-api build-worker build-frontend build-browser hash-password logs logs-api logs-worker logs-browser logs-frontend shell-api shell-worker shell-browser shell-frontend shell-postgres shell-redis test test-api test-frontend lint lint-go lint-frontend lint-browser-agent verify-swagger ci-local docker-ci docker-ci-down health-check helm-lint helm-template helm-staging helm-production helm-rollback kubectl-hpa kubectl-pods kubectl-logs kustomize-build setup-production start-production stop-production build-production logs-production shell-nginx setup-ssl nginx-test health-check-production
 
 # Default target
 help:
@@ -305,3 +305,50 @@ kubectl-logs:
 # Kustomize build
 kustomize-build:
 	kubectl kustomize k8s/kustomize/overlays/$(ENV)
+
+# ============================================
+# Production Deployment
+# ============================================
+
+# Full production setup (SSL + secrets + build + deploy)
+setup-production:
+	bash scripts/setup-production.sh
+
+# Start production (with nginx reverse proxy)
+start-production:
+	@if [ ! -f .env ]; then cp .env.production .env 2>/dev/null || true; fi
+	docker compose -f docker-compose.yml -f docker-compose.production.yml up -d
+	@echo "Production started. Access via http://localhost or https://localhost"
+
+# Stop production
+stop-production:
+	docker compose -f docker-compose.yml -f docker-compose.production.yml down
+
+# Build production images
+build-production:
+	docker compose -f docker-compose.yml -f docker-compose.production.yml build
+
+# Production logs
+logs-production:
+	docker compose -f docker-compose.yml -f docker-compose.production.yml logs -f
+
+# Production shell access
+shell-nginx:
+	docker compose -f docker-compose.yml -f docker-compose.production.yml exec nginx sh
+
+# SSL certificate setup
+setup-ssl:
+	bash scripts/setup-ssl.sh
+
+# Validate nginx config
+nginx-test:
+	docker compose -f docker-compose.yml -f docker-compose.production.yml exec nginx nginx -t
+
+# Production health check
+health-check-production:
+	@echo "=== Service Health ==="
+	@docker compose -f docker-compose.yml -f docker-compose.production.yml ps
+	@echo ""
+	@echo "=== HTTP Health ==="
+	@curl -sf http://localhost/health && echo " [OK]" || echo " [FAIL]"
+	@curl -sf http://localhost:8080/health && echo " [OK]" || echo " [FAIL]"

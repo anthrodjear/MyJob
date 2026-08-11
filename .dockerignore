@@ -1,0 +1,76 @@
+# =============================================================================
+# Root .dockerignore — Applied to all Docker builds from project root
+# =============================================================================
+# Prevents secrets, build artifacts, and dev-only files from entering image layers.
+
+# Git
+.git
+.gitignore
+.github
+
+# IDE / Editor
+.vs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Documentation (except README)
+*.md
+!README.md
+
+# Secrets & Environment
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+vendor/
+
+# Build outputs
+dist/
+build/
+bin/
+coverage/
+.next/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# AI agent context (session-specific)
+context/
+AGENTS.md
+CLAUDE.md
+.config/
+.agents/
+.opencode/
+
+# Test artifacts
+.playwright-mcp/
+postman/
+temp-body.json
+test-api.*
+test-full.*
+API_TEST_REPORT.txt
+
+# Kubernetes (not needed in image builds)
+k8s/
+
+# Scripts (used on host, not in containers)
+scripts/
+
+# Templates (used on host, not in containers)
+templates/
+
+# Storage (generated at runtime)
+storage/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
