@@ -211,7 +211,7 @@ export function ApprovalTiersSection({ approvalTiers, onSaved }: ApprovalTiersSe
       autoMin, autoMax, autoAction, autoNotify,
       reviewMin, reviewMax, reviewAction, reviewNotify,
       rejectMin, rejectMax, rejectAction, rejectNotify,
-      approvalTiers, mutateAsync, onSaved,
+      approvalTiers, mutateAsync, onSaved, deleteOverride,
     ],
   );
 

@@ -54,9 +54,9 @@ const (
 // delete the entry.
 var ClassificationMappings = map[string]string{
 	// browser-agent currently emits "interview"; canonical is "interview_invite"
-	"interview":      ClassificationInterviewInvite,
-	"INTERVIEW":      ClassificationInterviewInvite,
-	"Interview":      ClassificationInterviewInvite,
+	"interview":        ClassificationInterviewInvite,
+	"INTERVIEW":        ClassificationInterviewInvite,
+	"Interview":        ClassificationInterviewInvite,
 	"interview_invite": ClassificationInterviewInvite,
 	// any future aliases go here
 }

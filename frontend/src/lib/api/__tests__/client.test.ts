@@ -39,7 +39,7 @@ describe("apiFetch", () => {
   });
 
   afterEach(() => {
-    // cleanup
+    mockFetch.mockReset();
   });
 
   it("constructs correct URL with API prefix", async () => {
