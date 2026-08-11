@@ -23,6 +23,7 @@ Job searching is repetitive, time-consuming, and error-prone. You copy-paste the
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
+| **Reverse Proxy** | nginx 1.27 | TLS termination, rate limiting, security headers |
 | **Backend API** | Go 1.26, Gin, sqlx, zap | REST API server on `:8080` |
 | **Task Worker** | Go 1.26, Asynq, Redis | Async job processing (scraping, generation, form filling) |
 | **Browser Agent** | TypeScript, Playwright, Express | Headless browser automation on `:3001` |
@@ -31,7 +32,7 @@ Job searching is repetitive, time-consuming, and error-prone. You copy-paste the
 | **Queue/Cache** | Redis | Asynq task queue and application cache |
 | **LLM Inference** | Ollama (local) | Local embedding and text generation |
 | **Voice** | LiveKit + OpenAI Realtime | Real-time voice interview coaching |
-| **Orchestration** | Docker Compose | 8-service local deployment |
+| **Orchestration** | Docker Compose | 9-service local + production deployment |
 
 ## Quick Start
 
@@ -185,10 +186,16 @@ MyJob/
 �   +-- resumes/               # LaTeX resume templates
 �   +-- cover-letters/         # LaTeX cover letter templates
 +-- storage/                   # Generated files (gitignored)
++-- nginx/                     # Reverse proxy (production)
+|   +-- Dockerfile
+|   +-- nginx.conf
+|   +-- conf.d/
 +-- scripts/                   # Setup and utility scripts
 +-- Makefile                   # Dev workflow commands
-+-- docker-compose.yml         # 8-service orchestration
++-- docker-compose.yml         # 9-service local orchestration
++-- docker-compose.production.yml  # Security-hardened production override
 +-- .env.example               # Environment variable template
++-- .env.production            # Production environment template
 ```
 
 ## Architecture
@@ -214,45 +221,98 @@ Jobs are scored 0�100 against your profile. Tiers are configured in `config/ap
 
 Tiers are **immutable policy** � thresholds live in config, not code. Edit the YAML to tune them without redeployment.
 
-## Kubernetes / NGINX deployment
+## Production Deployment
 
-When deploying behind an external NGINX proxy or Kubernetes ingress, the frontend must use a browser-visible API URL and the proxy must preserve Next.js auth routes.
+Production uses nginx as a reverse proxy with TLS termination, rate limiting, and security hardening. All internal services are isolated behind the Docker network — only nginx is exposed externally.
 
-Recommended configuration:
+### Quick Production Setup
 
-- Set `frontend.env.NEXT_PUBLIC_API_URL` to `/api` for same-origin browser API calls.
-- Route frontend traffic to the Next.js service at `/`.
-- Route backend API traffic to the Go backend at `/api/v1`.
-- Do not proxy `/api/auth` directly to the backend; those paths must be handled by the frontend, which then proxies auth requests to `/api/v1/auth/*`.
+```bash
+# One-command setup (generates secrets, SSL certs, builds images, starts services)
+make setup-production
 
-Example NGINX site configuration:
-
-```nginx
-server {
-    listen 80;
-    server_name 192.168.2.103;
-
-    location /api/v1/ {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
+# Or with a custom domain
+bash scripts/setup-production.sh --domain myapp.example.com --email admin@example.com
 ```
 
-Kubernetes ingress configuration should use `/` for the frontend service and `/api/v1` for the API service.
+### Manual Production Setup
+
+```bash
+# 1. Configure environment
+cp .env.production .env
+# Edit .env with your passwords, API keys, domain
+
+# 2. Generate SSL certificates
+bash scripts/setup-ssl.sh --domain myapp.example.com
+
+# 3. Set admin password
+make hash-password PASSWORD=yourpassword
+
+# 4. Build and start
+make build-production
+make start-production
+```
+
+### Production Commands
+
+```bash
+make start-production       # Start with nginx (production mode)
+make stop-production        # Stop production services
+make build-production       # Build production images
+make logs-production        # Tail production logs
+make nginx-test             # Validate nginx config
+make health-check-production # Check all service health
+make shell-nginx            # Shell into nginx container
+```
+
+### Security Features
+
+| Feature | Implementation |
+|---------|---------------|
+| **Reverse Proxy** | nginx fronting all traffic, only :80/:443 exposed |
+| **Rate Limiting** | API: 10r/s burst 20, Auth: 5r/m burst 3 |
+| **Security Headers** | HSTS, CSP, X-Frame-Options, X-Content-Type-Options, CORS |
+| **TLS Hardening** | TLS 1.2/1.3 only, strong ciphers, OCSP stapling |
+| **Bot Blocking** | Blocks scanners (nikto, sqlmap) and AI crawlers (GPTBot) |
+| **Container Hardening** | no-new-privileges, cap_drop: ALL + minimal cap_add |
+| **Resource Limits** | CPU/memory limits on every service |
+| **Read-Only Rootfs** | nginx runs with read-only filesystem + tmpfs |
+| **Internal Services** | API, frontend, browser-agent not directly exposed |
+
+### Production Architecture
+
+```
+Internet → :80/:443 → [nginx] → frontend (Next.js)
+                              → api (Go)
+                              → ws://livekit:7880
+                              → browser-agent (internal only)
+```
+
+### Environment Variables
+
+Production uses `.env.production` (see template for all variables). Key differences from development:
+
+| Variable | Dev | Production |
+|----------|-----|------------|
+| `APP_ENV` | development | production |
+| `POSTGRES_PASSWORD` | myjob_dev | Auto-generated |
+| `REDIS_PASSWORD` | (none) | Auto-generated |
+| `AUTH_JWT_SECRET` | changeme | Auto-generated 64-char hex |
+| `SESSION_SECRET` | changeme | Auto-generated 64-char hex |
+| `NGINX_SERVER_NAME` | localhost | your-domain.com |
+| `LIVEKIT_FLAGS` | --dev | (empty) |
+
+### SSL/TLS
+
+- **Development**: Self-signed certificate (auto-generated)
+- **Production**: Let's Encrypt (via certbot) or custom certificates
+- Certificates stored in `certs/live/<domain>/`
+- Auto-renewal configured for Let's Encrypt
+
+```bash
+bash scripts/setup-ssl.sh --domain myapp.example.com              # Self-signed
+bash scripts/setup-ssl.sh --letsencrypt --domain myapp.example.com --email admin@example.com  # Let's Encrypt
+```
 
 ### Domain Modules
 
@@ -270,32 +330,39 @@ internal/<domain>/
 ### Services Architecture
 
 ```
-+---------------------------------------------------------+
-�                    Docker Compose                        �
-�                                                          �
-�  +----------+  +----------+  +----------------------+  �
-�  � Frontend �  �   API    �  �     Worker           �  �
-�  � Next.js  �  �   Go     �  �  Go (Asynq)          �  �
-�  �  :3000   �  �  :8080   �  �  (async processor)   �  �
-�  +----------+  +----------+  +----------------------+  �
-�       �              �                    �              �
-�       +--------------+--------------------+              �
-�                      �                                   �
-�              +---------------+                           �
-�              �     Redis     �                           �
-�              �  (queue+cache)�                           �
-�              +---------------+                           �
-�                      �                                   �
-�  +-----------+  +----------+  +------------------+     �
-�  � PostgreSQL �  �  Ollama  �  �  Browser Agent   �     �
-�  � +pgvector  �  � (local   �  �  Playwright      �     �
-�  �            �  �   LLM)   �  �  :3001           �     �
-�  +------------+  +----------+  +------------------+     �
-�                                                          �
-�  +--------------------------------------------------+   �
-�  �              LiveKit (voice coaching)             �   �
-�  +--------------------------------------------------+   �
-+---------------------------------------------------------+
++--------------------------------------------------------------+
+|                    Docker Compose (Production)                |
+|                                                               |
+|                    +----------+                               |
+|   Internet ------> |  nginx   |                               |
+|   :80/:443         |  :80/:443|                               |
+|                    +----+-----+                               |
+|                         |                                     |
+|            +------------+------------+                        |
+|            |            |            |                        |
+|   +--------+--+  +-----+-----+  +--+-----------+           |
+|   | Frontend   |  |    API    |  |   Worker     |           |
+|   | Next.js    |  |    Go     |  |  Go (Asynq)  |           |
+|   |  :3000     |  |  :8080    |  | (async)      |           |
+|   +--------+--+  +-----+-----+  +--+-----------+           |
+|            |            |            |                        |
+|            +------------+------------+                        |
+|                         |                                     |
+|                 +-------+-------+                             |
+|                 |     Redis     |                             |
+|                 |  (queue+cache)|                             |
+|                 +-------+-------+                             |
+|                         |                                     |
+|  +-----------+  +------+------+  +------------------+       |
+|  | PostgreSQL |  |   Ollama   |  |  Browser Agent   |       |
+|  | +pgvector  |  |  (local    |  |  Playwright      |       |
+|  |            |  |    LLM)    |  |  (internal)      |       |
+|  +------------+  +-------------+  +------------------+       |
+|                                                               |
+|  +--------------------------------------------------+       |
+|  |              LiveKit (voice coaching)             |       |
+|  +--------------------------------------------------+       |
++--------------------------------------------------------------+
 ```
 
 ## Configuration
@@ -380,6 +447,19 @@ make clean          # Remove containers and volumes
 make migrate        # Run database migrations
 make logs           # Tail all service logs
 make test           # Run all tests
+```
+
+### Production Commands
+
+```bash
+make setup-production    # Full production setup (SSL + secrets + build + deploy)
+make start-production    # Start with nginx (production mode)
+make stop-production     # Stop production services
+make build-production    # Build production images
+make logs-production     # Tail production logs
+make nginx-test          # Validate nginx config
+make health-check-production  # Check all service health
+make shell-nginx         # Shell into nginx container
 ```
 
 See `make help` for the full list.
