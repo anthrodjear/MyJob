@@ -109,7 +109,7 @@ func (h *Handler) SetupStatus(c *gin.Context) {
 	resp, err := h.service.GetSetupStatus(c.Request.Context())
 	if err != nil {
 		h.logger.Error("get setup status error", zap.Error(err))
-		httpresp.InternalError(c)
+		httpresp.InternalErrorWithDetail(c, err)
 		return
 	}
 
@@ -166,7 +166,7 @@ func (h *Handler) CompleteSetup(c *gin.Context) {
 			return
 		}
 		h.logger.Error("complete setup error", zap.Error(err))
-		httpresp.InternalError(c)
+		httpresp.InternalErrorWithDetail(c, err)
 		return
 	}
 
@@ -281,7 +281,7 @@ func (h *Handler) SaveOnboardingConfig(c *gin.Context) {
 
 	if err := h.service.SaveOnboardingConfig(c.Request.Context(), &req); err != nil {
 		h.logger.Error("save onboarding config", zap.Error(err))
-		httpresp.InternalError(c)
+		httpresp.InternalErrorWithDetail(c, err)
 		return
 	}
 

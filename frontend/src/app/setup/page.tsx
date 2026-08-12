@@ -31,6 +31,7 @@ import {
   completeOnboarding,
   getSetupStatus,
 } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/client";
 import { Button } from "@/components/shared/Button";
 import { SetupStepLLMKeys } from "@/components/setup/SetupStepLLMKeys";
 import { SetupStepVoiceEmail } from "@/components/setup/SetupStepVoiceEmail";
@@ -106,6 +107,28 @@ function validateAccountForm(form: AccountForm): string | null {
  * Map API error codes to user-friendly messages.
  */
 function getUserMessage(error: unknown): string {
+  // Handle ApiError with status and code properties
+  if (error instanceof ApiError) {
+    switch (error.code) {
+      case "SETUP_COMPLETE":
+        return "An admin account already exists. Please log in.";
+      case "INVALID_REQUEST":
+        return "Please check your input and try again.";
+      case "WEAK_CREDENTIALS":
+        return "Please choose a stronger password (not a common default).";
+      case "INVALID_CREDENTIALS":
+        return "Invalid credentials. Please try again.";
+      case "INTERNAL_ERROR":
+        return "Server error. Please try again later.";
+      case "RATE_LIMITED":
+        return "Too many requests. Please wait a moment and try again.";
+      default:
+        // Fall through to message-based checks below
+        break;
+    }
+  }
+
+  // Fallback to message-based matching for non-ApiError or unknown codes
   if (error instanceof Error) {
     const msg = error.message.toLowerCase();
     if (msg.includes("setup_complete") || msg.includes("setup already completed")) {

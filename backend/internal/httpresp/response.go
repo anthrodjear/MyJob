@@ -55,6 +55,20 @@ func InternalError(c *gin.Context) {
 	})
 }
 
+// InternalErrorWithDetail sends a 500 JSON response.
+// In debug mode (GIN_MODE=debug, the default) the actual error message is included
+// in the response to aid local development. In release/production modes the
+// response is intentionally opaque so no implementation details leak to clients.
+func InternalErrorWithDetail(c *gin.Context, err error) {
+	msg := "internal error"
+	if gin.Mode() == gin.DebugMode {
+		msg = err.Error()
+	}
+	c.JSON(http.StatusInternalServerError, ErrorResponse{
+		Error: ErrorBody{Code: "INTERNAL_ERROR", Message: msg},
+	})
+}
+
 // Accepted sends a 202 JSON response for async operations.
 func Accepted(c *gin.Context, data interface{}) {
 	c.JSON(http.StatusAccepted, data)
