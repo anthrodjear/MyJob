@@ -33,7 +33,13 @@ function getBackendUrl(): string {
 
   // Client-side: prefer an explicit override when provided.
   if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    // Relative paths (e.g., "/api") need an absolute base for new URL() to work.
+    // Prepend the current origin so requests go through the same host/port (nginx proxy).
+    if (apiUrl.startsWith("/")) {
+      return `${window.location.origin}${apiUrl}`;
+    }
+    return apiUrl;
   }
 
   const hostname = window.location.hostname;
