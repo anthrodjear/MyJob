@@ -13,7 +13,7 @@ RUN go mod download
 # Go proxy TLS handshake timeouts in BuildKit.
 ARG SWAG_VERSION=1.16.4
 RUN wget -qO /tmp/swag.tar.gz \
-      "https://github.com/swaggo/swag/releases/download/v${SWAG_VERSION}/swag_${SWAG_VERSION}_linux_amd64.tar.gz" \
+      "https://github.com/swaggo/swag/releases/download/v${SWAG_VERSION}/swag_${SWAG_VERSION}_Linux_x86_64.tar.gz" \
       && tar -xzf /tmp/swag.tar.gz -C /usr/local/bin swag \
       && chmod +x /usr/local/bin/swag \
       && rm /tmp/swag.tar.gz
