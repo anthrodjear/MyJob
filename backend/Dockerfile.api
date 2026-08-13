@@ -10,8 +10,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Install swag for Swagger docs generation (pinned for reproducibility)
-RUN --mount=type=cache,target=/go/pkg/mod \
-    go install github.com/swaggo/swag/cmd/swag@v1.16.4
+RUN go install github.com/swaggo/swag/cmd/swag@v1.16.4
 
 # Copy source code
 COPY . .
