@@ -7,7 +7,7 @@ WORKDIR /app
 
 # Copy go.mod and go.sum
 COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod go mod download
+RUN go mod download
 
 # Copy source code
 COPY . .
