@@ -2,6 +2,8 @@
 FROM golang:1.26-alpine AS builder
 
 ARG BUILD_TIME=unknown
+ARG GOPROXY=https://proxy.golang.org,direct
+ENV GOPROXY=${GOPROXY}
 
 WORKDIR /app
 
