@@ -24,7 +24,7 @@
  *   // resp.access_token is stored, all subsequent apiFetch calls use it
  */
 
-import { apiGet, apiPost, ApiError } from "./client";
+import { apiPost, ApiError } from "./client";
 import { setAuthTokens, getRefreshToken } from "@/lib/auth";
 
 /**
@@ -149,6 +149,54 @@ export async function logout(): Promise<MessageResponse> {
   return resp;
 }
 
+// --- Setup / Onboarding proxy ---
+//
+// Setup and onboarding endpoints are routed through the Next.js auth proxy
+// (/api/auth/setup/*) instead of directly to the Go backend.  This keeps
+// all traffic server-side so the client never needs to know the backend URL
+// — works regardless of how the app is accessed (localhost, network IP,
+// nginx proxy).
+
+/**
+ * GET helper for /api/auth/* proxy routes (setup/status etc.).
+ * Uses standard fetch — no backend URL construction.
+ */
+async function authProxyGet<T>(path: string): Promise<T> {
+  const res = await fetch(`/api/auth/${path}`, {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    const code = body?.error?.code ?? "UNKNOWN_ERROR";
+    const message = body?.error?.message ?? `Request failed with status ${res.status}`;
+    throw new ApiError(res.status, code, message);
+  }
+  return res.json() as Promise<T>;
+}
+
+/**
+ * POST helper for /api/auth/* proxy routes (setup, onboarding etc.).
+ * Uses standard fetch — no backend URL construction.
+ */
+async function authProxyPost<T>(path: string, data?: unknown): Promise<T> {
+  const res = await fetch(`/api/auth/${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    cache: "no-store",
+    body: data != null ? JSON.stringify(data) : undefined,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    const code = body?.error?.code ?? "UNKNOWN_ERROR";
+    const message = body?.error?.message ?? `Request failed with status ${res.status}`;
+    throw new ApiError(res.status, code, message);
+  }
+  return res.json() as Promise<T>;
+}
+
 // --- Setup API ---
 
 /** Response from GET /auth/setup/status. */
@@ -170,18 +218,11 @@ export interface SetupResponse {
  * @throws ApiError on server error
  */
 export async function getSetupStatus(): Promise<SetupStatusResponse> {
-  const resp = await apiGet<SetupStatusResponse>("/auth/setup/status");
-  if (resp == null) {
-    throw new ApiError(500, "EMPTY_RESPONSE", "Setup status check failed: no response from server");
-  }
-  return resp;
+  return authProxyGet<SetupStatusResponse>("setup/status");
 }
 
 /**
  * Complete the first-boot setup by creating the admin user.
- *
- * NOTE: This is a local-first app — all communication is over localhost/loopback.
- * Do not use this pattern for remote deployments without HTTPS enforcement.
  *
  * @param username - Display name (min 3 chars)
  * @param email - Email address
@@ -194,15 +235,7 @@ export async function completeSetup(
   email: string,
   password: string,
 ): Promise<SetupResponse> {
-  const resp = await apiPost<SetupResponse>("/auth/setup", {
-    username,
-    email,
-    password,
-  });
-  if (resp == null) {
-    throw new ApiError(500, "EMPTY_RESPONSE", "Setup failed: no response from server");
-  }
-  return resp;
+  return authProxyPost<SetupResponse>("setup", { username, email, password });
 }
 
 // --- Onboarding API ---
@@ -245,14 +278,10 @@ export async function testLLMKey(
   provider: "openai" | "anthropic",
   apiKey: string,
 ): Promise<TestServiceResponse> {
-  const resp = await apiPost<TestServiceResponse>("/auth/setup/test-llm", {
+  return authProxyPost<TestServiceResponse>("setup/test-llm", {
     provider,
     api_key: apiKey,
   });
-  if (resp == null) {
-    throw new ApiError(500, "EMPTY_RESPONSE", "LLM test failed: no response from server");
-  }
-  return resp;
 }
 
 /**
@@ -269,15 +298,11 @@ export async function testVoiceConfig(
   apiKey: string,
   apiSecret: string,
 ): Promise<TestServiceResponse> {
-  const resp = await apiPost<TestServiceResponse>("/auth/setup/test-voice", {
+  return authProxyPost<TestServiceResponse>("setup/test-voice", {
     url,
     api_key: apiKey,
     api_secret: apiSecret,
   });
-  if (resp == null) {
-    throw new ApiError(500, "EMPTY_RESPONSE", "Voice test failed: no response from server");
-  }
-  return resp;
 }
 
 /**
@@ -294,15 +319,11 @@ export async function testEmailConfig(
   clientId: string,
   clientSecret: string,
 ): Promise<TestServiceResponse> {
-  const resp = await apiPost<TestServiceResponse>("/auth/setup/test-email", {
+  return authProxyPost<TestServiceResponse>("setup/test-email", {
     tenant_id: tenantId,
     client_id: clientId,
     client_secret: clientSecret,
   });
-  if (resp == null) {
-    throw new ApiError(500, "EMPTY_RESPONSE", "Email test failed: no response from server");
-  }
-  return resp;
 }
 
 /**
@@ -315,11 +336,7 @@ export async function testEmailConfig(
 export async function saveOnboardingConfig(
   config: OnboardingConfigPayload,
 ): Promise<OnboardingResponse> {
-  const resp = await apiPost<OnboardingResponse>("/auth/setup/config", config);
-  if (resp == null) {
-    throw new ApiError(500, "EMPTY_RESPONSE", "Config save failed: no response from server");
-  }
-  return resp;
+  return authProxyPost<OnboardingResponse>("setup/config", config);
 }
 
 /**
@@ -332,14 +349,7 @@ export async function saveOnboardingConfig(
 export async function updateOnboardingStep(
   step: string,
 ): Promise<OnboardingResponse> {
-  const resp = await apiPost<OnboardingResponse>(
-    "/auth/setup/onboarding-step",
-    { step },
-  );
-  if (resp == null) {
-    throw new ApiError(500, "EMPTY_RESPONSE", "Step update failed: no response from server");
-  }
-  return resp;
+  return authProxyPost<OnboardingResponse>("setup/onboarding-step", { step });
 }
 
 /**
@@ -349,14 +359,7 @@ export async function updateOnboardingStep(
  * @throws ApiError on server error
  */
 export async function completeOnboarding(): Promise<OnboardingResponse> {
-  const resp = await apiPost<OnboardingResponse>(
-    "/auth/setup/complete-onboarding",
-    {},
-  );
-  if (resp == null) {
-    throw new ApiError(500, "EMPTY_RESPONSE", "Onboarding complete failed: no response from server");
-  }
-  return resp;
+  return authProxyPost<OnboardingResponse>("setup/complete-onboarding", {});
 }
 
 /**

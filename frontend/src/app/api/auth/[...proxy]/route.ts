@@ -193,8 +193,79 @@ async function handleLogout(request: NextRequest): Promise<NextResponse> {
 }
 
 /**
+ * Generic proxy for setup/onboarding endpoints.
+ *
+ * forwards any /api/auth/setup/* request to the Go backend at
+ * /api/v1/auth/setup/* with the same method and body.
+ *
+ * This keeps all setup traffic server-side so the client never needs
+ * to know the backend URL — works regardless of how the app is accessed
+ * (localhost, network IP, nginx proxy).
+ */
+async function handleSetupProxy(
+  request: NextRequest,
+  subPath: string[],
+): Promise<NextResponse> {
+  const backendPath = `${API_PREFIX}/auth/setup/${subPath.join("/")}`;
+  const url = `${BACKEND_URL}${backendPath}`;
+
+  const init: RequestInit = {
+    method: request.method,
+    headers: { "Content-Type": "application/json" },
+  };
+
+  // Forward body for non-GET/HEAD requests
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    init.body = await request.text();
+  }
+
+  try {
+    const backendResp = await fetch(url, init);
+
+    // Forward status and body from backend
+    const body = await backendResp.text();
+    const response = new NextResponse(body, {
+      status: backendResp.status,
+      statusText: backendResp.statusText,
+    });
+
+    // Forward Content-Type so client can parse JSON
+    const contentType = backendResp.headers.get("content-type");
+    if (contentType) {
+      response.headers.set("content-type", contentType);
+    }
+
+    return response;
+  } catch (err) {
+    console.error("[auth/proxy] Setup proxy error:", err);
+    return NextResponse.json(
+      { error: "Backend unavailable" },
+      { status: 502 },
+    );
+  }
+}
+
+/**
  * Route handler dispatcher — routes by path within /api/auth/*.
  */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ proxy: string[] }> },
+) {
+  const { proxy } = await params;
+  const action = proxy?.[0];
+
+  // GET /api/auth/setup/status → proxy to backend
+  if (action === "setup" && proxy.length >= 2) {
+    return handleSetupProxy(request, proxy.slice(1));
+  }
+
+  return NextResponse.json(
+    { error: `Unknown auth action: ${action}` },
+    { status: 404 },
+  );
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ proxy: string[] }> },
@@ -209,6 +280,15 @@ export async function POST(
       return handleRefresh(request);
     case "logout":
       return handleLogout(request);
+    case "setup":
+      // POST /api/auth/setup/* → proxy to backend
+      if (proxy.length >= 2) {
+        return handleSetupProxy(request, proxy.slice(1));
+      }
+      return NextResponse.json(
+        { error: "Missing setup action" },
+        { status: 400 },
+      );
     default:
       return NextResponse.json(
         { error: `Unknown auth action: ${action}` },
