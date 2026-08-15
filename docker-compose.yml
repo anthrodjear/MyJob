@@ -116,6 +116,7 @@ services:
       QUEUE_CONCURRENCY: ${QUEUE_CONCURRENCY:-5}
       RATE_LIMIT_RPM: ${RATE_LIMIT_RPM:-60}
       RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-10}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://192.168.2.102:3000,http://192.168.2.102}
       APP_ENV: ${APP_ENV:-development}
       CONFIG_PATH: /app/config/application.yaml
       LLM_PRIMARY_PROVIDER: ollama
