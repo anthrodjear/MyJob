@@ -11,12 +11,15 @@ spec:
   replicas: 1
   selector:
     matchLabels:
+      {{- include "myjob.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/name: prometheus
   template:
     metadata:
       labels:
+        {{- include "myjob.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/name: prometheus
     spec:
+      serviceAccountName: prometheus
       containers:
         - name: prometheus
           image: "{{ .Values.monitoring.prometheus.image.repository }}:{{ .Values.monitoring.prometheus.image.tag }}"
@@ -53,5 +56,6 @@ spec:
           configMap:
             name: prometheus-config
         - name: data
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: prometheus-data
 {{- end }}
