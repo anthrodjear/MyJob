@@ -51,9 +51,9 @@ describe("EmptyState", () => {
         description="Empty."
       />,
     );
-    // The icon wrapper div has aria-hidden
-    const iconWrapper = screen.getByText("📧").parentElement;
-    expect(iconWrapper).toHaveAttribute("aria-hidden", "true");
+    // The icon container has aria-hidden on the outer wrapper
+    const iconContainer = screen.getByText("📧").closest("[aria-hidden='true']");
+    expect(iconContainer).toHaveAttribute("aria-hidden", "true");
   });
 
   it("renders action button when provided", () => {
@@ -103,5 +103,65 @@ describe("EmptyState", () => {
     );
     expect(container.firstChild).toHaveAttribute("class");
     expect((container.firstChild as HTMLElement).className).toContain("custom-class");
+  });
+
+  it("renders hint when provided", () => {
+    render(
+      <EmptyState
+        title="Empty"
+        description="Nothing here."
+        hint="Try a different search."
+      />,
+    );
+    expect(screen.getByText("Try a different search.")).toBeInTheDocument();
+  });
+
+  it("does not render hint when not provided", () => {
+    render(
+      <EmptyState
+        title="Empty"
+        description="Nothing here."
+      />,
+    );
+    expect(screen.queryByText(/Try a different search/)).not.toBeInTheDocument();
+  });
+
+  it("renders secondary action button when provided", () => {
+    const handleClick = vi.fn();
+    render(
+      <EmptyState
+        title="Empty"
+        description="Nothing here."
+        secondaryAction={{ label: "Learn More", onClick: handleClick }}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Learn More" })).toBeInTheDocument();
+  });
+
+  it("calls secondaryAction onClick when clicked", async () => {
+    const user = userEvent.setup();
+    const handleClick = vi.fn();
+    render(
+      <EmptyState
+        title="Empty"
+        description="Nothing here."
+        secondaryAction={{ label: "Learn More", onClick: handleClick }}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Learn More" }));
+    expect(handleClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders both buttons when both actions provided", () => {
+    render(
+      <EmptyState
+        title="Empty"
+        description="Nothing here."
+        action={{ label: "Primary", onClick: () => {} }}
+        secondaryAction={{ label: "Secondary", onClick: () => {} }}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Primary" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Secondary" })).toBeInTheDocument();
   });
 });

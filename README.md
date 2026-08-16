@@ -27,7 +27,7 @@ Job searching is repetitive, time-consuming, and error-prone. You copy-paste the
 | **Backend API** | Go 1.26, Gin, sqlx, zap | REST API server on `:8080` |
 | **Task Worker** | Go 1.26, Asynq, Redis | Async job processing (scraping, generation, form filling) |
 | **Browser Agent** | TypeScript, Playwright, Express | Headless browser automation on `:3001` |
-| **Frontend** | Next.js 15, React 19, Tailwind CSS v4 | Dashboard UI on `:3000` |
+| **Frontend** | Next.js 16, React 19, Tailwind CSS v4 | Dashboard UI on `:3000` |
 | **Database** | PostgreSQL 16 + pgvector | Persistent storage and vector embeddings |
 | **Queue/Cache** | Redis | Asynq task queue and application cache |
 | **LLM Inference** | Ollama (local) | Local embedding and text generation |
@@ -434,6 +434,8 @@ email:
 | `LIVEKIT_API_KEY` | No | Voice interview coaching |
 | `LIVEKIT_API_SECRET` | No | Voice interview coaching |
 | `GRAFANA_PASSWORD` | No | Grafana dashboard (observability) |
+| `ALLOW_INSECURE_COOKIES` | No | Set `true` in Docker production to allow session cookies over HTTP (default: cookies require HTTPS) |
+| `SESSION_SECRET` | Yes | JWT encryption key for session cookies (64-char hex, auto-generated in production) |
 
 ## Makefile Commands
 
@@ -463,6 +465,22 @@ make shell-nginx         # Shell into nginx container
 ```
 
 See `make help` for the full list.
+
+## Troubleshooting
+
+### Login redirect loops back to `/login`
+
+**Symptom:** Backend returns 200 on login, but the UI stays on the login page.
+
+**Common causes:**
+
+1. **`SESSION_SECRET` not set** — The session cookie can't be encrypted. Check that `SESSION_SECRET` is defined in your environment.
+2. **`Secure` cookie over HTTP** — In Docker production (`NODE_ENV=production`), the session cookie is set with the `Secure` flag. Browsers reject secure cookies when accessed via HTTP. Fix: set `ALLOW_INSECURE_COOKIES=true` in docker-compose environment, or access via HTTPS.
+3. **Missing `Set-Cookie` header** — Check browser DevTools → Application → Cookies after login. If no `session` cookie appears, the Route Handler isn't setting it.
+
+### Empty state shows "No items found" instead of contextual message
+
+All list views use a shared `EmptyState` component (`components/shared/EmptyState.tsx`) that accepts `title`, `description`, optional `hint`, `secondaryAction`, and `icon`. If an empty state looks generic, check that the list component passes descriptive props.
 
 ## Data Storage
 
@@ -501,11 +519,14 @@ storage/
 - Playwright for all browser interaction
 - Zod for input validation
 
-**Next.js (`frontend/`):**
-- App Router only � no `pages/` directory
-- Server Components by default � add `"use client"` only when needed
-- Tailwind CSS v4 � no `tailwind.config.js`
+### Next.js (`frontend/`):
+- App Router only — no `pages/` directory
+- Server Components by default — add `"use client"` only when needed
+- Tailwind CSS v4 — no `tailwind.config.js`
 - API calls via `fetch` with `NEXT_PUBLIC_API_URL` env var
+- Shared `EmptyState` component for consistent empty state UX across all list views
+- Session cookie auth via HTTP-only cookies (encrypted JWT with `jose`)
+- Route Handler proxy (`/api/auth/[...proxy]`) for backend API calls from Server Components
 
 ## License
 

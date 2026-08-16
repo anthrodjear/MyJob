@@ -45,7 +45,10 @@ export function CoverLetterList({ coverLetters, isLoading = false }: CoverLetter
       <EmptyState
         icon={<Mail className="h-12 w-12" />}
         title="No cover letters yet"
-        description="Cover letters are generated when you apply to jobs. Submit an application to get started."
+        description="AI-generated cover letters are created automatically when you submit job applications."
+        hint="Make sure your profile is complete for the best cover letter quality."
+        action={{ label: "View Applications", onClick: () => { window.location.href = "/dashboard/applications"; } }}
+        secondaryAction={{ label: "Edit Profile", onClick: () => { window.location.href = "/dashboard/settings"; } }}
       />
     );
   }

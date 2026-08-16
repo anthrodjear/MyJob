@@ -245,14 +245,17 @@ function LoginInner() {
       // Send trimmed password to backend (consistent with strength calculation)
       loginMutation.mutate(trimmedPassword, {
         onSuccess: () => {
-          router.push(redirectUrl);
+          // Use full page reload (not router.push) to ensure the session cookie
+          // Set-Cookie header is fully processed before the proxy runs on the
+          // next page. Soft navigation can race with cookie persistence.
+          window.location.href = redirectUrl;
         },
         onError: (err) => {
           setError(getUserMessage(err));
         },
       });
     },
-    [password, loginMutation, router, redirectUrl],
+    [password, loginMutation, redirectUrl],
   );
 
   // Show loading spinner while checking setup status

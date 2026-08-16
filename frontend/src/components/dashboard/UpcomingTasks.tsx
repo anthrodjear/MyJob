@@ -8,6 +8,7 @@
 import { type TaskResponse, type TaskStatus, type TaskType } from "@/lib/types/tasks";
 import { Card } from "@/components/shared/Card";
 import { Badge } from "@/components/shared/Badge";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { ProgressBar } from "@/components/shared/ProgressBar";
 import { formatDate } from "@/lib/utils";
 import { Zap, Cog, FileText, Mail, Mic2, LayoutTemplate, Search, Send, Target } from "lucide-react";
@@ -83,13 +84,12 @@ export function UpcomingTasks({ tasks }: UpcomingTasksProps) {
   if (tasks.length === 0) {
     return (
       <Card>
-        <div className="flex flex-col items-center justify-center py-8 text-center">
-          <Cog className="h-12 w-12 text-text-tertiary mb-2" aria-hidden="true" />
-          <p className="text-text-secondary">No upcoming tasks</p>
-          <p className="text-sm text-text-tertiary mt-1">
-            Tasks will appear here when jobs are discovered or applications are submitted
-          </p>
-        </div>
+        <EmptyState
+          icon={<Cog className="h-12 w-12" />}
+          title="No pending tasks"
+          description="Tasks are created automatically when the system discovers jobs, generates resumes, or fills applications."
+          hint="Your task queue is empty — run a job discovery to get started."
+        />
       </Card>
     );
   }

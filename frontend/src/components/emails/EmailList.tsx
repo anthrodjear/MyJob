@@ -41,6 +41,19 @@ function EmailListSkeleton() {
 }
 
 export function EmailList({ emails, isLoading = false, onSelect }: EmailListProps) {
+  // Empty state — early return to avoid nesting role="status" inside role="list"
+  if (emails.length === 0 && !isLoading) {
+    return (
+      <EmptyState
+        icon={<Inbox className="h-12 w-12" />}
+        title="No emails yet"
+        description="Recruiter emails and application confirmations will appear here once your email is connected."
+        hint="Set up email integration in Settings to start receiving notifications."
+        action={{ label: "Open Settings", onClick: () => { window.location.href = "/dashboard/settings"; } }}
+      />
+    );
+  }
+
   // Use SkeletonWrapper to enforce min/max display times and prevent pop-ins
   return (
     <SkeletonWrapper
@@ -51,25 +64,11 @@ export function EmailList({ emails, isLoading = false, onSelect }: EmailListProp
       ariaLiveRegion="Emails loaded"
     >
       <div className="space-y-3" role="list" aria-label="Emails">
-        {/* Empty state */}
-        {emails.length === 0 && !isLoading && (
-          <EmptyState
-            icon={<Inbox className="h-12 w-12" />}
-            title="No emails found"
-            description="Emails from job portals will appear here."
-          />
-        )}
-
-        {/* Emails list */}
-        {emails.length > 0 && (
-          <>
-            {emails.map((email) => (
-              <div key={email.id} role="listitem">
-                <EmailCard email={email} onClick={() => onSelect?.(email)} />
-              </div>
-            ))}
-          </>
-        )}
+        {emails.map((email) => (
+          <div key={email.id} role="listitem">
+            <EmailCard email={email} onClick={() => onSelect?.(email)} />
+          </div>
+        ))}
       </div>
     </SkeletonWrapper>
   );
