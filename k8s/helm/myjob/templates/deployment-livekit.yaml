@@ -6,19 +6,17 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "myjob.labels" . | nindent 4 }}
-    app.kubernetes.io/name: livekit
     app.kubernetes.io/component: livekit
 spec:
   replicas: 1
   selector:
     matchLabels:
       {{- include "myjob.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/name: livekit
+      app.kubernetes.io/component: livekit
   template:
     metadata:
       labels:
         {{- include "myjob.labels" . | nindent 8 }}
-        app.kubernetes.io/name: livekit
         app.kubernetes.io/component: livekit
     spec:
       containers:

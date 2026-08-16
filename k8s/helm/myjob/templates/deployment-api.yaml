@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-api
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "myjob.labels" . | nindent 4 }}
     app.kubernetes.io/component: api
@@ -148,10 +148,16 @@ spec:
           volumeMounts:
             - name: storage
               mountPath: /app/storage
+            - name: app-config
+              mountPath: /app/config
+              readOnly: true
       volumes:
         - name: storage
           persistentVolumeClaim:
             claimName: storage-data
+        - name: app-config
+          configMap:
+            name: app-config
       imagePullSecrets:
         {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
 {{- end }}

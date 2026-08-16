@@ -6,7 +6,6 @@ metadata:
   namespace: monitoring
   labels:
     {{- include "myjob.labels" . | nindent 4 }}
-    app.kubernetes.io/name: prometheus
 spec:
   type: ClusterIP
   ports:
@@ -16,5 +15,4 @@ spec:
       name: http
   selector:
     {{- include "myjob.selectorLabels" . | nindent 4 }}
-    app.kubernetes.io/name: prometheus
 {{- end }}
