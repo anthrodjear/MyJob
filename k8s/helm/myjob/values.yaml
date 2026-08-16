@@ -31,6 +31,10 @@ api:
       memory: 512Mi
   autoscaling:
     enabled: false
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
   healthCheck:
     path: /health
     initialDelaySeconds: 15
@@ -69,6 +73,10 @@ worker:
       memory: 512Mi
   autoscaling:
     enabled: false
+    minReplicas: 1
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
   env:
     APP_ENV: production
     QUEUE_CONCURRENCY: "10"
@@ -98,6 +106,10 @@ browserAgent:
       memory: 768Mi
   autoscaling:
     enabled: false
+    minReplicas: 1
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 60
+    targetMemoryUtilizationPercentage: 70
   env:
     LOG_LEVEL: info
 
@@ -121,6 +133,10 @@ frontend:
       memory: 256Mi
   autoscaling:
     enabled: false
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
   env:
     NODE_ENV: production
     NEXT_PUBLIC_API_URL: "/api"
