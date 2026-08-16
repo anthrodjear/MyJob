@@ -1,0 +1,132 @@
+name: K8s Chart Tests
+
+on:
+  pull_request:
+    paths:
+      - 'k8s/**'
+      - '.github/workflows/k8s-test.yml'
+  push:
+    branches:
+      - main
+      - k8s
+    paths:
+      - 'k8s/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  helm-lint:
+    name: Helm Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.14.0'
+
+      - name: Lint Helm chart
+        run: helm lint k8s/helm/myjob/
+
+  helm-template:
+    name: Helm Template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.14.0'
+
+      - name: Template Helm chart (dry-run)
+        run: |
+          helm template myjob k8s/helm/myjob/ \
+            --namespace myjob \
+            --set secrets.database.password=test \
+            --set secrets.auth.jwtSecret=test \
+            --set secrets.auth.passwordHash=test \
+            --set secrets.auth.sessionSecret=test \
+            --set secrets.redis.password=test \
+            --set secrets.livekit.apiKey=test \
+            --set secrets.livekit.apiSecret=test \
+            --set secrets.llm.openaiApiKey=test \
+            --set secrets.llm.anthropicApiKey=test \
+            --set secrets.microsoft.tenantId=test \
+            --set secrets.microsoft.clientId=test \
+            --set secrets.microsoft.clientSecret=test
+
+      - name: Validate rendered resources
+        run: |
+          TEMPLATE=$(helm template myjob k8s/helm/myjob/ \
+            --namespace myjob \
+            --set secrets.database.password=test \
+            --set secrets.auth.jwtSecret=test \
+            --set secrets.auth.passwordHash=test \
+            --set secrets.auth.sessionSecret=test \
+            --set secrets.redis.password=test \
+            --set secrets.livekit.apiKey=test \
+            --set secrets.livekit.apiSecret=test \
+            --set secrets.llm.openaiApiKey=test \
+            --set secrets.llm.anthropicApiKey=test \
+            --set secrets.microsoft.tenantId=test \
+            --set secrets.microsoft.clientId=test \
+            --set secrets.microsoft.clientSecret=test)
+
+          # Check required resources exist
+          echo "$TEMPLATE" | grep -q "kind: Deployment" || (echo "ERROR: No Deployment found" && exit 1)
+          echo "$TEMPLATE" | grep -q "kind: Service" || (echo "ERROR: No Service found" && exit 1)
+          echo "$TEMPLATE" | grep -q "kind: StatefulSet" || (echo "ERROR: No StatefulSet found" && exit 1)
+          echo "$TEMPLATE" | grep -q "kind: Ingress" || (echo "ERROR: No Ingress found" && exit 1)
+          echo "$TEMPLATE" | grep -q "kind: PersistentVolumeClaim" || (echo "ERROR: No PVC found" && exit 1)
+          echo "$TEMPLATE" | grep -q "kind: NetworkPolicy" || (echo "ERROR: No NetworkPolicy found" && exit 1)
+
+          # Count resources
+          DEPLOYMENTS=$(echo "$TEMPLATE" | grep -c "kind: Deployment" || true)
+          SERVICES=$(echo "$TEMPLATE" | grep -c "kind: Service" || true)
+          STATEFULSETS=$(echo "$TEMPLATE" | grep -c "kind: StatefulSet" || true)
+
+          echo "### Helm Template Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Resource | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Deployments | $DEPLOYMENTS |" >> $GITHUB_STEP_SUMMARY
+          echo "| Services | $SERVICES |" >> $GITHUB_STEP_SUMMARY
+          echo "| StatefulSets | $STATEFULSETS |" >> $GITHUB_STEP_SUMMARY
+
+  helm-kubeval:
+    name: Kubeval Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.14.0'
+
+      - name: Install kubeval
+        run: |
+          curl -sL https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz | tar xz
+          sudo mv kubeval /usr/local/bin/
+
+      - name: Validate with kubeval
+        run: |
+          helm template myjob k8s/helm/myjob/ \
+            --namespace myjob \
+            --set secrets.database.password=test \
+            --set secrets.auth.jwtSecret=test \
+            --set secrets.auth.passwordHash=test \
+            --set secrets.auth.sessionSecret=test \
+            --set secrets.redis.password=test \
+            --set secrets.livekit.apiKey=test \
+            --set secrets.livekit.apiSecret=test \
+            --set secrets.llm.openaiApiKey=test \
+            --set secrets.llm.anthropicApiKey=test \
+            --set secrets.microsoft.tenantId=test \
+            --set secrets.microsoft.clientId=test \
+            --set secrets.microsoft.clientSecret=test \
+            | kubeval --strict --ignore-missing-schemas
