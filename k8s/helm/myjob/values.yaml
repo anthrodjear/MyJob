@@ -14,7 +14,7 @@ namespace: myjob
 # -- API Server
 api:
   enabled: true
-  replicaCount: 2
+  replicaCount: 1
   image:
     repository: anthrodjear/myjob-api
     tag: "latest"
@@ -24,14 +24,14 @@ api:
     port: 8080
   resources:
     requests:
-      cpu: 250m
+      cpu: 100m
       memory: 256Mi
     limits:
-      cpu: 1000m
+      cpu: 500m
       memory: 512Mi
   autoscaling:
-    enabled: true
-    minReplicas: 2
+    enabled: false
+    minReplicas: 1
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
     targetMemoryUtilizationPercentage: 80
@@ -45,25 +45,35 @@ api:
     APP_ENV: production
     PORT: "8080"
     CONFIG_PATH: /app/config/application.yaml
+    QUEUE_CONCURRENCY: "10"
+    RATE_LIMIT_RPM: "120"
+    RATE_LIMIT_BURST: "20"
+    CORS_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000,http://192.168.2.102:3000,http://192.168.2.102"
+    LLM_PRIMARY_PROVIDER: ollama
+    LLM_FALLBACK_PROVIDER: ollama
+    VOICE_PROVIDER: ollama
+    OLLAMA_MODEL: nemotron-3-super:cloud
+    OLLAMA_EMBED_MODEL: granite-embedding:latest
+    EMAIL_FOLDERS: "Inbox,Jobs,Applications"
 
 # -- Worker Service
 worker:
   enabled: true
-  replicaCount: 2
+  replicaCount: 1
   image:
     repository: anthrodjear/myjob-worker
     tag: "latest"
     pullPolicy: IfNotPresent
   resources:
     requests:
-      cpu: 250m
+      cpu: 100m
       memory: 256Mi
     limits:
-      cpu: 1000m
+      cpu: 500m
       memory: 512Mi
   autoscaling:
-    enabled: true
-    minReplicas: 2
+    enabled: false
+    minReplicas: 1
     maxReplicas: 8
     targetCPUUtilizationPercentage: 70
     targetMemoryUtilizationPercentage: 80
@@ -71,11 +81,15 @@ worker:
     APP_ENV: production
     QUEUE_CONCURRENCY: "10"
     CONFIG_PATH: /app/config/application.yaml
+    LLM_PRIMARY_PROVIDER: ollama
+    LLM_FALLBACK_PROVIDER: ollama
+    OLLAMA_MODEL: nemotron-3-super:cloud
+    OLLAMA_EMBED_MODEL: granite-embedding:latest
 
 # -- Browser Agent
 browserAgent:
   enabled: true
-  replicaCount: 2
+  replicaCount: 1
   image:
     repository: anthrodjear/myjob-browser-agent
     tag: "latest"
@@ -85,14 +99,14 @@ browserAgent:
     port: 3000
   resources:
     requests:
-      cpu: 500m
-      memory: 512Mi
+      cpu: 250m
+      memory: 384Mi
     limits:
-      cpu: 2000m
-      memory: 1Gi
+      cpu: 1000m
+      memory: 768Mi
   autoscaling:
-    enabled: true
-    minReplicas: 2
+    enabled: false
+    minReplicas: 1
     maxReplicas: 6
     targetCPUUtilizationPercentage: 60
     targetMemoryUtilizationPercentage: 70
@@ -102,7 +116,7 @@ browserAgent:
 # -- Frontend (Next.js)
 frontend:
   enabled: true
-  replicaCount: 2
+  replicaCount: 1
   image:
     repository: anthrodjear/myjob-frontend
     tag: "latest"
@@ -112,20 +126,22 @@ frontend:
     port: 3000
   resources:
     requests:
-      cpu: 100m
+      cpu: 50m
       memory: 128Mi
     limits:
-      cpu: 500m
+      cpu: 250m
       memory: 256Mi
   autoscaling:
-    enabled: true
-    minReplicas: 2
+    enabled: false
+    minReplicas: 1
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
     targetMemoryUtilizationPercentage: 80
   env:
     NODE_ENV: production
-    NEXT_PUBLIC_API_URL: "/api"  # Same-origin frontend API path. Backend ingress should route /api/v1 to the API service.
+    NEXT_PUBLIC_API_URL: "/api"
+    SESSION_SECRET: ""  # From secret
+    BACKEND_URL: "http://api:8080"
 
 # -- PostgreSQL
 postgres:
@@ -143,11 +159,11 @@ postgres:
     storageClass: standard
   resources:
     requests:
-      cpu: 250m
-      memory: 512Mi
+      cpu: 100m
+      memory: 256Mi
     limits:
-      cpu: 1000m
-      memory: 1Gi
+      cpu: 500m
+      memory: 512Mi
   env:
     POSTGRES_DB: myjob
     POSTGRES_USER: myjob
@@ -168,64 +184,123 @@ redis:
     storageClass: standard
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 50m
+      memory: 64Mi
     limits:
-      cpu: 500m
-      memory: 256Mi
+      cpu: 250m
+      memory: 128Mi
 
 # -- Ingress
 ingress:
   enabled: true
-  className: nginx
+  className: traefik
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
   hosts:
-    - host: myjob.example.com
+    - host: 192.168.2.102
       paths:
         - path: /
           pathType: Prefix
           service: frontend
           port: 3000
-        - path: /api/v1
+        - path: /api
           pathType: Prefix
           service: api
           port: 8080
+        - path: /livekit
+          pathType: Prefix
+          service: livekit
+          port: 7880
   tls:
     - secretName: myjob-tls
       hosts:
-        - myjob.example.com
+        - 192.168.2.102
 
 # -- Secrets (reference existing K8s secrets)
 secrets:
-  # Database password stored in K8s Secret
   database:
     secretName: myjob-database
     keys:
       password: POSTGRES_PASSWORD
-  # JWT secret stored in K8s Secret
   auth:
     secretName: myjob-auth
     keys:
       jwtSecret: AUTH_JWT_SECRET
       passwordHash: AUTH_PASSWORD_HASH
-  # LiveKit
+      sessionSecret: SESSION_SECRET
   livekit:
     secretName: myjob-livekit
     keys:
       apiKey: LIVEKIT_API_KEY
       apiSecret: LIVEKIT_API_SECRET
-  # Redis password
   redis:
     secretName: myjob-redis
     keys:
       password: REDIS_PASSWORD
+  llm:
+    secretName: myjob-llm
+    keys:
+      openaiApiKey: OPENAI_API_KEY
+      anthropicApiKey: ANTHROPIC_API_KEY
+  microsoft:
+    secretName: myjob-microsoft
+    keys:
+      tenantId: MS_TENANT_ID
+      clientId: MS_CLIENT_ID
+      clientSecret: MS_CLIENT_SECRET
 
 # -- Ollama (external service, override per environment)
 ollama:
   baseUrl: "http://ollama.ollama.svc.cluster.local:11434"
+
+# -- LiveKit
+livekit:
+  enabled: true
+  apiKey: ""
+  apiSecret: ""
+  image:
+    repository: livekit/livekit-server
+    tag: "v1.7.1"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 7880
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# -- Monitoring (Prometheus + Grafana)
+monitoring:
+  enabled: true
+  prometheus:
+    image:
+      repository: prom/prometheus
+      tag: "v2.53.0"
+    storage: 5Gi
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+  grafana:
+    image:
+      repository: grafana/grafana
+      tag: "11.1.0"
+    adminPassword: "admin"
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 128Mi
 
 # -- Network Policy
 networkPolicy:

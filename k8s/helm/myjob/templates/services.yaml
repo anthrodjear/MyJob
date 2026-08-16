@@ -3,7 +3,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Release.Name }}-api
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "myjob.labels" . | nindent 4 }}
     app.kubernetes.io/component: api
@@ -24,7 +24,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Release.Name }}-browser-agent
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "myjob.labels" . | nindent 4 }}
     app.kubernetes.io/component: browser-agent
@@ -45,7 +45,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Release.Name }}-frontend
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "myjob.labels" . | nindent 4 }}
     app.kubernetes.io/component: frontend
@@ -66,7 +66,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Release.Name }}-postgres
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "myjob.labels" . | nindent 4 }}
     app.kubernetes.io/component: postgres
@@ -87,7 +87,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Release.Name }}-redis
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "myjob.labels" . | nindent 4 }}
     app.kubernetes.io/component: redis
@@ -101,4 +101,29 @@ spec:
   selector:
     {{- include "myjob.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: redis
+{{- end }}
+---
+{{- if .Values.livekit.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-livekit
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "myjob.labels" . | nindent 4 }}
+    app.kubernetes.io/component: livekit
+spec:
+  type: {{ .Values.livekit.service.type }}
+  ports:
+    - port: {{ .Values.livekit.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    - port: 7881
+      targetPort: tcp
+      protocol: TCP
+      name: tcp
+  selector:
+    {{- include "myjob.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: livekit
 {{- end }}

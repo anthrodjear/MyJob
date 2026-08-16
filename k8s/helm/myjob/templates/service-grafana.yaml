@@ -1,0 +1,19 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: monitoring
+  labels:
+    {{- include "myjob.labels" . | nindent 4 }}
+spec:
+  type: NodePort
+  ports:
+    - port: 3000
+      targetPort: http
+      protocol: TCP
+      name: http
+      nodePort: 30001
+  selector:
+    {{- include "myjob.selectorLabels" . | nindent 4 }}
+{{- end }}

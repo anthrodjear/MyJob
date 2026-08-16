@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-worker
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "myjob.labels" . | nindent 4 }}
     app.kubernetes.io/component: worker
@@ -42,6 +42,11 @@ spec:
               value: {{ .Values.worker.env.QUEUE_CONCURRENCY | quote }}
             - name: CONFIG_PATH
               value: {{ .Values.worker.env.CONFIG_PATH | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.database.secretName }}
+                  key: {{ .Values.secrets.database.keys.password }}
             - name: DATABASE_URL
               value: "postgres://myjob:$(POSTGRES_PASSWORD)@{{ include "myjob.postgres.host" . }}:5432/myjob?sslmode=disable"
             - name: REDIS_URL
@@ -52,11 +57,6 @@ spec:
               value: {{ .Values.ollama.baseUrl | default "http://ollama.ollama.svc.cluster.local:11434" | quote }}
             - name: LIVEKIT_WS_URL
               value: "ws://{{ .Release.Name }}-livekit:7880"
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.secrets.database.secretName }}
-                  key: {{ .Values.secrets.database.keys.password }}
             - name: AUTH_JWT_SECRET
               valueFrom:
                 secretKeyRef:
@@ -77,8 +77,38 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.secrets.livekit.secretName }}
                   key: {{ .Values.secrets.livekit.keys.apiSecret }}
+            - name: LLM_PRIMARY_PROVIDER
+              value: {{ .Values.worker.env.LLM_PRIMARY_PROVIDER | quote }}
+            - name: LLM_FALLBACK_PROVIDER
+              value: {{ .Values.worker.env.LLM_FALLBACK_PROVIDER | quote }}
+            - name: OLLAMA_MODEL
+              value: {{ .Values.worker.env.OLLAMA_MODEL | quote }}
+            - name: OLLAMA_EMBED_MODEL
+              value: {{ .Values.worker.env.OLLAMA_EMBED_MODEL | quote }}
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.llm.secretName }}
+                  key: OPENAI_API_KEY
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.llm.secretName }}
+                  key: ANTHROPIC_API_KEY
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.auth.secretName }}
+                  key: SESSION_SECRET
           resources:
             {{- toYaml .Values.worker.resources | nindent 12 }}
+          volumeMounts:
+            - name: storage
+              mountPath: /app/storage
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: storage-data
       imagePullSecrets:
         {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
 {{- end }}

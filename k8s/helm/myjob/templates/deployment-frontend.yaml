@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-frontend
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "myjob.labels" . | nindent 4 }}
     app.kubernetes.io/component: frontend
@@ -46,6 +46,13 @@ spec:
               value: {{ .Values.frontend.env.NEXT_PUBLIC_API_URL | quote }}
             - name: INTERNAL_API_URL
               value: "http://{{ .Release.Name }}-api:{{ .Values.api.service.port }}"
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.auth.secretName }}
+                  key: SESSION_SECRET
+            - name: BACKEND_URL
+              value: {{ .Values.frontend.env.BACKEND_URL | quote }}
           livenessProbe:
             httpGet:
               path: /

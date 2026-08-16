@@ -1,0 +1,135 @@
+name: K8s Chart Tests
+
+on:
+  pull_request:
+    paths:
+      - 'k8s/**'
+      - '.github/workflows/k8s-test.yml'
+  push:
+    branches:
+      - main
+      - k8s
+    paths:
+      - 'k8s/**'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  helm-lint:
+    name: Helm Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.14.0'
+
+      - name: Lint Helm chart
+        shell: bash
+        run: helm lint k8s/helm/myjob/
+
+  helm-template:
+    name: Helm Template Validation
+    runs-on: ubuntu-latest
+    env:
+      HELM_SETS: >-
+        --set secrets.database.password=test
+        --set secrets.auth.jwtSecret=test
+        --set secrets.auth.passwordHash=test
+        --set secrets.auth.sessionSecret=test
+        --set secrets.redis.password=test
+        --set secrets.livekit.apiKey=test
+        --set secrets.livekit.apiSecret=test
+        --set secrets.llm.openaiApiKey=test
+        --set secrets.llm.anthropicApiKey=test
+        --set secrets.microsoft.tenantId=test
+        --set secrets.microsoft.clientId=test
+        --set secrets.microsoft.clientSecret=test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.14.0'
+
+      - name: Template and validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          helm template myjob k8s/helm/myjob/ --namespace myjob $HELM_SETS > /tmp/rendered.yaml
+
+          # Check required resources exist
+          grep -q "kind: Deployment" /tmp/rendered.yaml || (echo "ERROR: No Deployment found" && exit 1)
+          grep -q "kind: Service" /tmp/rendered.yaml || (echo "ERROR: No Service found" && exit 1)
+          grep -q "kind: StatefulSet" /tmp/rendered.yaml || (echo "ERROR: No StatefulSet found" && exit 1)
+          grep -q "kind: Ingress" /tmp/rendered.yaml || (echo "ERROR: No Ingress found" && exit 1)
+          grep -q "kind: PersistentVolumeClaim" /tmp/rendered.yaml || (echo "ERROR: No PVC found" && exit 1)
+          grep -q "kind: NetworkPolicy" /tmp/rendered.yaml || (echo "ERROR: No NetworkPolicy found" && exit 1)
+
+          # Count resources
+          DEPLOYMENTS=$(grep -c "kind: Deployment" /tmp/rendered.yaml || true)
+          SERVICES=$(grep -c "kind: Service" /tmp/rendered.yaml || true)
+          STATEFULSETS=$(grep -c "kind: StatefulSet" /tmp/rendered.yaml || true)
+          INGRESSIONS=$(grep -c "kind: Ingress" /tmp/rendered.yaml || true)
+          PVCS=$(grep -c "kind: PersistentVolumeClaim" /tmp/rendered.yaml || true)
+          NETWORKPOLICIES=$(grep -c "kind: NetworkPolicy" /tmp/rendered.yaml || true)
+
+          echo "### Helm Template Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Resource | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Deployments | $DEPLOYMENTS |" >> $GITHUB_STEP_SUMMARY
+          echo "| Services | $SERVICES |" >> $GITHUB_STEP_SUMMARY
+          echo "| StatefulSets | $STATEFULSETS |" >> $GITHUB_STEP_SUMMARY
+          echo "| Ingress | $INGRESSIONS |" >> $GITHUB_STEP_SUMMARY
+          echo "| PVCs | $PVCS |" >> $GITHUB_STEP_SUMMARY
+          echo "| NetworkPolicies | $NETWORKPOLICIES |" >> $GITHUB_STEP_SUMMARY
+
+  kubeconform:
+    name: Kubeconform Validation
+    runs-on: ubuntu-latest
+    env:
+      HELM_SETS: >-
+        --set secrets.database.password=test
+        --set secrets.auth.jwtSecret=test
+        --set secrets.auth.passwordHash=test
+        --set secrets.auth.sessionSecret=test
+        --set secrets.redis.password=test
+        --set secrets.livekit.apiKey=test
+        --set secrets.livekit.apiSecret=test
+        --set secrets.llm.openaiApiKey=test
+        --set secrets.llm.anthropicApiKey=test
+        --set secrets.microsoft.tenantId=test
+        --set secrets.microsoft.clientId=test
+        --set secrets.microsoft.clientSecret=test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.14.0'
+
+      - name: Install kubeconform
+        shell: bash
+        run: |
+          KUBECONFORM_VERSION="v0.6.7"
+          curl -sL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" -o kubeconform.tar.gz
+          tar xzf kubeconform.tar.gz
+          sudo mv kubeconform /usr/local/bin/
+          kubeconform -v
+
+      - name: Validate with kubeconform
+        shell: bash
+        run: |
+          helm template myjob k8s/helm/myjob/ --namespace myjob $HELM_SETS \
+            | kubeconform --strict --ignore-missing-schemas -output text
