@@ -8,6 +8,8 @@ Migrate the MyJob application from Docker Compose to k3s (lightweight Kubernetes
 - Resource efficiency
 - Scalability (multi-node ready)
 
+**Existing Helm charts:** `k8s/helm/myjob/` already has deployments, statefulsets, ingress, HPA, PDB, network policies, and service accounts. We're building on these, not starting from scratch.
+
 ## Constraints
 
 - **Server:** Single-node home server at 192.168.2.102
