@@ -1,6 +1,10 @@
 /**
  * Auth API functions — login, password management, and onboarding.
  *
+ * Authentication uses HTTP-only session cookies (set by the Route Handler
+ * at /api/auth/[...proxy]/route.ts). The client does NOT store tokens in
+ * localStorage — all auth state lives in the server-set cookie.
+ *
  * Backend endpoints:
  * - POST /auth/login → { access_token, refresh_token, expires_at }
  * - POST /auth/refresh → { access_token, refresh_token, expires_at }
@@ -15,27 +19,17 @@
  * - POST /auth/setup/onboarding-step → { message }
  * - POST /auth/setup/complete-onboarding → { message }
  *
- * Token storage is handled by lib/auth.ts (localStorage).
- * The API client (lib/api/client.ts) automatically injects the token.
+ * The API client (lib/api/client.ts) automatically sends cookies via
+ * credentials: 'include'. The *WithRefresh variants handle 401 → refresh → retry.
  *
  * @example
  *   import { login } from "@/lib/api/auth";
- *   const resp = await login("my-password");
- *   // resp.access_token is stored, all subsequent apiFetch calls use it
+ *   await login("my-password");
+ *   // Session cookie is set automatically — all subsequent apiFetch calls
+ *   // are authenticated via the cookie
  */
 
 import { apiPost, ApiError } from "./client";
-import { setAuthTokens, getRefreshToken } from "@/lib/auth";
-
-/**
- * Response from POST /auth/login and POST /auth/refresh.
- * Snake_case fields match the backend contract.
- */
-export interface LoginResponse {
-  access_token: string;
-  refresh_token: string;
-  expires_at: number;
-}
 
 /** Response from POST /auth/change-password and POST /auth/logout. */
 export interface MessageResponse {
@@ -43,64 +37,45 @@ export interface MessageResponse {
 }
 
 /**
- * Authenticate with the backend and store the JWT + refresh token.
+ * Authenticate with the backend via the login Route Handler and set the
+ * HTTP-only session cookie.
+ *
+ * Calls POST /api/auth/login (Next.js Route Handler) which:
+ *   1. Proxies to Go backend POST /api/v1/auth/login
+ *   2. Encrypts tokens into HTTP-only session cookie
+ *   3. Returns success to the client
+ *
+ * No token storage is needed on the client — the session cookie is
+ * automatically managed by the browser.
  *
  * @param password - User's password (single-user local app)
- * @returns Login response with tokens and expiry
  * @throws ApiError on invalid credentials or server error
  *
  * @example
- *   const { access_token, refresh_token } = await login("my-password");
- *   // Tokens are now stored in localStorage — all apiFetch calls use the access token
+ *   await login("my-password");
+ *   // Session cookie is set — all subsequent apiFetch calls are authenticated
  */
-export async function login(password: string): Promise<LoginResponse> {
-  const resp = await apiPost<LoginResponse>("/auth/login", { password });
-  if (resp == null) {
-    throw new ApiError(500, "EMPTY_RESPONSE", "Login failed: no response from server");
-  }
-  // Store both tokens for subsequent API calls
-  setAuthTokens({
-    accessToken: resp.access_token,
-    refreshToken: resp.refresh_token,
-    expiresAt: resp.expires_at,
+export async function login(password: string): Promise<void> {
+  const resp = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ password }),
   });
-  return resp;
-}
 
-/**
- * Refresh the access token using the stored refresh token.
- *
- * @deprecated This function is for manual refresh only. The API client (client.ts)
- * handles refresh automatically on 401. Use apiFetchWithRefresh for automatic retry.
- *
- * @returns New token pair
- * @throws ApiError if refresh token is invalid or expired
- *
- * @example
- *   const { access_token, refresh_token } = await refreshAccessToken();
- *   // New tokens are stored automatically
- */
-export async function refreshAccessToken(): Promise<LoginResponse> {
-  const refreshToken = getRefreshToken();
-  if (refreshToken == null) {
-    throw new ApiError(401, "NO_REFRESH_TOKEN", "No refresh token available");
+  if (!resp.ok) {
+    const body = (await resp.json().catch(() => ({}))) as {
+      error?: string | { code?: string; message?: string };
+    };
+    const errorObj = typeof body?.error === "object" ? body.error : null;
+    const code =
+      errorObj?.code ??
+      (typeof body?.error === "string" ? body.error : "LOGIN_FAILED");
+    const message =
+      errorObj?.message ??
+      (typeof body?.error === "string" ? body.error : "Login failed");
+    throw new ApiError(resp.status, code, message);
   }
-
-  const resp = await apiPost<LoginResponse>(
-    "/auth/refresh",
-    { refresh_token: refreshToken },
-    { skipAuth: true }, // Refresh endpoint only needs the refresh token
-  );
-  if (resp == null) {
-    throw new ApiError(500, "EMPTY_RESPONSE", "Refresh failed: no response from server");
-  }
-  // Store new tokens
-  setAuthTokens({
-    accessToken: resp.access_token,
-    refreshToken: resp.refresh_token,
-    expiresAt: resp.expires_at,
-  });
-  return resp;
 }
 
 /**
@@ -131,15 +106,16 @@ export async function changePassword(
 /**
  * Logout — revoke all refresh tokens for the current user on the server.
  *
- * Call this before clearing local tokens to ensure the refresh token
- * cannot be reused. The access token is stateless and expires on its own.
+ * Call this before clearing local auth state to ensure the refresh token
+ * cannot be reused. The session cookie is cleared by the Route Handler.
+ * The access token is stateless and expires on its own.
  *
  * @returns Confirmation message
- * @throws ApiError on server error (client should still clear local tokens)
+ * @throws ApiError on server error (client should still clear session)
  *
  * @example
  *   await logout();
- *   clearAuthTokens(); // Always clear local state even if server call fails
+ *   // Session cookie is cleared by the Route Handler
  */
 export async function logout(): Promise<MessageResponse> {
   const resp = await apiPost<MessageResponse>("/auth/logout", {});
@@ -160,41 +136,71 @@ export async function logout(): Promise<MessageResponse> {
 /**
  * GET helper for /api/auth/* proxy routes (setup/status etc.).
  * Uses standard fetch — no backend URL construction.
+ *
+ * Includes a 10s timeout to prevent hanging requests.
  */
 async function authProxyGet<T>(path: string): Promise<T> {
-  const res = await fetch(`/api/auth/${path}`, {
-    method: "GET",
-    credentials: "include",
-    cache: "no-store",
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    const code = body?.error?.code ?? "UNKNOWN_ERROR";
-    const message = body?.error?.message ?? `Request failed with status ${res.status}`;
-    throw new ApiError(res.status, code, message);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const res = await fetch(`/api/auth/${path}`, {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const code = body?.error?.code ?? "UNKNOWN_ERROR";
+      const message = body?.error?.message ?? `Request failed with status ${res.status}`;
+      throw new ApiError(res.status, code, message);
+    }
+    return res.json() as Promise<T>;
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new ApiError(408, "TIMEOUT", "Request timed out. Please try again.");
+    }
+    throw new ApiError(500, "PROXY_ERROR", "Something went wrong");
+  } finally {
+    clearTimeout(timeoutId);
   }
-  return res.json() as Promise<T>;
 }
 
 /**
  * POST helper for /api/auth/* proxy routes (setup, onboarding etc.).
  * Uses standard fetch — no backend URL construction.
+ *
+ * Includes a 10s timeout to prevent hanging requests.
  */
 async function authProxyPost<T>(path: string, data?: unknown): Promise<T> {
-  const res = await fetch(`/api/auth/${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    cache: "no-store",
-    body: data != null ? JSON.stringify(data) : undefined,
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    const code = body?.error?.code ?? "UNKNOWN_ERROR";
-    const message = body?.error?.message ?? `Request failed with status ${res.status}`;
-    throw new ApiError(res.status, code, message);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const res = await fetch(`/api/auth/${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      cache: "no-store",
+      signal: controller.signal,
+      body: data != null ? JSON.stringify(data) : undefined,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const code = body?.error?.code ?? "UNKNOWN_ERROR";
+      const message = body?.error?.message ?? `Request failed with status ${res.status}`;
+      throw new ApiError(res.status, code, message);
+    }
+    return res.json() as Promise<T>;
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new ApiError(408, "TIMEOUT", "Request timed out. Please try again.");
+    }
+    throw new ApiError(500, "PROXY_ERROR", "Something went wrong");
+  } finally {
+    clearTimeout(timeoutId);
   }
-  return res.json() as Promise<T>;
 }
 
 // --- Setup API ---
