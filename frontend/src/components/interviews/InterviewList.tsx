@@ -41,6 +41,19 @@ function InterviewListSkeleton() {
 }
 
 export function InterviewList({ interviews, isLoading = false, onSelect }: InterviewListProps) {
+  // Empty state — early return to avoid nesting role="status" inside role="list"
+  if (interviews.length === 0 && !isLoading) {
+    return (
+      <EmptyState
+        icon={<Mic className="h-12 w-12" />}
+        title="No interview sessions"
+        description="AI-powered interview practice sessions will appear here. Start one from an application's detail page."
+        hint="Apply to jobs first — interview prep is available for each application."
+        action={{ label: "View Applications", onClick: () => { window.location.href = "/dashboard/applications"; } }}
+      />
+    );
+  }
+
   // Use SkeletonWrapper to enforce min/max display times and prevent pop-ins
   return (
     <SkeletonWrapper
@@ -51,25 +64,11 @@ export function InterviewList({ interviews, isLoading = false, onSelect }: Inter
       ariaLiveRegion="Interviews loaded"
     >
       <div className="space-y-3" role="list" aria-label="Interview sessions">
-        {/* Empty state */}
-        {interviews.length === 0 && !isLoading && (
-          <EmptyState
-            icon={<Mic className="h-12 w-12" />}
-            title="No interviews yet"
-            description="Start an interview session from an application."
-          />
-        )}
-
-        {/* Interviews list */}
-        {interviews.length > 0 && (
-          <>
-            {interviews.map((interview) => (
-              <div key={interview.id} role="listitem">
-                <InterviewCard interview={interview} onClick={() => onSelect?.(interview)} />
-              </div>
-            ))}
-          </>
-        )}
+        {interviews.map((interview) => (
+          <div key={interview.id} role="listitem">
+            <InterviewCard interview={interview} onClick={() => onSelect?.(interview)} />
+          </div>
+        ))}
       </div>
     </SkeletonWrapper>
   );

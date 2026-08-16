@@ -84,8 +84,11 @@ export function ApplicationList({
     return (
       <EmptyState
         icon={<Inbox className="h-12 w-12" />}
-        title="No applications found"
-        description="Applications will appear here once jobs are submitted."
+        title="No applications yet"
+        description="Applications are created when jobs score above your auto-approval threshold, or when you manually approve them."
+        hint="Discover jobs first, then review and approve the ones you like."
+        action={{ label: "Discover Jobs", onClick: () => { window.location.href = "/dashboard/jobs"; } }}
+        secondaryAction={{ label: "Review Approvals", onClick: () => { window.location.href = "/dashboard/approvals"; } }}
       />
     );
   }

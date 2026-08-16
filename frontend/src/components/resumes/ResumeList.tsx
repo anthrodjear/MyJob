@@ -45,11 +45,13 @@ export function ResumeList({ resumes, isLoading = false }: ResumeListProps) {
       <EmptyState
         icon={<FileText className="h-12 w-12" />}
         title="No resumes yet"
-        description="Create your first resume to get started with AI-powered job applications."
+        description="Create your first resume to get started with AI-powered job applications. Tailored resumes improve your match scores."
+        hint="Complete your profile and add work experience for the best resume quality."
         action={{
           label: "Create Resume",
           onClick: () => { window.location.href = "/dashboard/resumes/new"; },
         }}
+        secondaryAction={{ label: "Edit Profile", onClick: () => { window.location.href = "/dashboard/settings"; } }}
       />
     );
   }

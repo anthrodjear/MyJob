@@ -44,8 +44,9 @@ export function TaskList({ tasks, isLoading = false }: TaskListProps) {
     return (
       <EmptyState
         icon={<ClipboardList className="h-12 w-12" />}
-        title="No tasks yet"
-        description="Tasks appear here when the system processes jobs, generates resumes, or fills applications."
+        title="No tasks in the queue"
+        description="Tasks are created automatically when the system discovers jobs, generates resumes, or fills applications."
+        hint="Start by discovering jobs — tasks will appear here as the pipeline runs."
       />
     );
   }

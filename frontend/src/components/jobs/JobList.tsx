@@ -84,9 +84,11 @@ export function JobList({
     return (
       <EmptyState
         icon={<Briefcase className="h-12 w-12" />}
-        title="No jobs found"
-        description="Start a search to discover new opportunities."
+        title="No jobs discovered yet"
+        description="Your job search pipeline hasn't found any matching positions. Start a search to discover new opportunities."
+        hint="Configure your job preferences in Settings for better matches."
         action={onSearch ? { label: "Start Search", onClick: onSearch } : undefined}
+        secondaryAction={{ label: "Settings", onClick: () => { window.location.href = "/dashboard/settings"; } }}
       />
     );
   }

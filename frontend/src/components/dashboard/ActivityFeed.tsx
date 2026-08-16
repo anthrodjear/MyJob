@@ -8,6 +8,7 @@
 import { type ActivityResponse, type ActivityEventType } from "@/lib/types/activity";
 import { Card } from "@/components/shared/Card";
 import { Badge } from "@/components/shared/Badge";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { formatDate } from "@/lib/utils";
 import { ClipboardList } from "lucide-react";
 import {
@@ -116,19 +117,13 @@ function formatActivityDetails(eventType: ActivityEventType, details: Record<str
 export function ActivityFeed({ activities }: ActivityFeedProps) {
   if (activities.length === 0) {
     return (
-      <Card
-        className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-900 dark:to-slate-800"
-      >
-        <div className="flex flex-col items-center justify-center py-10 text-center">
-          <div className="relative mb-4">
-            <ClipboardList className="h-16 w-16 text-text-tertiary" aria-hidden="true" />
-            <span className="absolute -top-1 -right-1 block h-3 w-3 rounded-full bg-info opacity-70" />
-          </div>
-          <p className="text-text-primary font-medium mb-1">No recent activity</p>
-          <p className="text-sm text-text-secondary max-w-xs">
-            Activity will appear here as you search for jobs, receive emails, and complete tasks.
-          </p>
-        </div>
+      <Card className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-900 dark:to-slate-800">
+        <EmptyState
+          icon={<ClipboardList className="h-12 w-12" />}
+          title="No recent activity"
+          description="Activity will appear here as you search for jobs, receive emails, and complete tasks."
+          hint="Start by discovering jobs — your pipeline activity will show up here."
+        />
       </Card>
     );
   }

@@ -83,11 +83,14 @@ async function handleLogin(request: NextRequest): Promise<NextResponse> {
     expiresAt: loginData.expires_at ?? 0,
   });
 
-  // Set HTTP-only secure cookie
+  // Set HTTP-only secure cookie.
+  // Only set Secure flag when actually running over HTTPS — NODE_ENV=production
+  // in docker-compose doesn't mean the browser is using HTTPS (common in local dev).
+  const isSecure = process.env.NODE_ENV === "production" && process.env.ALLOW_INSECURE_COOKIES !== "true";
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, sessionToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isSecure,
     sameSite: "lax",
     path: "/",
     maxAge: 7 * 24 * 60 * 60, // 7 days
@@ -155,9 +158,10 @@ async function handleRefresh(request: NextRequest): Promise<NextResponse> {
   });
 
   // Update HTTP-only cookie with new session
+  const isSecure = process.env.NODE_ENV === "production" && process.env.ALLOW_INSECURE_COOKIES !== "true";
   response.cookies.set(SESSION_COOKIE, sessionToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isSecure,
     sameSite: "lax",
     path: "/",
     maxAge: 7 * 24 * 60 * 60,

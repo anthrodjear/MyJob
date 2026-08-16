@@ -80,8 +80,11 @@ export function ApprovalList({
     return (
       <EmptyState
         icon={<ClipboardCheck className="h-12 w-12" />}
-        title="No approval requests"
-        description="Approval requests will appear here when jobs score in the review tier."
+        title="All caught up"
+        description="No pending approval requests. Jobs that score in the review tier will appear here for your approval."
+        hint="Adjust your auto-approve threshold in Settings to control which jobs need manual review."
+        action={{ label: "Discover Jobs", onClick: () => { window.location.href = "/dashboard/jobs"; } }}
+        secondaryAction={{ label: "Settings", onClick: () => { window.location.href = "/dashboard/settings"; } }}
       />
     );
   }
