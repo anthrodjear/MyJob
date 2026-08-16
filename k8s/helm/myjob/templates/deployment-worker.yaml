@@ -42,6 +42,11 @@ spec:
               value: {{ .Values.worker.env.QUEUE_CONCURRENCY | quote }}
             - name: CONFIG_PATH
               value: {{ .Values.worker.env.CONFIG_PATH | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.database.secretName }}
+                  key: {{ .Values.secrets.database.keys.password }}
             - name: DATABASE_URL
               value: "postgres://myjob:$(POSTGRES_PASSWORD)@{{ include "myjob.postgres.host" . }}:5432/myjob?sslmode=disable"
             - name: REDIS_URL
@@ -52,11 +57,6 @@ spec:
               value: {{ .Values.ollama.baseUrl | default "http://ollama.ollama.svc.cluster.local:11434" | quote }}
             - name: LIVEKIT_WS_URL
               value: "ws://{{ .Release.Name }}-livekit:7880"
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.secrets.database.secretName }}
-                  key: {{ .Values.secrets.database.keys.password }}
             - name: AUTH_JWT_SECRET
               valueFrom:
                 secretKeyRef:
@@ -88,17 +88,17 @@ spec:
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: myjob-llm
+                  name: {{ .Values.secrets.llm.secretName }}
                   key: OPENAI_API_KEY
             - name: ANTHROPIC_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: myjob-llm
+                  name: {{ .Values.secrets.llm.secretName }}
                   key: ANTHROPIC_API_KEY
             - name: SESSION_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: myjob-auth
+                  name: {{ .Values.secrets.auth.secretName }}
                   key: SESSION_SECRET
           resources:
             {{- toYaml .Values.worker.resources | nindent 12 }}

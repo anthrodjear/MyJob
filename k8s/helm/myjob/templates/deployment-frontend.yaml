@@ -49,7 +49,7 @@ spec:
             - name: SESSION_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: myjob-auth
+                  name: {{ .Values.secrets.auth.secretName }}
                   key: SESSION_SECRET
             - name: BACKEND_URL
               value: {{ .Values.frontend.env.BACKEND_URL | quote }}
