@@ -2,11 +2,12 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: livekit
+  name: {{ .Release.Name }}-livekit
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "myjob.labels" . | nindent 4 }}
     app.kubernetes.io/name: livekit
+    app.kubernetes.io/component: livekit
 spec:
   replicas: 1
   selector:
@@ -18,10 +19,11 @@ spec:
       labels:
         {{- include "myjob.labels" . | nindent 8 }}
         app.kubernetes.io/name: livekit
+        app.kubernetes.io/component: livekit
     spec:
       containers:
         - name: livekit
-          image: "{{ .Values.livekit.image.repository }}:{{ .Values.livekit.image.tag }}"
+          image: "{{ .Values.global.imageRegistry }}/{{ .Values.livekit.image.repository }}:{{ .Values.livekit.image.tag }}"
           imagePullPolicy: {{ .Values.livekit.image.pullPolicy }}
           args:
             - --config
@@ -33,6 +35,17 @@ spec:
             - name: tcp
               containerPort: 7881
               protocol: TCP
+          env:
+            - name: LIVEKIT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.livekit.secretName }}
+                  key: {{ .Values.secrets.livekit.keys.apiKey }}
+            - name: LIVEKIT_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.livekit.secretName }}
+                  key: {{ .Values.secrets.livekit.keys.apiSecret }}
           volumeMounts:
             - name: config
               mountPath: /etc/livekit.yaml
