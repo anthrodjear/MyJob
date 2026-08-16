@@ -12,6 +12,10 @@ on:
     paths:
       - 'k8s/**'
 
+permissions:
+  contents: read
+  actions: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -29,11 +33,26 @@ jobs:
           version: 'v3.14.0'
 
       - name: Lint Helm chart
+        shell: bash
         run: helm lint k8s/helm/myjob/
 
   helm-template:
-    name: Helm Template
+    name: Helm Template Validation
     runs-on: ubuntu-latest
+    env:
+      HELM_SETS: >-
+        --set secrets.database.password=test
+        --set secrets.auth.jwtSecret=test
+        --set secrets.auth.passwordHash=test
+        --set secrets.auth.sessionSecret=test
+        --set secrets.redis.password=test
+        --set secrets.livekit.apiKey=test
+        --set secrets.livekit.apiSecret=test
+        --set secrets.llm.openaiApiKey=test
+        --set secrets.llm.anthropicApiKey=test
+        --set secrets.microsoft.tenantId=test
+        --set secrets.microsoft.clientId=test
+        --set secrets.microsoft.clientSecret=test
     steps:
       - uses: actions/checkout@v4
 
@@ -42,39 +61,10 @@ jobs:
         with:
           version: 'v3.14.0'
 
-      - name: Template Helm chart (dry-run)
+      - name: Template and validate
+        shell: bash
         run: |
-          helm template myjob k8s/helm/myjob/ \
-            --namespace myjob \
-            --set secrets.database.password=test \
-            --set secrets.auth.jwtSecret=test \
-            --set secrets.auth.passwordHash=test \
-            --set secrets.auth.sessionSecret=test \
-            --set secrets.redis.password=test \
-            --set secrets.livekit.apiKey=test \
-            --set secrets.livekit.apiSecret=test \
-            --set secrets.llm.openaiApiKey=test \
-            --set secrets.llm.anthropicApiKey=test \
-            --set secrets.microsoft.tenantId=test \
-            --set secrets.microsoft.clientId=test \
-            --set secrets.microsoft.clientSecret=test
-
-      - name: Validate rendered resources
-        run: |
-          TEMPLATE=$(helm template myjob k8s/helm/myjob/ \
-            --namespace myjob \
-            --set secrets.database.password=test \
-            --set secrets.auth.jwtSecret=test \
-            --set secrets.auth.passwordHash=test \
-            --set secrets.auth.sessionSecret=test \
-            --set secrets.redis.password=test \
-            --set secrets.livekit.apiKey=test \
-            --set secrets.livekit.apiSecret=test \
-            --set secrets.llm.openaiApiKey=test \
-            --set secrets.llm.anthropicApiKey=test \
-            --set secrets.microsoft.tenantId=test \
-            --set secrets.microsoft.clientId=test \
-            --set secrets.microsoft.clientSecret=test)
+          TEMPLATE=$(helm template myjob k8s/helm/myjob/ --namespace myjob $HELM_SETS)
 
           # Check required resources exist
           echo "$TEMPLATE" | grep -q "kind: Deployment" || (echo "ERROR: No Deployment found" && exit 1)
@@ -88,6 +78,9 @@ jobs:
           DEPLOYMENTS=$(echo "$TEMPLATE" | grep -c "kind: Deployment" || true)
           SERVICES=$(echo "$TEMPLATE" | grep -c "kind: Service" || true)
           STATEFULSETS=$(echo "$TEMPLATE" | grep -c "kind: StatefulSet" || true)
+          INGRESSIONS=$(echo "$TEMPLATE" | grep -c "kind: Ingress" || true)
+          PVCS=$(echo "$TEMPLATE" | grep -c "kind: PersistentVolumeClaim" || true)
+          NETWORKPOLICIES=$(echo "$TEMPLATE" | grep -c "kind: NetworkPolicy" || true)
 
           echo "### Helm Template Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -96,10 +89,27 @@ jobs:
           echo "| Deployments | $DEPLOYMENTS |" >> $GITHUB_STEP_SUMMARY
           echo "| Services | $SERVICES |" >> $GITHUB_STEP_SUMMARY
           echo "| StatefulSets | $STATEFULSETS |" >> $GITHUB_STEP_SUMMARY
+          echo "| Ingress | $INGRESSIONS |" >> $GITHUB_STEP_SUMMARY
+          echo "| PVCs | $PVCS |" >> $GITHUB_STEP_SUMMARY
+          echo "| NetworkPolicies | $NETWORKPOLICIES |" >> $GITHUB_STEP_SUMMARY
 
-  helm-kubeval:
-    name: Kubeval Validation
+  kubeconform:
+    name: Kubeconform Validation
     runs-on: ubuntu-latest
+    env:
+      HELM_SETS: >-
+        --set secrets.database.password=test
+        --set secrets.auth.jwtSecret=test
+        --set secrets.auth.passwordHash=test
+        --set secrets.auth.sessionSecret=test
+        --set secrets.redis.password=test
+        --set secrets.livekit.apiKey=test
+        --set secrets.livekit.apiSecret=test
+        --set secrets.llm.openaiApiKey=test
+        --set secrets.llm.anthropicApiKey=test
+        --set secrets.microsoft.tenantId=test
+        --set secrets.microsoft.clientId=test
+        --set secrets.microsoft.clientSecret=test
     steps:
       - uses: actions/checkout@v4
 
@@ -108,25 +118,17 @@ jobs:
         with:
           version: 'v3.14.0'
 
-      - name: Install kubeval
+      - name: Install kubeconform
+        shell: bash
         run: |
-          curl -sL https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz | tar xz
-          sudo mv kubeval /usr/local/bin/
+          KUBECONFORM_VERSION="v0.6.7"
+          curl -sL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" -o kubeconform.tar.gz
+          tar xzf kubeconform.tar.gz
+          sudo mv kubeconform /usr/local/bin/
+          kubeconform -v
 
-      - name: Validate with kubeval
+      - name: Validate with kubeconform
+        shell: bash
         run: |
-          helm template myjob k8s/helm/myjob/ \
-            --namespace myjob \
-            --set secrets.database.password=test \
-            --set secrets.auth.jwtSecret=test \
-            --set secrets.auth.passwordHash=test \
-            --set secrets.auth.sessionSecret=test \
-            --set secrets.redis.password=test \
-            --set secrets.livekit.apiKey=test \
-            --set secrets.livekit.apiSecret=test \
-            --set secrets.llm.openaiApiKey=test \
-            --set secrets.llm.anthropicApiKey=test \
-            --set secrets.microsoft.tenantId=test \
-            --set secrets.microsoft.clientId=test \
-            --set secrets.microsoft.clientSecret=test \
-            | kubeval --strict --ignore-missing-schemas
+          helm template myjob k8s/helm/myjob/ --namespace myjob $HELM_SETS \
+            | kubeconform --strict --ignore-missing-schemas -output text
