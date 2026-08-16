@@ -102,3 +102,28 @@ spec:
     {{- include "myjob.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: redis
 {{- end }}
+---
+{{- if .Values.livekit.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: livekit
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "myjob.labels" . | nindent 4 }}
+    app.kubernetes.io/name: livekit
+spec:
+  type: {{ .Values.livekit.service.type }}
+  ports:
+    - port: {{ .Values.livekit.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    - port: 7881
+      targetPort: tcp
+      protocol: TCP
+      name: tcp
+  selector:
+    {{- include "myjob.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/name: livekit
+{{- end }}

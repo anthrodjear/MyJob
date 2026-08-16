@@ -1,0 +1,61 @@
+{{- if .Values.livekit.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: livekit
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "myjob.labels" . | nindent 4 }}
+    app.kubernetes.io/name: livekit
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "myjob.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/name: livekit
+  template:
+    metadata:
+      labels:
+        {{- include "myjob.labels" . | nindent 8 }}
+        app.kubernetes.io/name: livekit
+    spec:
+      containers:
+        - name: livekit
+          image: "{{ .Values.livekit.image.repository }}:{{ .Values.livekit.image.tag }}"
+          imagePullPolicy: {{ .Values.livekit.image.pullPolicy }}
+          args:
+            - --config
+            - /etc/livekit.yaml
+          ports:
+            - name: http
+              containerPort: 7880
+              protocol: TCP
+            - name: tcp
+              containerPort: 7881
+              protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /etc/livekit.yaml
+              subPath: livekit.yaml
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            {{- toYaml .Values.livekit.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: livekit-config
+{{- end }}
