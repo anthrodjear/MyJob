@@ -77,6 +77,29 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.secrets.livekit.secretName }}
                   key: {{ .Values.secrets.livekit.keys.apiSecret }}
+            - name: LLM_PRIMARY_PROVIDER
+              value: {{ .Values.worker.env.LLM_PRIMARY_PROVIDER | quote }}
+            - name: LLM_FALLBACK_PROVIDER
+              value: {{ .Values.worker.env.LLM_FALLBACK_PROVIDER | quote }}
+            - name: OLLAMA_MODEL
+              value: {{ .Values.worker.env.OLLAMA_MODEL | quote }}
+            - name: OLLAMA_EMBED_MODEL
+              value: {{ .Values.worker.env.OLLAMA_EMBED_MODEL | quote }}
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: myjob-llm
+                  key: OPENAI_API_KEY
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: myjob-llm
+                  key: ANTHROPIC_API_KEY
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: myjob-auth
+                  key: SESSION_SECRET
           resources:
             {{- toYaml .Values.worker.resources | nindent 12 }}
       imagePullSecrets:

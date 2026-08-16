@@ -79,6 +79,56 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.secrets.livekit.secretName }}
                   key: {{ .Values.secrets.livekit.keys.apiSecret }}
+            - name: QUEUE_CONCURRENCY
+              value: {{ .Values.api.env.QUEUE_CONCURRENCY | quote }}
+            - name: RATE_LIMIT_RPM
+              value: {{ .Values.api.env.RATE_LIMIT_RPM | quote }}
+            - name: RATE_LIMIT_BURST
+              value: {{ .Values.api.env.RATE_LIMIT_BURST | quote }}
+            - name: CORS_ORIGINS
+              value: {{ .Values.api.env.CORS_ORIGINS | quote }}
+            - name: LLM_PRIMARY_PROVIDER
+              value: {{ .Values.api.env.LLM_PRIMARY_PROVIDER | quote }}
+            - name: LLM_FALLBACK_PROVIDER
+              value: {{ .Values.api.env.LLM_FALLBACK_PROVIDER | quote }}
+            - name: VOICE_PROVIDER
+              value: {{ .Values.api.env.VOICE_PROVIDER | quote }}
+            - name: OLLAMA_MODEL
+              value: {{ .Values.api.env.OLLAMA_MODEL | quote }}
+            - name: OLLAMA_EMBED_MODEL
+              value: {{ .Values.api.env.OLLAMA_EMBED_MODEL | quote }}
+            - name: EMAIL_FOLDERS
+              value: {{ .Values.api.env.EMAIL_FOLDERS | quote }}
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: myjob-llm
+                  key: OPENAI_API_KEY
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: myjob-llm
+                  key: ANTHROPIC_API_KEY
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: myjob-auth
+                  key: SESSION_SECRET
+            - name: MS_TENANT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: myjob-microsoft
+                  key: MS_TENANT_ID
+            - name: MS_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: myjob-microsoft
+                  key: MS_CLIENT_ID
+            - name: MS_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: myjob-microsoft
+                  key: MS_CLIENT_SECRET
           livenessProbe:
             httpGet:
               path: {{ .Values.api.healthCheck.path }}

@@ -46,6 +46,13 @@ spec:
               value: {{ .Values.frontend.env.NEXT_PUBLIC_API_URL | quote }}
             - name: INTERNAL_API_URL
               value: "http://{{ .Release.Name }}-api:{{ .Values.api.service.port }}"
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: myjob-auth
+                  key: SESSION_SECRET
+            - name: BACKEND_URL
+              value: {{ .Values.frontend.env.BACKEND_URL | quote }}
           livenessProbe:
             httpGet:
               path: /

@@ -60,6 +60,10 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.secrets.livekit.secretName }}
                   key: {{ .Values.secrets.livekit.keys.apiSecret }}
+          securityContext:
+            capabilities:
+              add:
+                - SYS_ADMIN
           livenessProbe:
             httpGet:
               path: /
