@@ -17,7 +17,8 @@
  */
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { changePassword } from "@/lib/api/auth";
+import { login, changePassword } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/client";
 
 /** Query keys for auth — consistent cache invalidation. */
 export const authKeys = {
@@ -46,20 +47,7 @@ export function useLogin() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (password: string) => {
-      const resp = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
-
-      if (!resp.ok) {
-        const body = await resp.json().catch(() => ({}));
-        throw new Error(body?.error ?? "Login failed");
-      }
-
-      return resp.json();
-    },
+    mutationFn: (password: string) => login(password),
     onSuccess: () => {
       // Invalidate profile query so it refetches with new session
       void queryClient.invalidateQueries({ queryKey: authKeys.profile() });
@@ -89,10 +77,21 @@ export function useRefreshToken() {
     mutationFn: async () => {
       const resp = await fetch("/api/auth/refresh", {
         method: "POST",
+        credentials: "include",
       });
 
       if (!resp.ok) {
-        throw new Error("Refresh failed");
+        const body = (await resp.json().catch(() => ({}))) as {
+          error?: string | { code?: string; message?: string };
+        };
+        const errorObj = typeof body?.error === "object" ? body.error : null;
+        const code =
+          errorObj?.code ??
+          (typeof body?.error === "string" ? body.error : "REFRESH_FAILED");
+        const message =
+          errorObj?.message ??
+          (typeof body?.error === "string" ? body.error : "Refresh failed");
+        throw new ApiError(resp.status, code, message);
       }
 
       return resp.json();
@@ -150,7 +149,10 @@ export function useLogout() {
     mutationFn: async () => {
       // Best-effort cookie clearing via Route Handler
       try {
-        await fetch("/api/auth/logout", { method: "POST" });
+        await fetch("/api/auth/logout", {
+          method: "POST",
+          credentials: "include",
+        });
       } catch {
         // Route Handler may be unreachable — still redirect
       }

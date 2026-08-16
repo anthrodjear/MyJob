@@ -87,17 +87,72 @@ export class RefreshFailedError extends ApiError {
 /**
  * Cookie-based auth: credentials: 'include' sends session cookies automatically.
  * No token injection needed — the server reads the session cookie.
+ *
+ * When a 401 is received (access token expired in the cookie), apiFetchWithRefresh
+ * calls /api/auth/refresh to rotate the session cookie, then retries once.
  */
 
 /**
- * Wrapper around apiFetch that preserves the original API surface.
- * Cookie auth means no token refresh is needed at the client level.
+ * Shared refresh promise — null when no refresh is in progress.
+ * Concurrent 401s share the same refresh attempt (deduplication).
+ */
+let pendingRefresh: Promise<void> | null = null;
+
+/**
+ * Wrapper around apiFetch that automatically refreshes the session cookie on 401.
+ *
+ * Flow on 401 from the Go backend:
+ * 1. Calls POST /api/auth/refresh (Route Handler) to refresh the HTTP-only session cookie
+ * 2. Retries the original request once with the refreshed cookie
+ * 3. If refresh fails, throws RefreshFailedError (caller should redirect to /login)
+ *
+ * Concurrent 401 responses are deduplicated — only one refresh call is made,
+ * all waiting requests retry after the refresh completes.
+ *
+ * @param path - API path (e.g., "jobs", "applications/123")
+ * @param options - Standard RequestInit options
+ * @returns Parsed JSON response, or undefined for 204/non-JSON responses
+ * @throws ApiError on non-401 non-2xx responses
+ * @throws RefreshFailedError if the session cookie cannot be refreshed
  */
 export async function apiFetchWithRefresh<T>(
   path: string,
   options?: RequestInit,
 ): Promise<T | undefined> {
-  return apiFetch<T>(path, options);
+  try {
+    return await apiFetch<T>(path, options);
+  } catch (err) {
+    // Only handle 401 — other errors propagate as-is
+    if (!(err instanceof ApiError) || err.status !== 401) {
+      throw err;
+    }
+
+    // Deduplicate concurrent refresh attempts: if a refresh is already in
+    // flight, await it rather than starting another.
+    if (pendingRefresh == null) {
+      pendingRefresh = (async () => {
+        const resp = await fetch("/api/auth/refresh", {
+          method: "POST",
+          credentials: "include",
+        });
+        if (!resp.ok) {
+          throw new RefreshFailedError();
+        }
+      })();
+    }
+
+    try {
+      await pendingRefresh;
+      // Refresh succeeded — retry the original request once
+      return await apiFetch<T>(path, options);
+    } catch {
+      // Refresh failed — session is expired, user must re-login
+      throw new RefreshFailedError();
+    } finally {
+      // Clear pending so a future 401 can trigger a new refresh attempt
+      pendingRefresh = null;
+    }
+  }
 }
 
 /**

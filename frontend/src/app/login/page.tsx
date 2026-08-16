@@ -5,9 +5,8 @@
  *
  * Flow:
  * 1. User enters password
- * 2. POST /auth/login → { access_token, refresh_token, expires_at }
- * 3. Tokens stored in localStorage (access + refresh)
- * 4. Redirect to /dashboard
+ * 2. POST /api/auth/login → Route Handler → sets HTTP-only session cookie
+ * 3. Redirect to /dashboard
  *
  * UX improvements:
  * - Password strength indicator
@@ -31,6 +30,7 @@ import { Suspense, useState, useEffect, useCallback, type FormEvent, type ReactN
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLogin } from "@/hooks/useAuth";
 import { getSetupStatus } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/client";
 import { Button } from "@/components/shared/Button";
 import { Input } from "@/components/shared/Input";
 import {
@@ -103,9 +103,25 @@ function calculatePasswordStrength(password: string): PasswordStrength {
 
 /**
  * Map API error codes to user-friendly messages.
- * Never expose raw error messages to users.
+ * Never expose raw error messages or internal codes to users.
  */
 function getUserMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    switch (error.code) {
+      case "INVALID_CREDENTIALS":
+        return "Incorrect password. Please try again.";
+      case "INVALID_REFRESH_TOKEN":
+        return "Your session has expired. Please sign in again.";
+      case "INVALID_REQUEST":
+        return "Please check your input and try again.";
+      case "RATE_LIMITED":
+        return "Too many attempts. Please wait a moment and try again.";
+      case "TIMEOUT":
+        return "Server took too long to respond. Please try again.";
+      case "REFRESH_FAILED":
+        return "Your session has expired. Please sign in again.";
+    }
+  }
   if (error instanceof Error) {
     const msg = error.message.toLowerCase();
     if (msg.includes("invalid_credentials") || msg.includes("invalid credentials")) {

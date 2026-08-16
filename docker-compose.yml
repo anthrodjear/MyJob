@@ -222,7 +222,8 @@ services:
     environment:
       INTERNAL_API_URL: http://api:8080
       BACKEND_URL: http://api:8080
-      SESSION_SECRET: ${SESSION_SECRET:-changeme}
+      SESSION_SECRET: ${SESSION_SECRET}
+      ALLOW_INSECURE_COOKIES: ${ALLOW_INSECURE_COOKIES:-false}
       NODE_ENV: production
     depends_on:
       api:

@@ -40,13 +40,16 @@ async function handleLogin(request: NextRequest): Promise<NextResponse> {
   let body: Record<string, unknown>;
   try {
     body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+   } catch {
+    return NextResponse.json(
+      { error: { code: "INVALID_JSON", message: "Invalid JSON body" } },
+      { status: 400 },
+    );
   }
 
   if (typeof body?.password !== "string" || body.password.length === 0) {
     return NextResponse.json(
-      { error: "Password is required" },
+      { error: { code: "INVALID_REQUEST", message: "Password is required" } },
       { status: 400 },
     );
   }
@@ -59,10 +62,29 @@ async function handleLogin(request: NextRequest): Promise<NextResponse> {
   });
 
   if (!backendResp.ok) {
-    // Log server-side, don't leak backend internals to client
-    console.error("[auth/proxy] Login failed:", backendResp.status);
+    // Parse backend error details and propagate to client for user-facing messages
+    const rawBody = await backendResp.text();
+    let backendError: { error?: { code?: string; message?: string } } | null = null;
+    if (rawBody.length > 0) {
+      try {
+        backendError = JSON.parse(rawBody);
+      } catch {
+        /* non-JSON error body */
+      }
+    }
+
+    const errorObj = backendError?.error;
+    const code = errorObj?.code ?? `AUTH_${backendResp.status}`;
+    const message = errorObj?.message ?? "Login failed";
+
+    console.error(
+      "[auth/proxy] Login failed:",
+      backendResp.status,
+      code,
+    );
+
     return NextResponse.json(
-      { error: "Login failed" },
+      { error: { code, message } },
       { status: backendResp.status },
     );
   }
@@ -71,7 +93,7 @@ async function handleLogin(request: NextRequest): Promise<NextResponse> {
 
   if (typeof loginData?.access_token !== "string") {
     return NextResponse.json(
-      { error: "Invalid login response from server" },
+      { error: { code: "INVALID_RESPONSE", message: "Invalid login response from server" } },
       { status: 500 },
     );
   }
@@ -114,7 +136,7 @@ async function handleRefresh(request: NextRequest): Promise<NextResponse> {
 
   if (!session?.refreshToken) {
     return NextResponse.json(
-      { error: "No refresh token available" },
+      { error: { code: "NO_REFRESH_TOKEN", message: "No refresh token available" } },
       { status: 401 },
     );
   }
@@ -127,9 +149,20 @@ async function handleRefresh(request: NextRequest): Promise<NextResponse> {
   });
 
   if (!backendResp.ok) {
-    // Refresh token expired — clear cookie
+    // Refresh token expired — clear cookie and propagate backend error
+    const rawBody = await backendResp.text();
+    let backendError: { error?: { code?: string; message?: string } } | null = null;
+    if (rawBody.length > 0) {
+      try {
+        backendError = JSON.parse(rawBody);
+      } catch { /* non-JSON */ }
+    }
+    const errorObj = backendError?.error;
+    const code = errorObj?.code ?? "REFRESH_FAILED";
+    const message = errorObj?.message ?? "Refresh failed";
+
     const response = NextResponse.json(
-      { error: "Refresh failed" },
+      { error: { code, message } },
       { status: 401 },
     );
     response.cookies.delete(SESSION_COOKIE);
@@ -140,7 +173,7 @@ async function handleRefresh(request: NextRequest): Promise<NextResponse> {
 
   if (typeof refreshData?.access_token !== "string") {
     return NextResponse.json(
-      { error: "Invalid refresh response from server" },
+      { error: { code: "INVALID_RESPONSE", message: "Invalid refresh response from server" } },
       { status: 500 },
     );
   }
@@ -243,7 +276,7 @@ async function handleSetupProxy(
   } catch (err) {
     console.error("[auth/proxy] Setup proxy error:", err);
     return NextResponse.json(
-      { error: "Backend unavailable" },
+      { error: { code: "BACKEND_UNAVAILABLE", message: "Backend unavailable" } },
       { status: 502 },
     );
   }
@@ -265,7 +298,7 @@ export async function GET(
   }
 
   return NextResponse.json(
-    { error: `Unknown auth action: ${action}` },
+    { error: { code: "NOT_FOUND", message: `Unknown auth action: ${action}` } },
     { status: 404 },
   );
 }
@@ -290,12 +323,12 @@ export async function POST(
         return handleSetupProxy(request, proxy.slice(1));
       }
       return NextResponse.json(
-        { error: "Missing setup action" },
+        { error: { code: "INVALID_REQUEST", message: "Missing setup action" } },
         { status: 400 },
       );
     default:
       return NextResponse.json(
-        { error: `Unknown auth action: ${action}` },
+        { error: { code: "NOT_FOUND", message: `Unknown auth action: ${action}` } },
         { status: 404 },
       );
   }

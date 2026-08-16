@@ -3,7 +3,6 @@
 import { Suspense, useState, useCallback, useEffect, type FormEvent, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { resetPassword } from "@/lib/api/auth";
-import { clearAuthStatusCookie, clearAuthTokens } from "@/lib/auth";
 import { Button } from "@/components/shared/Button";
 import { Input } from "@/components/shared/Input";
 import { AlertCircle, Eye, EyeOff, CheckCircle, Shield, ShieldAlert } from "lucide-react";
@@ -141,9 +140,17 @@ function ResetPasswordInner() {
       setIsSubmitting(true);
       try {
         await resetPassword(token, newPassword.trim());
-        // Clear any stale auth session so the user re-authenticates with the new password
-        clearAuthTokens();
-        clearAuthStatusCookie();
+        // Clear session via Route Handler so the user re-authenticates with
+        // their new password. The session cookie is HTTP-only — we cannot
+        // clear it from localStorage, so we call the logout endpoint.
+        try {
+          await fetch("/api/auth/logout", {
+            method: "POST",
+            credentials: "include",
+          });
+        } catch {
+          /* best-effort — cookie may already be cleared */
+        }
         setSuccess(true);
       } catch (err) {
         setError(getUserMessage(err));
