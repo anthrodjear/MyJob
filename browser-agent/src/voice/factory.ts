@@ -360,6 +360,7 @@ export async function createInterviewSessionFactory(overrides?: {
     sessionDeps = {
       transport,
       brain,
+      backendUrl,
       realtime: realtimeProvider,
     };
   } else {
@@ -385,6 +386,7 @@ export async function createInterviewSessionFactory(overrides?: {
     sessionDeps = {
       transport,
       brain,
+      backendUrl,
       vad,
       stt,
       tts,

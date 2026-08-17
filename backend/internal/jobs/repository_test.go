@@ -37,6 +37,7 @@ func selectColumns() []string {
 		"description", "requirements", "url", "application_url", "company_url",
 		"source", "posted_at", "scraped_at", "match_score", "match_details",
 		"score_tier", "scored_at", "scoring_reasoning", "scoring_model", "scoring_source",
+		"saved", "metadata",
 		"status", "created_at", "updated_at", "source_name",
 	}
 }
@@ -71,6 +72,8 @@ func makeJobRows(jobs ...*Job) *sqlmock.Rows {
 			j.ScoringReasoning,     // scoring_reasoning
 			j.ScoringModel,         // scoring_model
 			j.ScoringSource,        // scoring_source
+			j.Saved,                // saved
+			[]byte(j.Metadata),     // metadata
 			j.Status,               // status
 			j.CreatedAt,            // created_at
 			j.UpdatedAt,            // updated_at

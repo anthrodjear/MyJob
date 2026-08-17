@@ -59,10 +59,10 @@ func newHandleScrapeSource(
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 		defer cancel()
 
-		// Resolve source UUID to source name for browser-agent.
-		// The browser-agent matches against YAML config name/type fields
-		// (e.g. "greenhouse"), not database UUIDs.
-		sourceName, err := jobsSvc.GetSourceNameByID(ctx, payload.SourceID)
+// Resolve source UUID to source name for browser-agent.
+// The browser-agent matches against YAML config name/type fields
+// (e.g. "greenhouse"), not database UUIDs.
+sourceName, err := jobsSvc.GetSourceNameByID(ctx, payload.SourceID)
 		if err != nil {
 			log.Error("resolve source name",
 				zap.String("source_id", payload.SourceID.String()),

@@ -327,6 +327,7 @@ app.post('/api/v1/interviews/start', async (req: Request, res: Response, _next: 
       roomName: payload.external_session,
       token,
       applicationId: payload.application_id,
+      interviewId: payload.interview_id,
       providers: {
         realtime: payload.provider === 'openai_realtime' ? 'openai_realtime' : undefined,
       },

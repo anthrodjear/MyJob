@@ -42,10 +42,38 @@ import { createAudioSegmentQueue } from './queue.js';
 
 const log = logger.child({ component: 'InterviewSession' });
 
+/** POST an interview event to the Go backend (fire-and-forget). */
+async function postInterviewEvent(
+  backendUrl: string,
+  interviewId: string,
+  event: { type: string; speaker?: string; content?: string; status?: string; score?: number; feedback?: object },
+): Promise<void> {
+  try {
+    const url = `${backendUrl}/api/v1/internal/interviews/${interviewId}/events`;
+    const secret = process.env.API_INTERNAL_SECRET || '';
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (secret) {
+      headers['X-Internal-Secret'] = secret;
+    }
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(event),
+    });
+    if (!response.ok) {
+      log.warn({ message: 'Failed to post interview event', status: response.status, url });
+    }
+  } catch (err) {
+    log.error({ message: 'Error posting interview event', error: err });
+  }
+}
+
 /** Dependencies injected into the session. All optional except transport + brain. */
 export interface SessionDeps {
   transport: Transport;
   brain: Brain;
+  /** Backend URL for posting interview events to the Go server. */
+  backendUrl?: string;
   /** VAD for separate STT/TTS path. Required when realtime is not provided. */
   vad?: VoiceActivityDetector;
   /** STT provider for separate path. Required when realtime is not provided. */
@@ -71,6 +99,7 @@ export function createInterviewSession(deps: SessionDeps): InterviewSession {
   let _mode: InterviewMode = 'autonomous';
   let _roomName = '';
   let _applicationId = '';
+  let _interviewId = '';
   let _stopping = false;
 
   const emitter = new EventEmitter();
@@ -158,6 +187,7 @@ export function createInterviewSession(deps: SessionDeps): InterviewSession {
     _mode = config.mode;
     _roomName = config.roomName;
     _applicationId = config.applicationId;
+    _interviewId = config.interviewId ?? '';
     _stopping = false;
 
     setState('connecting');
@@ -198,6 +228,40 @@ export function createInterviewSession(deps: SessionDeps): InterviewSession {
       // 4. Start listening
       setState('listening');
       emitEvent('started', _mode, _roomName);
+
+      // 5. Wire backend event forwarding (fire-and-forget POSTs to Go server)
+      if (deps.backendUrl && _interviewId) {
+        let _activeStatusPosted = false;
+
+        emitter.on('stateChanged', (state: SessionState) => {
+          if (state === 'listening' && !_activeStatusPosted) {
+            _activeStatusPosted = true;
+            postInterviewEvent(deps.backendUrl!, _interviewId, { type: 'status', status: 'active' });
+          }
+          if (state === 'ended') {
+            postInterviewEvent(deps.backendUrl!, _interviewId, { type: 'status', status: 'completed' });
+          }
+          if (state === 'error') {
+            postInterviewEvent(deps.backendUrl!, _interviewId, { type: 'status', status: 'failed' });
+          }
+        });
+
+        emitter.on('transcript', (segment: TranscriptSegment) => {
+          postInterviewEvent(deps.backendUrl!, _interviewId, {
+            type: 'transcript',
+            speaker: segment.speaker,
+            content: segment.text,
+          });
+        });
+
+        emitter.on('agentSpeech', (text: string, _confidence: number) => {
+          postInterviewEvent(deps.backendUrl!, _interviewId, {
+            type: 'transcript',
+            speaker: 'ai',
+            content: text,
+          });
+        });
+      }
 
       log.info({
         message: 'Session started',
