@@ -30,10 +30,10 @@ data:
             replacement: $1:$2
       - job_name: 'myjob-api'
         static_configs:
-          - targets: ['{{ .Release.Name }}-api.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.api.service.port }}']
+          - targets: ['api.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.api.service.port }}']
         metrics_path: /metrics
       - job_name: 'myjob-browser-agent'
         static_configs:
-          - targets: ['{{ .Release.Name }}-browser-agent.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.browserAgent.service.port }}']
+          - targets: ['browser-agent.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.browserAgent.service.port }}']
         metrics_path: /metrics
 {{- end }}

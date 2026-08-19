@@ -1,4 +1,4 @@
-.PHONY: help setup migrate seed start stop clean build _export-env dev-api dev-worker dev-frontend dev-browser build-api build-worker build-frontend build-browser hash-password logs logs-api logs-worker logs-browser logs-frontend shell-api shell-worker shell-browser shell-frontend shell-postgres shell-redis test test-api test-frontend lint lint-go lint-frontend lint-browser-agent verify-swagger ci-local docker-ci docker-ci-down health-check helm-lint helm-template helm-staging helm-production helm-rollback kubectl-hpa kubectl-pods kubectl-logs kustomize-build setup-production start-production stop-production build-production logs-production shell-nginx setup-ssl nginx-test health-check-production
+.PHONY: help setup migrate seed start stop clean build _export-env dev-api dev-worker dev-frontend dev-browser build-api build-worker build-frontend build-browser hash-password logs logs-api logs-worker logs-browser logs-frontend shell-api shell-worker shell-browser shell-frontend shell-postgres shell-redis test test-api test-frontend lint lint-go lint-frontend lint-browser-agent verify-swagger ci-local docker-ci docker-ci-down health-check helm-lint helm-template helm-staging helm-production helm-rollback kubectl-hpa kubectl-pods kubectl-logs kustomize-build setup-production start-production stop-production build-production logs-production shell-nginx setup-ssl nginx-test health-check-production deploy-setup deploy-docker deploy-helm deploy-kustomize deploy-dry-run deploy-quick
 
 # Default target
 help:
@@ -52,6 +52,14 @@ help:
 	@echo ""
 	@echo "  Utils:"
 	@echo "  make hash-password PASSWORD=yourpass - Generate bcrypt hash for AUTH_PASSWORD_HASH"
+	@echo ""
+	@echo "  Deployment Wizard:"
+	@echo "  make deploy-setup     - Interactive deployment (Docker or K8s)"
+	@echo "  make deploy-docker    - Deploy with Docker Compose"
+	@echo "  make deploy-helm      - Deploy with Kubernetes (Helm)"
+	@echo "  make deploy-kustomize - Deploy with Kubernetes (Kustomize)"
+	@echo "  make deploy-dry-run   - Preview deployment without executing"
+	@echo "  make deploy-quick     - Non-interactive production deploy"
 
 # First-time setup (optional — docker compose works without it)
 setup:
@@ -352,3 +360,31 @@ health-check-production:
 	@echo "=== HTTP Health ==="
 	@curl -sf http://localhost/health && echo " [OK]" || echo " [FAIL]"
 	@curl -sf http://localhost:8080/health && echo " [OK]" || echo " [FAIL]"
+
+# ============================================
+# Interactive Deployment Setup
+# ============================================
+
+# Interactive deployment wizard (Docker or Kubernetes)
+deploy-setup:
+	bash scripts/deploy-setup.sh
+
+# Deploy with Docker Compose (interactive wizard)
+deploy-docker:
+	bash scripts/deploy-setup.sh --method docker
+
+# Deploy with Helm (interactive wizard)
+deploy-helm:
+	bash scripts/deploy-setup.sh --method k8s-helm
+
+# Deploy with Kustomize (interactive wizard)
+deploy-kustomize:
+	bash scripts/deploy-setup.sh --method k8s-kustomize
+
+# Dry-run deployment setup (preview without deploying)
+deploy-dry-run:
+	bash scripts/deploy-setup.sh --dry-run
+
+# Quick production deploy (non-interactive, uses defaults)
+deploy-quick:
+	bash scripts/deploy-setup.sh --non-interactive --method docker --profile production

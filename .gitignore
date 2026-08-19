@@ -40,6 +40,8 @@ storage/
 .env.auth
 .env.local
 .env*.local
+secrets.env
+values-*.yaml
 
 # SSL Certificates (never commit private keys)
 certs/

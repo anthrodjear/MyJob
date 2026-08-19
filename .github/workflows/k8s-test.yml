@@ -64,24 +64,23 @@ jobs:
       - name: Template and validate
         shell: bash
         run: |
-          set -euo pipefail
-          helm template myjob k8s/helm/myjob/ --namespace myjob $HELM_SETS > /tmp/rendered.yaml
+          TEMPLATE=$(helm template myjob k8s/helm/myjob/ --namespace myjob $HELM_SETS)
 
-          # Check required resources exist
-          grep -q "kind: Deployment" /tmp/rendered.yaml || (echo "ERROR: No Deployment found" && exit 1)
-          grep -q "kind: Service" /tmp/rendered.yaml || (echo "ERROR: No Service found" && exit 1)
-          grep -q "kind: StatefulSet" /tmp/rendered.yaml || (echo "ERROR: No StatefulSet found" && exit 1)
-          grep -q "kind: Ingress" /tmp/rendered.yaml || (echo "ERROR: No Ingress found" && exit 1)
-          grep -q "kind: PersistentVolumeClaim" /tmp/rendered.yaml || (echo "ERROR: No PVC found" && exit 1)
-          grep -q "kind: NetworkPolicy" /tmp/rendered.yaml || (echo "ERROR: No NetworkPolicy found" && exit 1)
+          # Check required resources exist (use printf to avoid echo escape issues)
+          printf '%s\n' "$TEMPLATE" | grep -q "kind: Deployment" || { echo "ERROR: No Deployment found"; exit 1; }
+          printf '%s\n' "$TEMPLATE" | grep -q "kind: Service" || { echo "ERROR: No Service found"; exit 1; }
+          printf '%s\n' "$TEMPLATE" | grep -q "kind: StatefulSet" || { echo "ERROR: No StatefulSet found"; exit 1; }
+          printf '%s\n' "$TEMPLATE" | grep -q "kind: Ingress" || { echo "ERROR: No Ingress found"; exit 1; }
+          printf '%s\n' "$TEMPLATE" | grep -q "kind: PersistentVolumeClaim" || { echo "ERROR: No PVC found"; exit 1; }
+          printf '%s\n' "$TEMPLATE" | grep -q "kind: NetworkPolicy" || { echo "ERROR: No NetworkPolicy found"; exit 1; }
 
           # Count resources
-          DEPLOYMENTS=$(grep -c "kind: Deployment" /tmp/rendered.yaml || true)
-          SERVICES=$(grep -c "kind: Service" /tmp/rendered.yaml || true)
-          STATEFULSETS=$(grep -c "kind: StatefulSet" /tmp/rendered.yaml || true)
-          INGRESSIONS=$(grep -c "kind: Ingress" /tmp/rendered.yaml || true)
-          PVCS=$(grep -c "kind: PersistentVolumeClaim" /tmp/rendered.yaml || true)
-          NETWORKPOLICIES=$(grep -c "kind: NetworkPolicy" /tmp/rendered.yaml || true)
+          DEPLOYMENTS=$(printf '%s\n' "$TEMPLATE" | grep -c "kind: Deployment" || true)
+          SERVICES=$(printf '%s\n' "$TEMPLATE" | grep -c "kind: Service" || true)
+          STATEFULSETS=$(printf '%s\n' "$TEMPLATE" | grep -c "kind: StatefulSet" || true)
+          INGRESSIONS=$(printf '%s\n' "$TEMPLATE" | grep -c "kind: Ingress" || true)
+          PVCS=$(printf '%s\n' "$TEMPLATE" | grep -c "kind: PersistentVolumeClaim" || true)
+          NETWORKPOLICIES=$(printf '%s\n' "$TEMPLATE" | grep -c "kind: NetworkPolicy" || true)
 
           echo "### Helm Template Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

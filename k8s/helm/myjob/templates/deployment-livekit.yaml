@@ -12,7 +12,6 @@ spec:
   selector:
     matchLabels:
       {{- include "myjob.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: livekit
   template:
     metadata:
       labels:
