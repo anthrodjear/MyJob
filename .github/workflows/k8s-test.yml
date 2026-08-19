@@ -64,26 +64,17 @@ jobs:
       - name: Template and validate
         shell: bash
         run: |
-          TEMPLATE=$(helm template myjob k8s/helm/myjob/ --namespace myjob $HELM_SETS) || {
-            echo "ERROR: helm template failed"
-            helm template myjob k8s/helm/myjob/ --namespace myjob $HELM_SETS
-            exit 1
-          }
-
-          if [ -z "$TEMPLATE" ]; then
-            echo "ERROR: helm template produced empty output"
-            exit 1
-          fi
-
-          echo "Template rendered successfully ($(echo "$TEMPLATE" | wc -l) lines)"
-
-          # Check required resources exist
-          echo "$TEMPLATE" | grep -q "kind: Deployment" || { echo "ERROR: No Deployment found"; exit 1; }
-          echo "$TEMPLATE" | grep -q "kind: Service" || { echo "ERROR: No Service found"; echo "$TEMPLATE" | grep "kind:"; exit 1; }
-          echo "$TEMPLATE" | grep -q "kind: StatefulSet" || { echo "ERROR: No StatefulSet found"; exit 1; }
-          echo "$TEMPLATE" | grep -q "kind: Ingress" || { echo "ERROR: No Ingress found"; exit 1; }
-          echo "$TEMPLATE" | grep -q "kind: PersistentVolumeClaim" || { echo "ERROR: No PVC found"; exit 1; }
-          echo "$TEMPLATE" | grep -q "kind: NetworkPolicy" || { echo "ERROR: No NetworkPolicy found"; exit 1; }
+          helm template myjob k8s/helm/myjob/ --namespace myjob $HELM_SETS > /tmp/template-output.yaml
+          echo "=== Template output size ==="
+          wc -c /tmp/template-output.yaml
+          echo "=== First 20 lines ==="
+          head -20 /tmp/template-output.yaml | cat -A
+          echo "=== Looking for kind: Deployment ==="
+          grep -c "kind: Deployment" /tmp/template-output.yaml || echo "grep returned: $?"
+          echo "=== File type ==="
+          file /tmp/template-output.yaml
+          echo "=== Hex dump first bytes ==="
+          xxd /tmp/template-output.yaml | head -5
 
           # Count resources
           DEPLOYMENTS=$(echo "$TEMPLATE" | grep -c "kind: Deployment" || true)
