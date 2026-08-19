@@ -111,7 +111,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "myjob.labels" . | nindent 4 }}
-    app.kubernetes.io/name: livekit
     app.kubernetes.io/component: livekit
 spec:
   type: {{ .Values.livekit.service.type }}
@@ -126,6 +125,5 @@ spec:
       name: tcp
   selector:
     {{- include "myjob.selectorLabels" . | nindent 4 }}
-    app.kubernetes.io/name: livekit
     app.kubernetes.io/component: livekit
 {{- end }}
