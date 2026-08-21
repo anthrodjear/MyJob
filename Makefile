@@ -320,7 +320,8 @@ kustomize-build:
 
 # Full production setup (SSL + secrets + build + deploy)
 setup-production:
-	bash scripts/setup-production.sh
+	@echo "Running production setup via deploy-setup.sh..."
+	bash scripts/deploy-setup.sh --method docker --profile production
 
 # Start production (with nginx reverse proxy)
 start-production:

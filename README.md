@@ -232,7 +232,7 @@ Production uses nginx as a reverse proxy with TLS termination, rate limiting, an
 make setup-production
 
 # Or with a custom domain
-bash scripts/setup-production.sh --domain myapp.example.com --email admin@example.com
+bash scripts/deploy-setup.sh --method docker --profile production --domain myapp.example.com --email admin@example.com
 ```
 
 ### Manual Production Setup
