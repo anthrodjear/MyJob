@@ -869,7 +869,9 @@ KUSTOM_EOF
     log "  Creating secrets from $secrets_file..."
     while IFS='=' read -r key value; do
         [[ "$key" =~ ^#.*$ || -z "$key" ]] && continue
-        if ! kubectl create secret generic "myjob-${key,,//_/-}" \
+        local secret_name
+        secret_name=$(echo "$key" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
+        if ! kubectl create secret generic "myjob-${secret_name}" \
             --namespace="$NAMESPACE" \
             --from-literal="$key=$value" \
             --dry-run=client -o yaml | kubectl apply -f -; then
