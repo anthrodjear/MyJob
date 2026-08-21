@@ -28,6 +28,7 @@ info()   { echo -e "${BLUE}[setup]${NC} $*"; }
 step()   { echo -e "\n${CYAN}${BOLD}── Step $1: $2 ──${NC}"; }
 ok()     { echo -e "${GREEN}  ✓${NC} $*"; }
 fail()   { echo -e "${RED}  ✗${NC} $*"; }
+die()    { error "$@"; exit 1; }
 header() {
     echo ""
     echo -e "${CYAN}${BOLD}╔══════════════════════════════════════════════════════════╗${NC}"
@@ -50,6 +51,7 @@ SKIP_BUILD=false
 SKIP_MIGRATE=false
 ADMIN_PASSWORD=""
 ENV_PROFILE="production"  # development | production
+TEMP_FILES=()  # Track temp files for cleanup on failure
 
 # ── Usage ─────────────────────────────────────────────────────────────────────
 usage() {
@@ -95,13 +97,57 @@ done
 # ── Utility ───────────────────────────────────────────────────────────────────
 generate_secret() {
     local length="${1:-32}"
-    openssl rand -hex "$length" 2>/dev/null || \
-        head -c "$length" /dev/urandom | od -An -tx1 | tr -d ' \n' | head -c "$((length * 2))"
+    local secret
+    secret=$(openssl rand -hex "$length" 2>/dev/null) || \
+        secret=$(head -c "$length" /dev/urandom | od -An -tx1 | tr -d ' \n' | head -c "$((length * 2))")
+    if [[ -z "$secret" ]]; then
+        die "Failed to generate secret (length=$length). Check openssl or /dev/urandom."
+    fi
+    echo "$secret"
 }
 
 generate_password() {
     local length="${1:-24}"
-    openssl rand -base64 "$length" 2>/dev/null | tr -d '/+=' | head -c "$length"
+    local pass
+    pass=$(openssl rand -base64 "$length" 2>/dev/null | tr -d '/+=' | head -c "$length")
+    if [[ -z "$pass" ]]; then
+        die "Failed to generate password (length=$length). Check openssl or /dev/urandom."
+    fi
+    echo "$pass"
+}
+
+# ── Validation ────────────────────────────────────────────────────────────────
+validate_namespace() {
+    local ns="$1"
+    if [[ ! "$ns" =~ ^[a-z0-9]([a-z0-9\-]*[a-z0-9])?$ ]]; then
+        die "Invalid namespace '$ns'. Must be RFC 1123 compliant: lowercase alphanumeric and hyphens, 63 chars max."
+    fi
+    if [[ ${#ns} -gt 63 ]]; then
+        die "Namespace '$ns' too long (${#ns} chars). Max 63 characters."
+    fi
+}
+
+validate_domain() {
+    local domain="$1"
+    # Allow IP addresses
+    if [[ "$domain" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        return 0
+    fi
+    # Allow localhost
+    if [[ "$domain" == "localhost" ]]; then
+        return 0
+    fi
+    # Basic domain format check
+    if [[ ! "$domain" =~ ^[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$ ]]; then
+        warn "Domain '$domain' doesn't look like a valid domain or IP. Proceeding anyway."
+    fi
+}
+
+validate_password_strength() {
+    local pw="$1" name="$2" min_len="${3:-8}"
+    if [[ ${#pw} -lt $min_len ]]; then
+        die "$name is too short (${#pw} chars). Minimum $min_len characters."
+    fi
 }
 
 is_placeholder() {
