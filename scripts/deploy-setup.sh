@@ -28,6 +28,7 @@ info()   { echo -e "${BLUE}[setup]${NC} $*"; }
 step()   { echo -e "\n${CYAN}${BOLD}── Step $1: $2 ──${NC}"; }
 ok()     { echo -e "${GREEN}  ✓${NC} $*"; }
 fail()   { echo -e "${RED}  ✗${NC} $*"; }
+die()    { error "$@"; exit 1; }
 header() {
     echo ""
     echo -e "${CYAN}${BOLD}╔══════════════════════════════════════════════════════════╗${NC}"
@@ -48,8 +49,10 @@ DRY_RUN=false
 NON_INTERACTIVE=false
 SKIP_BUILD=false
 SKIP_MIGRATE=false
+NAMESPACE_SET=false
 ADMIN_PASSWORD=""
 ENV_PROFILE="production"  # development | production
+TEMP_FILES=()  # Track temp files for cleanup on failure
 
 # ── Usage ─────────────────────────────────────────────────────────────────────
 usage() {
@@ -64,7 +67,6 @@ Options:
   --domain DOMAIN           Domain name for ingress/nginx (default: localhost)
   --namespace NS            Kubernetes namespace (default: myjob)
   --email EMAIL             Email for Let's Encrypt SSL
-  --password PASS           Admin password (prompted if not set)
   --dry-run                 Preview config without deploying
   --non-interactive         Use all defaults, no prompts
   --skip-build              Skip Docker image builds
@@ -78,9 +80,9 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --method)        DEPLOY_METHOD="$2"; shift 2 ;;
         --domain)        DOMAIN="$2"; shift 2 ;;
-        --namespace)     NAMESPACE="$2"; shift 2 ;;
+        --namespace)     NAMESPACE="$2"; NAMESPACE_SET=true; shift 2 ;;
         --email)         EMAIL="$2"; shift 2 ;;
-        --password)      ADMIN_PASSWORD="$2"; shift 2 ;;
+        --password)      die "Do not use --password on command line (visible in ps). Use the interactive prompt." ;;
         --profile)       ENV_PROFILE="$2"; shift 2 ;;
         --dry-run)       DRY_RUN=true; shift ;;
         --non-interactive) NON_INTERACTIVE=true; shift ;;
@@ -91,17 +93,69 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Validate --method if provided
+if [[ -n "$DEPLOY_METHOD" ]]; then
+    case "$DEPLOY_METHOD" in
+        docker|k8s-helm|k8s-kustomize) ;;
+        *) die "Invalid --method '$DEPLOY_METHOD'. Must be: docker, k8s-helm, or k8s-kustomize" ;;
+    esac
+fi
+
 
 # ── Utility ───────────────────────────────────────────────────────────────────
 generate_secret() {
     local length="${1:-32}"
-    openssl rand -hex "$length" 2>/dev/null || \
-        head -c "$length" /dev/urandom | od -An -tx1 | tr -d ' \n' | head -c "$((length * 2))"
+    local secret
+    secret=$(openssl rand -hex "$length" 2>/dev/null) || \
+        secret=$(head -c "$length" /dev/urandom | od -An -tx1 | tr -d ' \n' | head -c "$((length * 2))")
+    if [[ -z "$secret" ]]; then
+        die "Failed to generate secret (length=$length). Check openssl or /dev/urandom."
+    fi
+    echo "$secret"
 }
 
 generate_password() {
     local length="${1:-24}"
-    openssl rand -base64 "$length" 2>/dev/null | tr -d '/+=' | head -c "$length"
+    local pass
+    pass=$(openssl rand -base64 "$length" 2>/dev/null | tr -d '/+=' | head -c "$length")
+    if [[ -z "$pass" ]]; then
+        die "Failed to generate password (length=$length). Check openssl or /dev/urandom."
+    fi
+    echo "$pass"
+}
+
+# ── Validation ────────────────────────────────────────────────────────────────
+validate_namespace() {
+    local ns="$1"
+    if [[ ! "$ns" =~ ^[a-z0-9]([a-z0-9\-]*[a-z0-9])?$ ]]; then
+        die "Invalid namespace '$ns'. Must be RFC 1123 compliant: lowercase alphanumeric and hyphens, 63 chars max."
+    fi
+    if [[ ${#ns} -gt 63 ]]; then
+        die "Namespace '$ns' too long (${#ns} chars). Max 63 characters."
+    fi
+}
+
+validate_domain() {
+    local domain="$1"
+    # Allow IP addresses
+    if [[ "$domain" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        return 0
+    fi
+    # Allow localhost
+    if [[ "$domain" == "localhost" ]]; then
+        return 0
+    fi
+    # Basic domain format check
+    if [[ ! "$domain" =~ ^[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$ ]]; then
+        warn "Domain '$domain' doesn't look like a valid domain or IP. Proceeding anyway."
+    fi
+}
+
+validate_password_strength() {
+    local pw="$1" name="$2" min_len="${3:-8}"
+    if [[ ${#pw} -lt $min_len ]]; then
+        die "$name is too short (${#pw} chars). Minimum $min_len characters."
+    fi
 }
 
 is_placeholder() {
@@ -112,14 +166,20 @@ is_placeholder() {
 
 update_env_var() {
     local file="$1" key="$2" value="$3"
+    if [[ ! -f "$file" ]]; then
+        die "update_env_var: file '$file' does not exist"
+    fi
+    local tmpfile
+    tmpfile=$(mktemp "${file}.XXXXXX")
+    TEMP_FILES+=("$tmpfile")
     if grep -q "^${key}=" "$file" 2>/dev/null; then
-        if sed --version 2>/dev/null | grep -q GNU; then
-            sed -i "s|^${key}=.*|${key}=${value}|" "$file"
-        else
-            sed -i '' "s|^${key}=.*|${key}=${value}|" "$file"
-        fi
+        awk -v key="$key" -v value="$value" '
+            $0 ~ "^" key "=" { print key "=" value; next }
+            { print }
+        ' "$file" > "$tmpfile" && mv "$tmpfile" "$file"
     else
         echo "${key}=${value}" >> "$file"
+        rm -f "$tmpfile"
     fi
 }
 
@@ -159,9 +219,9 @@ prompt_choice() {
         fi
         ((i++))
     done
-    echo -ne "  Enter [1-$#]: "
+    echo -ne "  Enter [1-${#opts[@]}]: "
     read -r choice
-    if [[ -z "$choice" ]] || ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > $# )); then
+    if [[ -z "$choice" ]] || ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#opts[@]} )); then
         printf -v "$var_name" '%s' "$default_value"
     else
         printf -v "$var_name" '%s' "${opts[$((choice-1))]}"
@@ -201,9 +261,11 @@ select_method() {
 
 # ── Step: Environment Profile ────────────────────────────────────────────────
 select_profile() {
-    if [[ "$ENV_PROFILE" == "dev" ]]; then
-        ENV_PROFILE="development"
-    fi
+    case "$ENV_PROFILE" in
+        dev|development) ENV_PROFILE="development" ;;
+        prod|production) ENV_PROFILE="production" ;;
+        *) die "Unknown profile '$ENV_PROFILE'. Use: dev or production" ;;
+    esac
     ok "Environment: $ENV_PROFILE"
 }
 
@@ -215,8 +277,9 @@ collect_secrets() {
 
     # --- Admin Password ---
     if [[ -z "$ADMIN_PASSWORD" ]]; then
-        prompt ADMIN_PASSWORD "  Admin password" "admin"
+        prompt ADMIN_PASSWORD "  Admin password" "$(generate_password 16)"
     fi
+    validate_password_strength "$ADMIN_PASSWORD" "Admin password" 8
     info "Admin password: set (${#ADMIN_PASSWORD} chars)"
 
     # --- Database ---
@@ -232,9 +295,9 @@ collect_secrets() {
     echo ""
     info "── Authentication ──"
     AUTH_JWT_SECRET=$(generate_secret 32)
-    ok "AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:0:8}... (auto-generated)"
+    ok "AUTH_JWT_SECRET: [set] (auto-generated)"
     SESSION_SECRET=$(generate_secret 32)
-    ok "SESSION_SECRET: ${SESSION_SECRET:0:8}... (auto-generated)"
+    ok "SESSION_SECRET: [set] (auto-generated)"
 
     # Generate bcrypt hash
     info "Generating password hash..."
@@ -242,12 +305,22 @@ collect_secrets() {
     if command -v htpasswd &>/dev/null; then
         AUTH_PASSWORD_HASH=$(htpasswd -nbBC 10 "" "$ADMIN_PASSWORD" 2>/dev/null | cut -d: -f2)
     elif [[ -f "$PROJECT_ROOT/backend/go.mod" ]]; then
-        AUTH_PASSWORD_HASH=$(cd "$PROJECT_ROOT" && go run scripts/hash_password.go "$ADMIN_PASSWORD" 2>/dev/null || echo "")
+        local hash_output
+        hash_output=$(cd "$PROJECT_ROOT" && go run scripts/hash_password.go "$ADMIN_PASSWORD" 2>&1) || hash_output=""
+        if [[ "$hash_output" =~ ^\$2 ]]; then
+            AUTH_PASSWORD_HASH="$hash_output"
+        else
+            AUTH_PASSWORD_HASH=""
+        fi
     fi
     if [[ -n "$AUTH_PASSWORD_HASH" ]]; then
-        ok "Password hash: ${AUTH_PASSWORD_HASH:0:10}..."
+        ok "Password hash: [set]"
     else
-        warn "Could not generate password hash. Set via: make hash-password PASSWORD=yourpassword"
+        if [[ "$ENV_PROFILE" == "production" ]]; then
+            die "Cannot generate password hash in production. Install htpasswd or ensure Go is available."
+        else
+            warn "Could not generate password hash. Set via: make hash-password PASSWORD=yourpassword"
+        fi
     fi
 
     # --- LLM API Keys ---
@@ -261,8 +334,8 @@ collect_secrets() {
     info "── LiveKit (Voice Interview Coach) ──"
     LIVEKIT_API_KEY=$(generate_secret 12)
     LIVEKIT_API_SECRET=$(generate_secret 24)
-    ok "LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:0:6}... (auto-generated)"
-    ok "LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:0:6}... (auto-generated)"
+    ok "LIVEKIT_API_KEY: [set] (auto-generated)"
+    ok "LIVEKIT_API_SECRET: [set] (auto-generated)"
 
     # --- Microsoft Graph ---
     echo ""
@@ -286,14 +359,31 @@ collect_domain() {
         prompt CORS_ORIGINS "  CORS origins" "http://localhost:3000,http://127.0.0.1:3000"
     else
         prompt DOMAIN "  Domain for ingress" "192.168.2.102"
-        prompt NAMESPACE "  Kubernetes namespace" "myjob"
+        if [[ "$NAMESPACE_SET" == false ]]; then
+            prompt NAMESPACE "  Kubernetes namespace" "myjob"
+        fi
         prompt CORS_ORIGINS "  CORS origins" "http://${DOMAIN},https://${DOMAIN}"
+    fi
+
+    # Validate inputs
+    if [[ "$DEPLOY_METHOD" != "docker" ]]; then
+        validate_namespace "$NAMESPACE"
+    fi
+    validate_domain "$DOMAIN"
+
+    # Sanitize domain for use in CORS_ORIGINS
+    if [[ "$DOMAIN" =~ [^a-zA-Z0-9.\-:] ]]; then
+        die "Domain contains invalid characters: $DOMAIN"
     fi
 }
 
 # ── Step: Docker Compose Deployment ──────────────────────────────────────────
 deploy_docker() {
     step 4 "Docker Compose — Generating .env"
+
+    if ! docker info >/dev/null 2>&1; then
+        die "Cannot access Docker. Run with sudo or add your user to the docker group."
+    fi
 
     local env_file="$PROJECT_ROOT/.env"
     local env_template="$PROJECT_ROOT/.env.production"
@@ -305,7 +395,9 @@ deploy_docker() {
     # Copy template
     if [[ -f "$env_file" ]]; then
         if confirm "  Overwrite existing .env?" "n"; then
-            cp "$env_file" "$env_file.bak.$(date +%s)"
+            local bak="$env_file.bak.$(date +%s)"
+            cp "$env_file" "$bak"
+            chmod 600 "$bak"
             ok "  Backed up existing .env"
         else
             warn "  Using existing .env as base"
@@ -313,7 +405,11 @@ deploy_docker() {
     fi
 
     if [[ ! -f "$env_file" ]]; then
+        if [[ ! -f "$env_template" ]]; then
+            die "Template '$env_template' not found. Ensure .env.production or .env.example exists."
+        fi
         cp "$env_template" "$env_file"
+        chmod 600 "$env_file"  # Set permissions immediately
         ok "  Created .env from template"
     fi
 
@@ -392,7 +488,10 @@ deploy_docker() {
     # Build images (unless skipped)
     if [[ "$SKIP_BUILD" != true ]]; then
         log "  Building Docker images..."
-        docker compose "${compose_args[@]}" build
+        if ! docker compose "${compose_args[@]}" build 2>&1; then
+            error "Docker build failed. Check logs: docker compose build --progress=plain"
+            exit 1
+        fi
         ok "  Images built"
     else
         info "  Skipping image build (--skip-build)"
@@ -400,7 +499,10 @@ deploy_docker() {
 
     # Start infra first
     log "  Starting infrastructure (PostgreSQL, Redis)..."
-    docker compose "${compose_args[@]}" up -d postgres redis livekit
+    if ! docker compose "${compose_args[@]}" up -d postgres redis livekit; then
+        error "Failed to start infrastructure services."
+        exit 1
+    fi
 
     log "  Waiting for database..."
     local retries=30
@@ -415,7 +517,10 @@ deploy_docker() {
 
     # Start API
     log "  Starting API..."
-    docker compose "${compose_args[@]}" up -d api
+    if ! docker compose "${compose_args[@]}" up -d api; then
+        error "Failed to start API service."
+        exit 1
+    fi
     log "  Waiting for API health check..."
     retries=40
     for i in $(seq 1 "$retries"); do
@@ -441,9 +546,26 @@ deploy_docker() {
 
     # Start remaining
     log "  Starting remaining services..."
-    docker compose "${compose_args[@]}" up -d
+    if ! docker compose "${compose_args[@]}" up -d; then
+        error "Failed to start remaining services."
+        exit 1
+    fi
 
     sleep 5
+
+    # Verify critical containers are running
+    log "  Verifying critical containers..."
+    local critical_services=("api" "postgres" "redis")
+    for svc in "${critical_services[@]}"; do
+        local state
+        state=$(docker compose "${compose_args[@]}" ps --format json 2>/dev/null | \
+                grep "\"Name\".*${svc}" | head -1 | \
+                grep -o '"State":"[^"]*"' | cut -d'"' -f4 || echo "unknown")
+        if [[ "$state" != "running" ]]; then
+            warn "  $svc: ${state:-not found} — check logs with: docker compose logs $svc"
+        fi
+    done
+
     ok "  All services started"
 
     # Health check
@@ -464,7 +586,9 @@ deploy_docker() {
     # SSL setup for production
     if [[ "$ENV_PROFILE" == "production" && -n "$EMAIL" ]]; then
         info "  Running SSL setup for $DOMAIN with email $EMAIL..."
-        bash "${SCRIPT_DIR}/setup-ssl.sh" --domain "$DOMAIN" --email "$EMAIL" || true
+        if ! bash "${SCRIPT_DIR}/setup-ssl.sh" --domain "$DOMAIN" --email "$EMAIL" 2>&1; then
+            warn "SSL setup failed. You may need to install cert-manager first."
+        fi
     fi
 
     echo ""
@@ -564,7 +688,7 @@ deploy_k8s_helm() {
     step 5 "Kubernetes (Helm) — Generating Values Override"
     local values_file="$PROJECT_ROOT/k8s/helm/myjob/values-${NAMESPACE}.yaml"
     cat > "$values_file" <<VALUES_EOF
-# Auto-generated by deploy-setup.sh — $(date -Iseconds)
+# Auto-generated by deploy-setup.sh — $(date '+%Y-%m-%dT%H:%M:%S%z')
 # Namespace: $NAMESPACE
 # Domain: $DOMAIN
 
@@ -611,6 +735,7 @@ monitoring:
   grafana:
     adminPassword: "$GRAFANA_PASSWORD"
 VALUES_EOF
+    chmod 600 "$values_file"
     ok "  Values override: $values_file"
 
     # Deploy
@@ -629,7 +754,7 @@ VALUES_EOF
         --namespace "$NAMESPACE" \
         --create-namespace \
         --values "k8s/helm/myjob/values-${NAMESPACE}.yaml" \
-        --wait --timeout 300s
+        --atomic --timeout 300s
 
     ok "  Helm release installed"
 
@@ -669,7 +794,7 @@ deploy_k8s_kustomize() {
     # Generate secrets file (sealed or plain)
     local secrets_file="$overlay_dir/secrets.env"
     cat > "$secrets_file" <<SECRETS_EOF
-# Auto-generated by deploy-setup.sh — $(date -Iseconds)
+# Auto-generated by deploy-setup.sh — $(date '+%Y-%m-%dT%H:%M:%S%z')
 # DO NOT COMMIT — add to .gitignore
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 REDIS_PASSWORD=$REDIS_PASSWORD
@@ -687,6 +812,13 @@ GRAFANA_PASSWORD=$GRAFANA_PASSWORD
 SECRETS_EOF
     chmod 600 "$secrets_file"
     ok "  Secrets file: $secrets_file"
+
+    # Ensure secrets.env is gitignored
+    local gitignore="$PROJECT_ROOT/.gitignore"
+    if [[ -f "$gitignore" ]] && ! grep -qF "secrets.env" "$gitignore"; then
+        echo "secrets.env" >> "$gitignore"
+        ok "  Added secrets.env to .gitignore"
+    fi
 
     # Generate kustomization.yaml overlay if missing
     local kustom_file="$overlay_dir/kustomization.yaml"
@@ -737,10 +869,13 @@ KUSTOM_EOF
     log "  Creating secrets from $secrets_file..."
     while IFS='=' read -r key value; do
         [[ "$key" =~ ^#.*$ || -z "$key" ]] && continue
-        kubectl create secret generic "myjob-${key,,//_/-}" \
+        if ! kubectl create secret generic "myjob-${key,,//_/-}" \
             --namespace="$NAMESPACE" \
             --from-literal="$key=$value" \
-            --dry-run=client -o yaml | kubectl apply -f -
+            --dry-run=client -o yaml | kubectl apply -f -; then
+            error "Failed to create secret for key: $key"
+            exit 1
+        fi
     done < "$secrets_file"
     ok "  Secrets applied"
 
@@ -751,7 +886,10 @@ KUSTOM_EOF
     fi
 
     log "  Applying kustomize overlay..."
-    kubectl apply -k "$overlay_dir"
+    if ! kubectl apply -k "$overlay_dir"; then
+        error "Kustomize apply failed. Debug: kubectl apply -k $overlay_dir --dry-run=client"
+        exit 1
+    fi
 
     ok "  Manifest applied"
     log "  Checking pods..."
@@ -776,19 +914,19 @@ print_k8s_commands() {
     echo ""
     echo "  # Create secrets"
     echo "  kubectl create secret generic myjob-database -n $NAMESPACE \\"
-    echo "    --from-literal=POSTGRES_PASSWORD=${POSTGRES_PASSWORD:0:4}****"
+    echo "    --from-literal=POSTGRES_PASSWORD=[set]"
     echo "  kubectl create secret generic myjob-auth -n $NAMESPACE \\"
-    echo "    --from-literal=AUTH_JWT_SECRET=${AUTH_JWT_SECRET:0:4}**** \\"
-    echo "    --from-literal=AUTH_PASSWORD_HASH=**** \\"
-    echo "    --from-literal=SESSION_SECRET=${SESSION_SECRET:0:4}****"
+    echo "    --from-literal=AUTH_JWT_SECRET=[set] \\"
+    echo "    --from-literal=AUTH_PASSWORD_HASH=[set] \\"
+    echo "    --from-literal=SESSION_SECRET=[set]"
     echo "  kubectl create secret generic myjob-redis -n $NAMESPACE \\"
-    echo "    --from-literal=REDIS_PASSWORD=${REDIS_PASSWORD:0:4}****"
+    echo "    --from-literal=REDIS_PASSWORD=[set]"
     echo "  kubectl create secret generic myjob-livekit -n $NAMESPACE \\"
-    echo "    --from-literal=LIVEKIT_API_KEY=${LIVEKIT_API_KEY:0:4}**** \\"
-    echo "    --from-literal=LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:0:4}****"
+    echo "    --from-literal=LIVEKIT_API_KEY=[set] \\"
+    echo "    --from-literal=LIVEKIT_API_SECRET=[set]"
     echo "  kubectl create secret generic myjob-llm -n $NAMESPACE \\"
-    echo "    --from-literal=OPENAI_API_KEY=${OPENAI_API_KEY:+${OPENAI_API_KEY:0:4}****} \\"
-    echo "    --from-literal=ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:+${ANTHROPIC_API_KEY:0:4}****}"
+    echo "    --from-literal=OPENAI_API_KEY=[set] \\"
+    echo "    --from-literal=ANTHROPIC_API_KEY=[set]"
     echo ""
     echo "  # Deploy with Helm"
     echo "  helm upgrade --install myjob-$NAMESPACE ./k8s/helm/myjob \\"
@@ -821,12 +959,12 @@ print_summary() {
     [[ "$DEPLOY_METHOD" == "k8s-kustomize" ]] && echo "    k8s/kustomize/overlays/${NAMESPACE}/ — Kustomize overlay + secrets"
     echo ""
     echo "  Secrets generated:"
-    echo "    AUTH_JWT_SECRET       ${AUTH_JWT_SECRET:0:8}..."
-    echo "    SESSION_SECRET        ${SESSION_SECRET:0:8}..."
-    echo "    POSTGRES_PASSWORD     ${POSTGRES_PASSWORD:0:4}..."
-    echo "    REDIS_PASSWORD        ${REDIS_PASSWORD:0:4}..."
-    echo "    LIVEKIT_API_KEY       ${LIVEKIT_API_KEY:0:6}..."
-    echo "    LIVEKIT_API_SECRET    ${LIVEKIT_API_SECRET:0:6}..."
+    echo "    AUTH_JWT_SECRET       [set]"
+    echo "    SESSION_SECRET        [set]"
+    echo "    POSTGRES_PASSWORD     [set]"
+    echo "    REDIS_PASSWORD        [set]"
+    echo "    LIVEKIT_API_KEY       [set]"
+    echo "    LIVEKIT_API_SECRET    [set]"
     echo ""
     echo "  Next steps:"
     if [[ "$DEPLOY_METHOD" == "docker" ]]; then
@@ -860,7 +998,17 @@ main() {
     print_summary
 }
 
-# Error trap
-trap 'error "Setup failed at line $LINENO. Re-run with --dry-run to preview."' ERR
+# Cleanup trap
+cleanup() {
+    local exit_code=$?
+    for f in "${TEMP_FILES[@]}"; do
+        [[ -f "$f" ]] && rm -f "$f"
+    done
+    if [[ $exit_code -ne 0 ]]; then
+        error "Setup failed at line $LINENO (exit code $exit_code)."
+        error "Re-run with --dry-run to preview."
+    fi
+}
+trap cleanup EXIT
 
 main "$@"
